@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `companysettings` MODIFY `id` VARCHAR(191) NOT NULL DEFAULT 'COMPANY_SETTINGS';
