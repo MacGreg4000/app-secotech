@@ -25,13 +25,18 @@ async function createAdmin() {
     // Hasher le mot de passe
     const hashedPassword = await bcrypt.hash(adminData.password, 10)
 
+    // Générer un ID unique
+    const id = `user_${Date.now()}`
+    
     // Créer l'administrateur
     const admin = await prisma.user.create({
       data: {
+        id: id,
         email: adminData.email,
         name: adminData.name,
         password: hashedPassword,
-        role: 'ADMIN'
+        role: 'ADMIN',
+        updatedAt: new Date()
       }
     })
 

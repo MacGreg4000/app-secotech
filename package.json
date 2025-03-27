@@ -9,6 +9,7 @@
     "lint": "next lint",
     "seed": "node scripts/seed-admin-tasks.mjs",
     "create-admin": "ts-node --project tsconfig.scripts.json scripts/create-admin.ts",
+    "create-test-chantier": "ts-node --project tsconfig.scripts.json scripts/create-test-chantier.ts",
     "seed:admin-tasks": "ts-node --project tsconfig.scripts.json scripts/seed-admin-tasks.ts",
     "check-db": "ts-node --project tsconfig.scripts.json scripts/check-tables.ts",
     "reset-tasks": "ts-node --project tsconfig.scripts.json scripts/reset-tasks.ts"
