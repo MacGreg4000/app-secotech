@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Appsecotech
 
-## Getting Started
+Application de gestion de chantiers et de sécurité pour le secteur de la construction.
 
-First, run the development server:
+## Prérequis
 
+- Node.js (version 18 ou supérieure)
+- MySQL (version 8.0 ou supérieure)
+- npm ou yarn
+
+## Installation
+
+1. Cloner le dépôt :
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/psychogenelive/app-secotech.git
+cd app-secotech
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Installer les dépendances :
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Configurer les variables d'environnement :
+Créer un fichier `.env` à la racine du projet avec les variables suivantes :
+```env
+# Base de données
+DATABASE_URL="mysql://root:root@localhost:3306/appsecotech"
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# NextAuth
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="votre_secret_ici"
 
-## Learn More
+# Configuration de l'application
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
 
-To learn more about Next.js, take a look at the following resources:
+4. Initialiser la base de données :
+```bash
+# Créer la base de données
+npx prisma db push
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Créer l'utilisateur administrateur
+npm run create-admin
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Initialiser les tâches administratives
+npm run seed:admin-tasks
+```
 
-## Deploy on Vercel
+## Démarrage de l'application
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. En mode développement :
+```bash
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+2. En production :
+```bash
+npm run build
+npm start
+```
+
+L'application sera accessible à l'adresse : http://localhost:3000
+
+## Scripts disponibles
+
+- `npm run dev` : Lance l'application en mode développement
+- `npm run build` : Compile l'application pour la production
+- `npm start` : Lance l'application en mode production
+- `npm run lint` : Vérifie le code avec ESLint
+- `npm run create-admin` : Crée un utilisateur administrateur
+- `npm run seed:admin-tasks` : Initialise les tâches administratives
+- `npm run check-db` : Vérifie l'état de la base de données
+- `npm run reset-tasks` : Réinitialise les tâches
+
+## Structure du projet
+
+```
+app-secotech/
+├── src/                    # Code source de l'application
+│   ├── app/               # Pages et routes Next.js
+│   ├── components/        # Composants React réutilisables
+│   ├── lib/              # Utilitaires et configurations
+│   ├── middleware/       # Middleware Next.js
+│   ├── types/           # Types TypeScript
+│   └── utils/           # Fonctions utilitaires
+├── prisma/               # Schéma et migrations de la base de données
+├── public/              # Fichiers statiques
+├── scripts/             # Scripts utilitaires
+├── templates/           # Templates HTML
+└── .env                # Variables d'environnement
+```
+
+## Sécurité
+
+- Assurez-vous de changer le mot de passe administrateur par défaut après la première connexion
+- Gardez votre fichier `.env` sécurisé et ne le partagez jamais
+- Utilisez des mots de passe forts pour la base de données
+
+## Support
+
+Pour toute question ou problème, veuillez créer une issue dans le dépôt GitHub.
