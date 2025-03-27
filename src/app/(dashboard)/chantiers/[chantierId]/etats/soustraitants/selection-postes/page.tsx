@@ -1,7 +1,10 @@
 "use client";
 
-import React from "react";
+import React from 'react';
 
+/**
+ * Page de sélection des postes
+ */
 export default function SelectionPostesPage() {
   return (
     <div className="container mx-auto p-4">

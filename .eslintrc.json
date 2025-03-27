@@ -6,5 +6,8 @@
     "react/no-unescaped-entities": "warn",
     "react-hooks/exhaustive-deps": "warn",
     "@next/next/no-img-element": "warn"
+  },
+  "parserOptions": {
+    "project": "./tsconfig.json"
   }
 }
