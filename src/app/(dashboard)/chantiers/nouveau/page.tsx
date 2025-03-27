@@ -192,7 +192,7 @@ export default function NouveauChantierPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Durée (en jours)
+                Durée (en jours ouvrables)
               </label>
               <input
                 type="number"

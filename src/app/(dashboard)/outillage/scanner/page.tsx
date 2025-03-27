@@ -15,16 +15,42 @@ export default function ScannerPage() {
 
   const handleScanSuccess = (result: string) => {
     try {
-      // Vérifier si l'URL correspond à une URL de machine
-      const url = new URL(result)
-      const path = url.pathname
-      if (path.startsWith('/outillage/')) {
-        router.push(path)
+      console.log('QR Code scanné:', result);
+      
+      let path;
+      
+      // Essayer de parser l'URL
+      try {
+        const url = new URL(result);
+        // Vérifier si l'URL provient du même domaine
+        const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+        
+        if (url.origin === currentOrigin || !currentOrigin) {
+          // Utiliser seulement le chemin pour la navigation interne
+          path = url.pathname;
+        } else {
+          // URL externe - vérifier si elle contient un chemin compatible
+          if (url.pathname.startsWith('/outillage/')) {
+            path = url.pathname;
+          } else {
+            throw new Error('URL externe non compatible');
+          }
+        }
+      } catch (e) {
+        // Ce n'est pas une URL valide, essayer de l'utiliser directement
+        path = result;
+      }
+      
+      // Vérifier si le chemin est compatible avec notre application
+      if (path && path.startsWith('/outillage/')) {
+        console.log('Navigation vers:', path);
+        router.push(path);
       } else {
-        setError('QR code invalide : ce n\'est pas une machine')
+        setError('QR code invalide : ce n\'est pas une URL de machine valide');
       }
     } catch (error) {
-      setError('QR code invalide')
+      console.error('Erreur de traitement QR code:', error);
+      setError('QR code invalide ou incompatible');
     }
   }
 

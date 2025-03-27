@@ -535,12 +535,10 @@ export async function GET(
       // Continuer même si l'enregistrement échoue
     }
 
-    console.log('Retour du PDF au client');
-    return new NextResponse(pdfBuffer, {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
-      },
+    console.log('Retour de l\'URL du PDF au client');
+    return NextResponse.json({
+      success: true,
+      documentUrl: `/chantiers/${params.chantierId}/documents/${fileName}`
     })
   } catch (error) {
     console.error('Erreur lors de la génération du PDF:', error)

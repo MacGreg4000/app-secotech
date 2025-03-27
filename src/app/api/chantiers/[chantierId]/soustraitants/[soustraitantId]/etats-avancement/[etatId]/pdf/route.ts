@@ -484,11 +484,9 @@ export async function GET(
       })
     }
 
-    return new NextResponse(pdfBuffer, {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
-      },
+    return NextResponse.json({
+      success: true,
+      documentUrl: `/chantiers/${params.chantierId}/documents/${fileName}`
     })
   } catch (error) {
     console.error('Erreur:', error)

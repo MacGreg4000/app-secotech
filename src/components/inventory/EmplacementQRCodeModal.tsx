@@ -20,7 +20,7 @@ export default function EmplacementQRCodeModal({
 }: EmplacementQRCodeModalProps) {
   // Construire l'URL complète pour l'application
   const baseUrl = typeof window !== 'undefined' ? `${window.location.origin}/inventory/scanner?code=` : ''
-  const fullQrCodeValue = `${baseUrl}${qrCodeValue}`
+  const fullQrCodeValue = `${baseUrl}${encodeURIComponent(qrCodeValue)}`
   
   return (
     <Dialog
@@ -61,10 +61,10 @@ export default function EmplacementQRCodeModal({
                 ID: {emplacementId}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                Valeur: {qrCodeValue}
+                Code: {qrCodeValue}
               </p>
-              <p className="text-xs text-gray-400 mt-1">
-                URL: {fullQrCodeValue}
+              <p className="text-xs text-gray-400 mt-1 break-all">
+                URL complète: {fullQrCodeValue}
               </p>
             </div>
             <button

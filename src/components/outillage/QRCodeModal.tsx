@@ -11,6 +11,15 @@ interface QRCodeModalProps {
 }
 
 export default function QRCodeModal({ machineId, machineName, qrCodeValue, onClose }: QRCodeModalProps) {
+  // S'assurer que la valeur du QR code est une URL absolue
+  // qrCodeValue contient déjà l'URL complète avec l'origine du site (window.location.origin)
+  // mais nous vérifions que c'est bien une URL absolue
+  const ensuredAbsoluteUrl = qrCodeValue.startsWith('http') 
+    ? qrCodeValue 
+    : typeof window !== 'undefined' 
+      ? `${window.location.origin}${qrCodeValue}`
+      : qrCodeValue;
+      
   return (
     <Dialog
       as="div"
@@ -40,10 +49,15 @@ export default function QRCodeModal({ machineId, machineName, qrCodeValue, onClo
           </Dialog.Title>
 
           <div className="mt-4 flex flex-col items-center space-y-4">
-            <QRCodeDisplay value={qrCodeValue} size={256} />
-            <p className="text-sm text-gray-500">
-              ID: {machineId}
-            </p>
+            <QRCodeDisplay value={ensuredAbsoluteUrl} size={256} />
+            <div className="text-center">
+              <p className="text-sm text-gray-500">
+                ID: {machineId}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                URL: {ensuredAbsoluteUrl}
+              </p>
+            </div>
             <button
               onClick={() => window.print()}
               className="mt-4 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

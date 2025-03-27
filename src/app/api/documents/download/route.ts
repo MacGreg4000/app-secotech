@@ -3,7 +3,19 @@ import fs from 'fs'
 import path from 'path'
 import { readFile } from 'fs/promises'
 
-const DOCUMENTS_ROOT = process.env.DOCUMENTS_ROOT || path.join(process.cwd(), 'public', 'fiches-techniques')
+// Fonction pour déterminer le chemin racine approprié en fonction du chemin du document
+function getRootPath(filePath: string): string {
+  const publicDir = path.join(process.cwd(), 'public');
+  
+  if (filePath.startsWith('/fiches-techniques/')) {
+    return path.join(publicDir);
+  } else if (filePath.startsWith('/chantiers/')) {
+    return path.join(publicDir);
+  } else {
+    // Chemin par défaut pour la rétrocompatibilité
+    return path.join(publicDir, 'fiches-techniques');
+  }
+}
 
 // Fonction pour s'assurer que le chemin est dans le dossier racine
 function validateAndGetFullPath(relativePath: string): string | null {
@@ -15,11 +27,15 @@ function validateAndGetFullPath(relativePath: string): string | null {
     return null
   }
   
-  // Créer le chemin complet
-  const fullPath = path.join(DOCUMENTS_ROOT, normalizedPath)
+  // Déterminer le chemin racine approprié
+  const rootPath = getRootPath(normalizedPath)
   
-  // Vérifier si le chemin est bien dans le dossier racine
-  if (!fullPath.startsWith(DOCUMENTS_ROOT)) {
+  // Créer le chemin complet
+  const fullPath = path.join(rootPath, normalizedPath)
+  
+  // Vérifier si le chemin final est bien dans le dossier public
+  const publicDir = path.join(process.cwd(), 'public')
+  if (!fullPath.startsWith(publicDir)) {
     return null
   }
   
@@ -61,16 +77,22 @@ export async function GET(request: NextRequest) {
       )
     }
     
+    console.log(`Tentative de téléchargement du fichier: ${filePath}`);
+    
     const fullPath = validateAndGetFullPath(filePath)
     if (!fullPath) {
+      console.error(`Chemin invalide: ${filePath}`);
       return NextResponse.json(
         { error: 'Chemin invalide' },
         { status: 400 }
       )
     }
     
+    console.log(`Chemin complet du fichier: ${fullPath}`);
+    
     // Vérifier que le fichier existe
     if (!fs.existsSync(fullPath)) {
+      console.error(`Fichier non trouvé: ${fullPath}`);
       return NextResponse.json(
         { error: 'Fichier non trouvé' },
         { status: 404 }
@@ -80,6 +102,7 @@ export async function GET(request: NextRequest) {
     // Vérifier que c'est bien un fichier
     const stats = fs.statSync(fullPath)
     if (!stats.isFile()) {
+      console.error(`L'élément n'est pas un fichier: ${fullPath}`);
       return NextResponse.json(
         { error: 'L\'élément n\'est pas un fichier' },
         { status: 400 }
@@ -92,6 +115,8 @@ export async function GET(request: NextRequest) {
     // Déterminer le type MIME
     const mimeType = getMimeType(fullPath)
     const fileName = path.basename(fullPath)
+    
+    console.log(`Téléchargement réussi: ${fileName}, type: ${mimeType}, taille: ${fileBuffer.length}`);
     
     // Retourner le fichier pour téléchargement
     return new NextResponse(fileBuffer, {

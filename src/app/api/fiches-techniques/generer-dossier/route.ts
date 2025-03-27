@@ -350,26 +350,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
     }
 
-    await prisma.document.create({
-      data: {
+    // Créer une entrée dans la base de données pour le document
+    try {
+      const docData: any = {
         nom: `Dossier technique - ${new Date().toLocaleDateString('fr-FR')} - ${ficheIds.length} fiches`,
         type: 'DOSSIER_TECHNIQUE',
-        url: `/chantiers/${chantierId}/documents/${fileName}`,
+        url: `/fiches-techniques/${fileName}`,
         taille: pdfBytes.length,
         mimeType: 'application/pdf',
         updatedAt: new Date(),
-        chantier: {
-          connect: {
-            chantierId: chantierId
-          }
-        },
         user: {
           connect: {
             id: user.id
           }
         }
+      };
+      
+      // Ajouter le chantier seulement s'il est défini
+      if (chantierId) {
+        docData.chantier = {
+          connect: {
+            chantierId: chantierId
+          }
+        };
       }
-    })
+      
+      await prisma.document.create({
+        data: docData
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement du document dans la base de données:', error);
+    }
 
     // Retourner le PDF
     return new NextResponse(pdfBytes, {

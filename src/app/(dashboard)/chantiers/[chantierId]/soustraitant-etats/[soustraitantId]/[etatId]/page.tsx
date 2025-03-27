@@ -155,14 +155,14 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
         throw new Error('Erreur lors de la génération du PDF')
       }
 
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `etat-avancement-soustraitant-${params.chantierId}-${params.soustraitantId}-${etatAvancement.numero}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
+      const data = await response.json()
+      
+      if (!data || !data.documentUrl) {
+        throw new Error('Erreur: Chemin du document non trouvé dans la réponse')
+      }
+      
+      // Utiliser la route de téléchargement de documents
+      window.location.href = `/api/documents/download?path=${data.documentUrl}`
     } catch (error) {
       console.error('Erreur:', error)
       setError('Erreur lors de la génération du PDF')
@@ -564,16 +564,15 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
                               })
                               .then(response => {
                                 if (!response.ok) throw new Error('Erreur lors de la génération du PDF');
-                                return response.blob();
+                                return response.json();
                               })
-                              .then(blob => {
-                                const url = window.URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `etat-avancement-soustraitant-${params.chantierId}-${params.soustraitantId}-${etat.numero}.pdf`;
-                                document.body.appendChild(a);
-                                a.click();
-                                window.URL.revokeObjectURL(url);
+                              .then(data => {
+                                if (!data || !data.documentUrl) {
+                                  throw new Error('Erreur: Chemin du document non trouvé dans la réponse');
+                                }
+                                
+                                // Rediriger vers la route de téléchargement
+                                window.location.href = `/api/documents/download?path=${data.documentUrl}`;
                               })
                               .catch(error => {
                                 console.error('Erreur:', error);

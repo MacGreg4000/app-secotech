@@ -4,6 +4,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import fs from 'fs'
+import path from 'path'
 
 export async function GET(
   request: Request,
@@ -176,13 +178,58 @@ export async function GET(
     // Convertir le PDF en buffer
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
 
-    // Retourner le PDF
-    return new NextResponse(pdfBuffer, {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="commande_soustraitant_${commandeData.reference || commandeData.id}.pdf"`
+    // Créer le dossier des documents s'il n'existe pas
+    const documentsDir = path.join(process.cwd(), 'public', 'chantiers', params.chantierId, 'documents')
+    if (!fs.existsSync(documentsDir)) {
+      fs.mkdirSync(documentsDir, { recursive: true })
+      console.log(`Dossier créé: ${documentsDir}`);
+    }
+
+    const fileName = `commande-soustraitant-${params.commandeId}-${new Date().toISOString().split('T')[0]}.pdf`
+    const filePath = path.join(documentsDir, fileName)
+
+    // Sauvegarder le PDF
+    await fs.promises.writeFile(filePath, pdfBuffer)
+    console.log(`PDF sauvegardé: ${filePath}`);
+
+    // Créer l'entrée dans la base de données
+    try {
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email }
+      });
+
+      if (user) {
+        await prisma.document.create({
+          data: {
+            nom: `Commande sous-traitant - ${commandeData.soustraitantNom}`,
+            type: 'COMMANDE_SOUSTRAITANT',
+            url: `/chantiers/${params.chantierId}/documents/${fileName}`,
+            taille: pdfBuffer.length,
+            mimeType: 'application/pdf',
+            updatedAt: new Date(),
+            chantier: {
+              connect: {
+                chantierId: params.chantierId
+              }
+            },
+            user: {
+              connect: {
+                id: user.id
+              }
+            }
+          }
+        });
+        console.log('Document enregistré dans la base de données');
       }
-    })
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement du document dans la base de données:', error);
+      // Continuer même si l'enregistrement échoue
+    }
+
+    return NextResponse.json({
+      success: true,
+      documentUrl: `/chantiers/${params.chantierId}/documents/${fileName}`
+    });
   } catch (error) {
     console.error('Erreur:', error)
     return NextResponse.json(

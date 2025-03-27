@@ -131,7 +131,7 @@ export default function FichesTechniquesPage() {
                     </div>
                     <div className="ml-4 flex-shrink-0 flex items-center gap-2">
                       <a
-                        href={dossier.fichierUrl}
+                        href={`/api/documents/download?path=${dossier.fichierUrl}`}
                         download
                         className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >

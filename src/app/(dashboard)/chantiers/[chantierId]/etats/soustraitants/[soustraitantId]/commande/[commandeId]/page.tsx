@@ -240,10 +240,31 @@ export default function CommandeSousTraitantPage({
     }
   }
   
-  const handleGenererPDF = () => {
+  const handleGenererPDF = async () => {
     if (!commande) return
     
-    window.open(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/commandes/${params.commandeId}/pdf`, '_blank')
+    try {
+      // Première étape : générer le PDF via l'API et récupérer l'URL
+      const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/commandes/${params.commandeId}/pdf`, {
+        method: 'GET',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erreur lors de la génération du PDF')
+      }
+      
+      const data = await response.json()
+      
+      if (!data || !data.documentUrl) {
+        throw new Error('Erreur: Chemin du document non trouvé dans la réponse')
+      }
+      
+      // Utiliser la route de téléchargement de documents
+      window.open(`/api/documents/download?path=${data.documentUrl}`, '_blank')
+    } catch (error) {
+      console.error('Erreur:', error)
+      toast.error('Erreur lors de la génération du PDF')
+    }
   }
   
   const handleEnvoyerEmail = async () => {

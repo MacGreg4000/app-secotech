@@ -183,10 +183,10 @@ export default function EditChantierPage({ params }: { params: { chantierId: str
                 />
               </div>
 
-              <div>
-                <label htmlFor="dureeEnJours" className="block text-sm font-medium text-gray-700">
-                  Durée (en jours)
-                </label>
+              <div className="mb-4">
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Durée (en jours ouvrables)
+                </h3>
                 <input
                   type="number"
                   name="dureeEnJours"

@@ -1,10 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import QRCodeScanner from '../outillage/QRCodeScanner'
+import dynamic from 'next/dynamic'
+
+// Import dynamique pour éviter les erreurs de SSR avec la caméra
+const QRCodeScannerComponent = dynamic(() => import('../outillage/QRCodeScanner'), { ssr: false })
 
 interface EmplacementQRScannerProps {
-  onScanComplete: (rackId: string, ligne: number, colonne: number, emplacementQrCode: string) => void
+  onScanComplete: (rackId: string, ligne: number, colonne: number, qrCode: string) => void
 }
 
 export default function EmplacementQRScanner({ onScanComplete }: EmplacementQRScannerProps) {
@@ -14,13 +17,23 @@ export default function EmplacementQRScanner({ onScanComplete }: EmplacementQRSc
   // Traitement du QR code scanné
   const handleScanSuccess = (decodedText: string) => {
     try {
-      // Vérifier si c'est une URL contenant le paramètre code
-      const urlMatch = decodedText.match(/[?&]code=([^&]+)/)
-      let codeValue = decodedText
+      console.log('QR Code scanné:', decodedText);
       
-      if (urlMatch && urlMatch[1]) {
-        // Extraire le code de l'URL
-        codeValue = urlMatch[1]
+      // Vérifier si c'est une URL contenant le paramètre code
+      let codeValue = decodedText;
+      try {
+        // Essayer de parser l'URL
+        const url = new URL(decodedText);
+        const codeParam = url.searchParams.get('code');
+        
+        if (codeParam) {
+          // Si un paramètre code est trouvé, l'utiliser
+          codeValue = decodeURIComponent(codeParam);
+          console.log('Code extrait de l\'URL:', codeValue);
+        }
+      } catch (e) {
+        // Ce n'est pas une URL valide, continuer avec la valeur d'origine
+        console.log('Ce n\'est pas une URL valide, utilisation de la valeur brute');
       }
       
       // Vérifier le format attendu: EMP-[ID_DU_RACK]-[LIGNE]-[COLONNE]
@@ -28,7 +41,7 @@ export default function EmplacementQRScanner({ onScanComplete }: EmplacementQRSc
       const match = codeValue.match(qrCodeRegex)
       
       if (!match) {
-        throw new Error('Format de QR code non reconnu')
+        throw new Error('Format de QR code non reconnu: ' + codeValue)
       }
       
       // Extraire les informations
@@ -68,53 +81,40 @@ export default function EmplacementQRScanner({ onScanComplete }: EmplacementQRSc
   }
   
   return (
-    <div className="w-full">
+    <div className="w-full max-w-md mx-auto">
+      <div className="mb-8">
+        <QRCodeScannerComponent 
+          onScanSuccess={handleScanSuccess}
+          onScanError={handleScanError}
+        />
+      </div>
+      
       {error && (
-        <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-4">
-          <p>{error}</p>
-          <button 
-            onClick={() => setError(null)}
-            className="mt-2 text-sm text-red-700 underline"
-          >
-            Réessayer
-          </button>
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-red-700">{error}</p>
         </div>
       )}
       
-      <div className="bg-blue-50 p-4 rounded-lg mb-4">
-        <h3 className="font-medium text-blue-800 mb-2">Comment scanner un emplacement</h3>
-        <ol className="text-blue-700 list-decimal pl-5 space-y-1">
-          <li>Autorisez l'accès à la caméra lorsque demandé</li>
-          <li>Placez le QR code au centre de la zone de scan</li>
-          <li>Tenez l'appareil stable jusqu'à ce que le scan soit terminé</li>
-          <li>Vous pouvez également saisir le code manuellement ci-dessous</li>
-        </ol>
-      </div>
-      
-      {/* Saisie manuelle */}
-      <form onSubmit={handleManualSubmit} className="mb-6">
-        <div className="flex flex-col md:flex-row gap-2">
+      <div className="mt-8 border-t pt-6">
+        <h3 className="text-lg font-medium mb-4">
+          Saisie manuelle du code
+        </h3>
+        <form onSubmit={handleManualSubmit} className="flex gap-2">
           <input
             type="text"
-            placeholder="Saisir le code QR manuellement (ex: EMP-12345678-1-2)"
-            className="flex-grow px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={manualCode}
             onChange={(e) => setManualCode(e.target.value)}
+            placeholder="Format: EMP-XXXX-Y-Z"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             Valider
           </button>
-        </div>
-      </form>
-      
-      {/* Scanner */}
-      <QRCodeScanner
-        onScanSuccess={handleScanSuccess}
-        onScanError={handleScanError}
-      />
+        </form>
+      </div>
     </div>
   )
 } 
