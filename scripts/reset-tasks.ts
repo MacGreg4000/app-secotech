@@ -5,7 +5,7 @@ const prisma = new PrismaClient()
 async function main() {
   try {
     // Supprimer toutes les tâches administratives
-    await prisma.adminTask.deleteMany()
+    await prisma.admintask.deleteMany()
     console.log('✅ Toutes les tâches administratives ont été supprimées')
 
     // Supprimer toutes les tâches
@@ -13,7 +13,7 @@ async function main() {
     console.log('✅ Toutes les tâches ont été supprimées')
 
     // Vérifier que les tables sont vides
-    const adminTaskCount = await prisma.adminTask.count()
+    const adminTaskCount = await prisma.admintask.count()
     const tacheCount = await prisma.tache.count()
 
     console.log('\n=== État final ===')

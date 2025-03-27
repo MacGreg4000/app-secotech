@@ -91,14 +91,14 @@ export async function POST(
     const bonCommande = await prisma.$queryRaw`
       SELECT * FROM bon_commande_sous_traitant
       WHERE id = ${id}
-    `;
+    ` as Record<string, any>[];
     
     const lignesBonCommande = await prisma.$queryRaw`
       SELECT l.*, lc.article, lc.description, lc.type, lc.unite, lc.quantite
       FROM ligne_bon_commande_sous_traitant l
       JOIN lignecommande lc ON l.ligneCommandeId = lc.id
       WHERE l.bonCommandeSousTraitantId = ${id}
-    `;
+    ` as Record<string, any>[];
     
     const soustraitantInfo = await prisma.soustraitant.findUnique({
       where: { id: soustraitantId }

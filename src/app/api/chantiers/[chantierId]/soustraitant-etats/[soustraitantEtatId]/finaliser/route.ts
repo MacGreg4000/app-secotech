@@ -17,14 +17,14 @@ export async function POST(
     const { chantierId, soustraitantEtatId } = params
 
     // Vérifier que l'état d'avancement existe
-    const existingEtat = await prisma.soustraitantEtat.findUnique({
+    const existingEtat = await prisma.soustraitant_etat_avancement.findUnique({
       where: {
-        id: parseInt(soustraitantEtatId),
-        chantierId: parseInt(chantierId)
+        id: parseInt(soustraitantEtatId)
       },
       include: {
-        lignes: true,
-        avenants: true
+        etat_avancement: true,
+        ligne_soustraitant_etat_avancement: true,
+        avenant_soustraitant_etat_avancement: true
       }
     })
 
@@ -32,6 +32,14 @@ export async function POST(
       return NextResponse.json(
         { error: 'État d\'avancement sous-traitant non trouvé' },
         { status: 404 }
+      )
+    }
+    
+    // Vérifier si l'état correspond au chantier
+    if (existingEtat.etat_avancement.chantierId !== params.chantierId) {
+      return NextResponse.json(
+        { error: 'État d\'avancement sous-traitant ne correspond pas au chantier' },
+        { status: 400 }
       )
     }
 
@@ -44,7 +52,7 @@ export async function POST(
     }
 
     // Finaliser l'état d'avancement
-    await prisma.soustraitantEtat.update({
+    await prisma.soustraitant_etat_avancement.update({
       where: {
         id: parseInt(soustraitantEtatId)
       },
@@ -58,17 +66,17 @@ export async function POST(
     const nextEtatNumero = existingEtat.numero + 1
     
     // Créer un nouvel état d'avancement avec les quantités précédentes mises à jour
-    const newEtat = await prisma.soustraitantEtat.create({
+    const newEtat = await prisma.soustraitant_etat_avancement.create({
       data: {
-        chantierId: parseInt(chantierId),
         soustraitantId: existingEtat.soustraitantId,
+        etatAvancementId: existingEtat.etatAvancementId,
+        commandeSousTraitantId: existingEtat.commandeSousTraitantId,
         numero: nextEtatNumero,
         date: new Date(),
         commentaires: '',
         estFinalise: false,
-        createdBy: session.user.email || 'unknown',
-        lignes: {
-          create: existingEtat.lignes.map(ligne => ({
+        ligne_soustraitant_etat_avancement: {
+          create: existingEtat.ligne_soustraitant_etat_avancement.map(ligne => ({
             article: ligne.article,
             description: ligne.description,
             type: ligne.type,
@@ -80,11 +88,12 @@ export async function POST(
             montantPrecedent: ligne.montantTotal,
             montantActuel: 0,
             quantiteTotale: ligne.quantiteTotale,
-            montantTotal: ligne.montantTotal
+            montantTotal: ligne.montantTotal,
+            updatedAt: new Date()
           }))
         },
-        avenants: {
-          create: existingEtat.avenants.map(avenant => ({
+        avenant_soustraitant_etat_avancement: {
+          create: existingEtat.avenant_soustraitant_etat_avancement.map(avenant => ({
             article: avenant.article,
             description: avenant.description,
             type: avenant.type,
@@ -96,7 +105,8 @@ export async function POST(
             montantPrecedent: avenant.montantTotal,
             montantActuel: 0,
             quantiteTotale: avenant.quantiteTotale,
-            montantTotal: avenant.montantTotal
+            montantTotal: avenant.montantTotal,
+            updatedAt: new Date()
           }))
         }
       }

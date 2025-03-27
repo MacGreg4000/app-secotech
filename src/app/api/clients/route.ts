@@ -49,18 +49,18 @@ export async function GET() {
 
     return NextResponse.json(clients)
   } catch (error) {
-    console.error('Erreur détaillée:', {
+    console.error('Erreur détaillée:', error instanceof Error ? {
       name: error.name,
       message: error.message,
       stack: error.stack,
       cause: error.cause
-    })
+    } : error)
 
     return NextResponse.json(
       { 
         error: 'Erreur lors de la récupération des clients',
-        details: error.message,
-        type: error.name
+        details: error instanceof Error ? error.message : String(error),
+        type: error instanceof Error ? error.name : 'UnknownError'
       },
       { status: 500 }
     )

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const chantierId = searchParams.get('chantierId')
 
-    const tasks = await prisma.adminTask.findMany({
+    const tasks = await prisma.admintask.findMany({
       where: chantierId ? {
         chantierId: chantierId
       } : undefined,
@@ -59,14 +59,13 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const task = await prisma.adminTask.create({
+    const task = await prisma.admintask.create({
       data: {
         title: body.title,
-        description: body.description,
-        status: body.status || 'pending',
-        priority: body.priority || 'medium',
-        dueDate: body.dueDate ? new Date(body.dueDate) : null,
-        chantierId: body.chantierId
+        taskType: body.taskType,
+        chantierId: body.chantierId,
+        updatedAt: new Date(),
+        completed: false
       },
       include: {
         chantier: {

@@ -11,7 +11,7 @@ import {
   TrashIcon,
   EyeIcon
 } from '@heroicons/react/24/solid'
-import { ChantierStatus, type ChantierStatus as TChantierStatus } from '@/components/ChantierStatus'
+import ChantierStatusComponent, { type ChantierStatus as TChantierStatus } from '@/components/ChantierStatus'
 
 interface Chantier {
   id: number
@@ -89,7 +89,7 @@ export default function DashboardPage() {
                       {new Date(chantier.dateCommencement).toLocaleDateString('fr-FR')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <ChantierStatus 
+                      <ChantierStatusComponent 
                         status={chantier.etatChantier as TChantierStatus}
                         chantierId={chantier.chantierId}
                         onStatusChange={(newStatus) => {

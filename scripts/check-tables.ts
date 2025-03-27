@@ -14,7 +14,7 @@ async function main() {
   console.log('Taches:', taches)
   
   // Vérifier la table AdminTask
-  const adminTasks = await prisma.adminTask.count()
+  const adminTasks = await prisma.admintask.count()
   console.log('AdminTasks:', adminTasks)
 
   // Vérifier la structure de AdminTask

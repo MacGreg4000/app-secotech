@@ -54,15 +54,15 @@ export async function GET(
         console.log('Récupération des états d\'avancement pour le sous-traitant:', commande.soustraitantId)
         
         // Récupérer les états d'avancement pour ce sous-traitant dans ce chantier
-        const etatsAvancement = await prisma.soustraitantEtatAvancement.findMany({
+        const etatsAvancement = await prisma.soustraitant_etat_avancement.findMany({
           where: {
             soustraitantId: commande.soustraitantId,
-            etatAvancement: {
+            etat_avancement: {
               chantierId: params.chantierId
             }
           },
           include: {
-            etatAvancement: true
+            etat_avancement: true
           },
           orderBy: {
             createdAt: 'desc'

@@ -16,7 +16,7 @@ async function main() {
 
   // Vérifier les tâches administratives existantes
   console.log('\n=== Tâches administratives ===')
-  const adminTasks = await prisma.adminTask.findMany()
+  const adminTasks = await prisma.admintask.findMany()
   console.log('Tâches administratives trouvées:', adminTasks)
 
   // Vérifier les contraintes uniques

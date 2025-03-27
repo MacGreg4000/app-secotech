@@ -43,7 +43,7 @@ async function main() {
     console.log('✅ Chantier trouvé:', chantierId)
 
     // Supprimer les tâches existantes pour ce chantier
-    await prisma.adminTask.deleteMany({
+    await prisma.admintask.deleteMany({
       where: { chantierId }
     })
     console.log('✅ Anciennes tâches supprimées')
@@ -52,16 +52,17 @@ async function main() {
     for (const task of ADMIN_TASKS) {
       const newTask = {
         ...task,
-        chantierId // Utiliser l'ID du chantier trouvé
+        chantierId, // Utiliser l'ID du chantier trouvé
+        updatedAt: new Date() // Ajout du champ updatedAt requis
       }
-      await prisma.adminTask.create({
+      await prisma.admintask.create({
         data: newTask
       })
       console.log(`✅ Tâche créée: ${task.title}`)
     }
 
     // Vérifier les tâches créées
-    const createdTasks = await prisma.adminTask.findMany({
+    const createdTasks = await prisma.admintask.findMany({
       where: { chantierId }
     })
     console.log('✅ Tâches créées:', createdTasks)

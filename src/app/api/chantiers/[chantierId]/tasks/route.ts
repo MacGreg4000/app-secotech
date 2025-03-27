@@ -16,7 +16,7 @@ export async function GET(
       )
     }
 
-    const tasks = await prisma.adminTask.findMany({
+    const tasks = await prisma.admintask.findMany({
       where: {
         chantierId: params.chantierId
       },

@@ -54,6 +54,7 @@
     "react-quill": "^2.0.0",
     "react-signature-canvas": "^1.1.0-alpha.1",
     "roboto-font": "^0.1.0",
+    "sharp": "^0.33.5",
     "tailwind-merge": "^3.0.2",
     "uuid": "^11.1.0"
   },
