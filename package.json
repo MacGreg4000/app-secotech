@@ -11,7 +11,8 @@
     "create-admin": "ts-node --project tsconfig.scripts.json scripts/create-admin.ts",
     "seed:admin-tasks": "ts-node --project tsconfig.scripts.json scripts/seed-admin-tasks.ts",
     "check-db": "ts-node --project tsconfig.scripts.json scripts/check-tables.ts",
-    "reset-tasks": "ts-node --project tsconfig.scripts.json scripts/reset-tasks.ts"
+    "reset-tasks": "ts-node --project tsconfig.scripts.json scripts/reset-tasks.ts",
+    "postinstall": "npm install --no-save sharp"
   },
   "dependencies": {
     "@headlessui/react": "1.7.18",
