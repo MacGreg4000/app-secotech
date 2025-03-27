@@ -2,13 +2,13 @@
 const nextConfig = {
   // Configuration pour Next.js
   reactStrictMode: true,
-  swcMinify: true,
   images: {
     domains: ['localhost'],
   },
+  // Packages externes pour les composants serveur
+  serverExternalPackages: ['pdf-lib'],
   // Augmenter le timeout des requêtes et la taille des données
   experimental: {
-    serverComponentsExternalPackages: ['pdf-lib'],
     serverActions: {
       bodySizeLimit: '10mb',
     },
