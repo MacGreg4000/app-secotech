@@ -24,7 +24,7 @@ export async function GET(
       },
       include: {
         _count: {
-          select: { documentOuvrier: true }
+          select: { documentouvrier: true }
         }
       },
       orderBy: {

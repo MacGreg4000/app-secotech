@@ -19,7 +19,7 @@ export async function DELETE(
     }
 
     // Récupérer le document
-    const document = await prisma.documentOuvrier.findUnique({
+    const document = await prisma.documentouvrier.findUnique({
       where: { 
         id: params.documentId,
         ouvrierId: params.ouvrierId
@@ -43,7 +43,7 @@ export async function DELETE(
     }
 
     // Supprimer l'entrée dans la base de données
-    await prisma.documentOuvrier.delete({
+    await prisma.documentouvrier.delete({
       where: { id: params.documentId }
     })
 

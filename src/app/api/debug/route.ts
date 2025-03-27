@@ -6,10 +6,10 @@ export async function GET() {
     const data = await prisma.chantier.findMany({
       include: {
         marche: true,
-        notes: true,
-        taches: true,
-        documents: true,
-        etats: true
+        note: true,
+        tache: true,
+        document: true,
+        etat: true
       }
     })
 
