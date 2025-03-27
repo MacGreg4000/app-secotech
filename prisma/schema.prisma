@@ -1,0 +1,668 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Settings {
+  id        Int      @id @default(1)
+  logo      String?
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model admintask {
+  id          Int       @id @default(autoincrement())
+  chantierId  String
+  completedBy String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  taskType    String
+  title       String?
+  chantier    chantier  @relation(fields: [chantierId], references: [chantierId], map: "AdminTask_chantierId_fkey")
+  user        user?     @relation(fields: [completedBy], references: [id], map: "AdminTask_completedBy_fkey")
+
+  @@unique([chantierId, taskType], map: "AdminTask_chantierId_taskType_key")
+  @@index([chantierId], map: "AdminTask_chantierId_idx")
+  @@index([completedBy], map: "AdminTask_completedBy_idx")
+}
+
+model avenant {
+  id          Int      @id @default(autoincrement())
+  numero      Int
+  date        DateTime @default(now())
+  description String?
+  chantierId  String
+  marcheId    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  chantier    chantier @relation(fields: [chantierId], references: [chantierId], map: "Avenant_chantierId_fkey")
+  marche      marche   @relation(fields: [marcheId], references: [id], map: "Avenant_marcheId_fkey")
+
+  @@unique([chantierId, numero], map: "Avenant_chantierId_numero_key")
+  @@index([marcheId], map: "Avenant_marcheId_fkey")
+}
+
+model chantier {
+  id                    Int                    @id @default(autoincrement())
+  chantierId            String                 @unique(map: "Chantier_chantierId_key")
+  nomChantier           String
+  dateCommencement      DateTime
+  etatChantier          String                 @default("En préparation")
+  clientNom             String?
+  clientEmail           String?
+  clientAdresse         String?
+  adresseChantier       String?
+  latitude              Float?
+  longitude             Float?
+  montantTotal          Float                  @default(0)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime
+  clientId              String?
+  dureeEnJours          Int?
+  admintask             admintask[]
+  avenant               avenant[]
+  client                client?                @relation(fields: [clientId], references: [id], map: "Chantier_clientId_fkey")
+  commandes             Commande[]
+  commandesSousTraitant CommandeSousTraitant[]
+  depenses              Depense[]
+  document              document[]
+  etat                  etat[]
+  etatsAvancement       EtatAvancement[]
+  marche                marche?
+  note                  note[]
+  tache                 tache[]
+
+  @@index([clientId], map: "Chantier_clientId_fkey")
+}
+
+model client {
+  id        String     @id
+  nom       String
+  email     String?
+  adresse   String?
+  telephone String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime
+  chantier  chantier[]
+  commandes Commande[]
+}
+
+model document {
+  id         Int      @id @default(autoincrement())
+  nom        String
+  type       String
+  url        String
+  taille     Int
+  mimeType   String
+  chantierId String
+  createdBy  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+  chantier   chantier @relation(fields: [chantierId], references: [chantierId], onDelete: Cascade, map: "Document_chantierId_fkey")
+  user       user     @relation(fields: [createdBy], references: [id], map: "Document_createdBy_fkey")
+
+  @@index([chantierId], map: "Document_chantierId_idx")
+  @@index([createdBy], map: "Document_createdBy_idx")
+}
+
+model etat {
+  id         Int         @id @default(autoincrement())
+  numero     Int
+  date       DateTime
+  chantierId String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime
+  chantier   chantier    @relation(fields: [chantierId], references: [chantierId], onDelete: Cascade, map: "Etat_chantierId_fkey")
+  ligneetat  ligneetat[]
+
+  @@unique([chantierId, numero], map: "Etat_chantierId_numero_key")
+}
+
+model ligneetat {
+  id            Int         @id @default(autoincrement())
+  etatId        Int
+  ligneMarcheId Int
+  quantite      Float
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime
+  etat          etat        @relation(fields: [etatId], references: [id], onDelete: Cascade, map: "LigneEtat_etatId_fkey")
+  lignemarche   lignemarche @relation(fields: [ligneMarcheId], references: [id], map: "LigneEtat_ligneMarcheId_fkey")
+
+  @@index([etatId], map: "LigneEtat_etatId_idx")
+  @@index([ligneMarcheId], map: "LigneEtat_ligneMarcheId_idx")
+}
+
+model lignemarche {
+  id           Int         @id @default(autoincrement())
+  article      Int
+  descriptif   String
+  unite        String
+  quantite     Float
+  prixUnitaire Float
+  marcheId     Int
+  ligneetat    ligneetat[]
+  marche       marche      @relation(fields: [marcheId], references: [id], onDelete: Cascade, map: "LigneMarche_marcheId_fkey")
+
+  @@index([marcheId], map: "LigneMarche_marcheId_idx")
+}
+
+model machine {
+  id           String         @id
+  nom          String
+  modele       String
+  numeroSerie  String?
+  localisation String
+  statut       machine_statut @default(DISPONIBLE)
+  dateAchat    DateTime?
+  qrCode       String         @unique(map: "Machine_qrCode_key")
+  commentaire  String?        @db.Text
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime
+  pret         pret[]
+}
+
+model marche {
+  id           Int           @id @default(autoincrement())
+  chantierId   String        @unique(map: "Marche_chantierId_key")
+  dateImport   DateTime      @default(now())
+  montantTotal Float
+  avenant      avenant[]
+  lignemarche  lignemarche[]
+  chantier     chantier      @relation(fields: [chantierId], references: [chantierId], map: "Marche_chantierId_fkey")
+}
+
+model note {
+  id         Int      @id @default(autoincrement())
+  chantierId String
+  contenu    String   @db.Text
+  createdBy  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+  chantier   chantier @relation(fields: [chantierId], references: [chantierId], map: "Note_chantierId_fkey")
+  user       user     @relation(fields: [createdBy], references: [id], map: "Note_createdBy_fkey")
+
+  @@index([chantierId], map: "Note_chantierId_idx")
+  @@index([createdBy], map: "Note_createdBy_idx")
+}
+
+model ouvrier {
+  id              String            @id
+  nom             String
+  prenom          String
+  email           String?
+  telephone       String?
+  dateEntree      DateTime
+  poste           String
+  sousTraitantId  String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime
+  documentouvrier documentouvrier[]
+  soustraitant    soustraitant      @relation(fields: [sousTraitantId], references: [id], onDelete: Cascade, map: "Ouvrier_sousTraitantId_fkey")
+
+  @@index([sousTraitantId], map: "Ouvrier_sousTraitantId_idx")
+}
+
+model pret {
+  id                  String      @id
+  machineId           String
+  userId              String
+  datePret            DateTime    @default(now())
+  dateRetourPrevue    DateTime
+  dateRetourEffective DateTime?
+  statut              pret_statut @default(EN_COURS)
+  commentaire         String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime
+  emprunteur          String
+  machine             machine     @relation(fields: [machineId], references: [id], map: "Pret_machineId_fkey")
+  user                user        @relation(fields: [userId], references: [id], map: "Pret_userId_fkey")
+
+  @@index([machineId], map: "Pret_machineId_idx")
+  @@index([userId], map: "Pret_userId_idx")
+}
+
+model soustraitant {
+  id                           String                         @id
+  nom                          String
+  email                        String                         @unique(map: "SousTraitant_email_key")
+  contact                      String?
+  adresse                      String?
+  telephone                    String?
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime
+  tva                          String?
+  commandes                    CommandeSousTraitant[]
+  contrats                     contrat[]
+  ouvrier                      ouvrier[]
+  soustraitant_etat_avancement soustraitant_etat_avancement[]
+}
+
+model contrat {
+  id             String       @id @default(cuid())
+  soustraitantId String
+  url            String
+  dateGeneration DateTime     @default(now())
+  dateSignature  DateTime?
+  estSigne       Boolean      @default(false)
+  token          String?      @unique
+  soustraitant   soustraitant @relation(fields: [soustraitantId], references: [id], onDelete: Cascade)
+
+  @@index([soustraitantId])
+}
+
+model tache {
+  id          String    @id
+  label       String
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  chantierId  String
+  category    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  chantier    chantier  @relation(fields: [chantierId], references: [chantierId], onDelete: Cascade, map: "Tache_chantierId_fkey")
+
+  @@unique([chantierId, id], map: "Tache_chantierId_id_key")
+}
+
+model user {
+  id        String      @id
+  email     String      @unique(map: "User_email_key")
+  password  String
+  role      user_role   @default(USER)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime
+  name      String?
+  admintask admintask[]
+  depenses  Depense[]
+  document  document[]
+  note      note[]
+  pret      pret[]
+  notes     UserNotes?
+}
+
+model FicheTechnique {
+  id            String   @id @default(uuid())
+  titre         String
+  categorie     String
+  sousCategorie String?
+  fichierUrl    String
+  description   String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("fiches_techniques")
+}
+
+model Commande {
+  id             Int             @id @default(autoincrement())
+  chantierId     String
+  clientId       String?
+  dateCommande   DateTime        @default(now())
+  reference      String?
+  tauxTVA        Float           @default(20)
+  sousTotal      Float           @default(0)
+  totalOptions   Float           @default(0)
+  tva            Float           @default(0)
+  total          Float           @default(0)
+  statut         String          @default("BROUILLON")
+  estVerrouillee Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  chantier       chantier        @relation(fields: [chantierId], references: [chantierId], onDelete: Cascade)
+  client         client?         @relation(fields: [clientId], references: [id])
+  lignes         LigneCommande[]
+
+  @@index([chantierId], map: "Commande_chantierId_idx")
+  @@index([clientId], map: "Commande_clientId_idx")
+  @@map("commande")
+}
+
+model LigneCommande {
+  id           Int      @id @default(autoincrement())
+  commandeId   Int
+  ordre        Int
+  article      String
+  description  String   @db.Text
+  type         String   @default("QP")
+  unite        String
+  prixUnitaire Float
+  quantite     Float
+  total        Float
+  estOption    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  commande     Commande @relation(fields: [commandeId], references: [id], onDelete: Cascade)
+
+  @@index([commandeId], map: "LigneCommande_commandeId_idx")
+  @@map("lignecommande")
+}
+
+model EtatAvancement {
+  id                           Int                            @id @default(autoincrement())
+  chantierId                   String
+  numero                       Int
+  date                         DateTime                       @default(now())
+  mois                         String?
+  commentaires                 String?                        @db.Text
+  estFinalise                  Boolean                        @default(false)
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
+  createdBy                    String
+  avenants                     AvenantEtatAvancement[]
+  chantier                     chantier                       @relation(fields: [chantierId], references: [chantierId], onDelete: Cascade)
+  lignes                       LigneEtatAvancement[]
+  soustraitant_etat_avancement soustraitant_etat_avancement[]
+
+  @@unique([chantierId, numero])
+  @@index([chantierId])
+  @@map("etat_avancement")
+}
+
+model LigneEtatAvancement {
+  id                 Int            @id @default(autoincrement())
+  etatAvancementId   Int
+  ligneCommandeId    Int
+  quantitePrecedente Float          @default(0)
+  quantiteActuelle   Float          @default(0)
+  quantiteTotale     Float          @default(0)
+  montantPrecedent   Float          @default(0)
+  montantActuel      Float          @default(0)
+  montantTotal       Float          @default(0)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  article            String
+  description        String         @db.Text
+  prixUnitaire       Float
+  quantite           Float
+  type               String
+  unite              String
+  etatAvancement     EtatAvancement @relation(fields: [etatAvancementId], references: [id], onDelete: Cascade)
+
+  @@index([etatAvancementId])
+  @@map("ligne_etat_avancement")
+}
+
+model AvenantEtatAvancement {
+  id                 Int            @id @default(autoincrement())
+  etatAvancementId   Int
+  article            String
+  description        String         @db.Text
+  type               String
+  unite              String
+  prixUnitaire       Float
+  quantite           Float
+  quantitePrecedente Float          @default(0)
+  quantiteActuelle   Float          @default(0)
+  quantiteTotale     Float          @default(0)
+  montantPrecedent   Float          @default(0)
+  montantActuel      Float          @default(0)
+  montantTotal       Float          @default(0)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  etatAvancement     EtatAvancement @relation(fields: [etatAvancementId], references: [id], onDelete: Cascade)
+
+  @@index([etatAvancementId])
+  @@map("avenant_etat_avancement")
+}
+
+model companysettings {
+  id            String   @id @default("COMPANY_SETTINGS")
+  name          String
+  address       String
+  zipCode       String
+  city          String
+  phone         String
+  email         String
+  iban          String
+  tva           String
+  logo          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+  emailFrom     String?
+  emailFromName String?
+  emailHost     String?
+  emailPassword String?
+  emailPort     String?
+  emailSecure   Boolean? @default(false)
+  emailUser     String?
+}
+
+model documentouvrier {
+  id             String    @id
+  nom            String
+  type           String
+  url            String
+  dateExpiration DateTime?
+  ouvrierId      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+  ouvrier        ouvrier   @relation(fields: [ouvrierId], references: [id], onDelete: Cascade, map: "DocumentOuvrier_ouvrierId_fkey")
+
+  @@index([ouvrierId], map: "DocumentOuvrier_ouvrierId_idx")
+}
+
+model CommandeSousTraitant {
+  id                           Int                            @id @default(autoincrement())
+  chantierId                   String
+  soustraitantId               String
+  dateCommande                 DateTime                       @default(now())
+  reference                    String?
+  tauxTVA                      Float                          @default(0)
+  sousTotal                    Float                          @default(0)
+  tva                          Float                          @default(0)
+  total                        Float                          @default(0)
+  statut                       String                         @default("BROUILLON")
+  estVerrouillee               Boolean                        @default(false)
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
+  chantier                     chantier                       @relation(fields: [chantierId], references: [chantierId], onDelete: Cascade)
+  soustraitant                 soustraitant                   @relation(fields: [soustraitantId], references: [id], onDelete: Cascade)
+  lignes                       LigneCommandeSousTraitant[]
+  soustraitant_etat_avancement soustraitant_etat_avancement[]
+
+  @@index([chantierId])
+  @@index([soustraitantId])
+  @@map("commande_soustraitant")
+}
+
+model LigneCommandeSousTraitant {
+  id                     Int                  @id @default(autoincrement())
+  commandeSousTraitantId Int
+  ordre                  Int
+  article                String
+  description            String               @db.Text
+  type                   String               @default("QP")
+  unite                  String
+  prixUnitaire           Float
+  quantite               Float
+  total                  Float
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  commandeSousTraitant   CommandeSousTraitant @relation(fields: [commandeSousTraitantId], references: [id], onDelete: Cascade)
+
+  @@index([commandeSousTraitantId])
+  @@map("ligne_commande_soustraitant")
+}
+
+model avenant_soustraitant_etat_avancement {
+  id                           Int                          @id @default(autoincrement())
+  soustraitantEtatAvancementId Int
+  article                      String
+  description                  String                       @db.Text
+  type                         String
+  unite                        String
+  prixUnitaire                 Float
+  quantite                     Float
+  quantitePrecedente           Float                        @default(0)
+  quantiteActuelle             Float                        @default(0)
+  quantiteTotale               Float                        @default(0)
+  montantPrecedent             Float                        @default(0)
+  montantActuel                Float                        @default(0)
+  montantTotal                 Float                        @default(0)
+  createdAt                    DateTime                     @default(now())
+  updatedAt                    DateTime
+  soustraitant_etat_avancement soustraitant_etat_avancement @relation(fields: [soustraitantEtatAvancementId], references: [id], onDelete: Cascade)
+
+  @@index([soustraitantEtatAvancementId])
+}
+
+model ligne_soustraitant_etat_avancement {
+  id                           Int                          @id @default(autoincrement())
+  soustraitantEtatAvancementId Int
+  article                      String
+  description                  String                       @db.Text
+  type                         String
+  unite                        String
+  prixUnitaire                 Float
+  quantite                     Float
+  quantitePrecedente           Float                        @default(0)
+  quantiteActuelle             Float                        @default(0)
+  quantiteTotale               Float                        @default(0)
+  montantPrecedent             Float                        @default(0)
+  montantActuel                Float                        @default(0)
+  montantTotal                 Float                        @default(0)
+  createdAt                    DateTime                     @default(now())
+  updatedAt                    DateTime
+  soustraitant_etat_avancement soustraitant_etat_avancement @relation(fields: [soustraitantEtatAvancementId], references: [id], onDelete: Cascade)
+
+  @@index([soustraitantEtatAvancementId])
+}
+
+model soustraitant_etat_avancement {
+  id                                   Int                                    @id @default(autoincrement())
+  soustraitantId                       String
+  numero                               Int
+  date                                 DateTime                               @default(now())
+  commentaires                         String?                                @db.Text
+  estFinalise                          Boolean                                @default(false)
+  createdAt                            DateTime                               @default(now())
+  updatedAt                            DateTime                               @updatedAt
+  commandeSousTraitantId               Int?
+  etatAvancementId                     Int
+  avenant_soustraitant_etat_avancement avenant_soustraitant_etat_avancement[]
+  ligne_soustraitant_etat_avancement   ligne_soustraitant_etat_avancement[]
+  commande_soustraitant                CommandeSousTraitant?                  @relation(fields: [commandeSousTraitantId], references: [id])
+  etat_avancement                      EtatAvancement                         @relation(fields: [etatAvancementId], references: [id], onDelete: Cascade)
+  soustraitant                         soustraitant                           @relation(fields: [soustraitantId], references: [id], onDelete: Cascade)
+  photos                               photo_soustraitant_etat_avancement[]
+
+  @@unique([etatAvancementId, soustraitantId, numero])
+  @@index([commandeSousTraitantId])
+  @@index([etatAvancementId])
+  @@index([soustraitantId])
+}
+
+model photo_soustraitant_etat_avancement {
+  id                           Int                          @id @default(autoincrement())
+  soustraitantEtatAvancementId Int
+  url                          String
+  description                  String?
+  dateAjout                    DateTime                     @default(now())
+  soustraitant_etat_avancement soustraitant_etat_avancement @relation(fields: [soustraitantEtatAvancementId], references: [id], onDelete: Cascade)
+
+  @@index([soustraitantEtatAvancementId])
+}
+
+enum user_role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum machine_statut {
+  DISPONIBLE
+  PRETE
+  EN_PANNE
+  EN_REPARATION
+  MANQUE_CONSOMMABLE
+}
+
+enum pret_statut {
+  EN_COURS
+  TERMINE
+}
+
+model Depense {
+  id          String   @id @default(uuid())
+  chantierId  String
+  date        DateTime @default(now())
+  montant     Float
+  description String   @db.Text
+  categorie   String
+  fournisseur String?
+  reference   String?
+  justificatif String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  chantier    chantier @relation(fields: [chantierId], references: [chantierId], onDelete: Cascade)
+  user        user     @relation(fields: [createdBy], references: [id])
+  
+  @@index([chantierId])
+  @@index([createdBy])
+  @@map("depense")
+}
+
+model UserNotes {
+  id        Int      @id @default(autoincrement())
+  userId    String   @unique
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_notes")
+}
+
+model Rack {
+  id          String        @id @default(uuid())
+  nom         String
+  position    String
+  lignes      Int
+  colonnes    Int
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  emplacements Emplacement[]
+
+  @@map("rack")
+}
+
+model Emplacement {
+  id         String      @id @default(uuid())
+  rackId     String
+  ligne      Int
+  colonne    Int
+  codeQR     String      @unique
+  statut     String      @default("libre") // libre, occupé
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  rack       Rack        @relation(fields: [rackId], references: [id], onDelete: Cascade)
+  materiaux  Materiau[]
+
+  @@unique([rackId, ligne, colonne])
+  @@index([rackId])
+  @@map("emplacement")
+}
+
+model Materiau {
+  id           String      @id @default(uuid())
+  nom          String
+  description  String?     @db.Text
+  quantite     Int         @default(1)
+  codeQR       String?     @unique
+  emplacementId String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  emplacement  Emplacement? @relation(fields: [emplacementId], references: [id])
+
+  @@index([emplacementId])
+  @@map("materiau")
+}

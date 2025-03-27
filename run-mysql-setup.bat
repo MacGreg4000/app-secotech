@@ -1,0 +1,3 @@
+@echo off
+echo Lancement de la configuration MySQL...
+powershell -Command "& {Start-Process cmd -ArgumentList '/k', 'mysql-setup.bat' -Verb RunAs}" 
