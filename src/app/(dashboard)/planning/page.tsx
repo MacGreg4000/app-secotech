@@ -31,6 +31,7 @@ export default function Planning() {
   const [dateDebut, setDateDebut] = useState<Date>(new Date())
   const [dateFin, setDateFin] = useState<Date>(new Date())
   const [echelle, setEchelle] = useState<'jours' | 'semaines' | 'mois'>('semaines')
+  const [menuEchelleOuvert, setMenuEchelleOuvert] = useState(false)
   
   // Référence pour le conteneur du diagramme (pour le scroll)
   const diagrammeRef = useRef<HTMLDivElement>(null)
@@ -273,34 +274,46 @@ export default function Planning() {
           <div className="relative">
             <button
               type="button"
+              onClick={() => setMenuEchelleOuvert(!menuEchelleOuvert)}
               className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <AdjustmentsHorizontalIcon className="h-4 w-4 mr-2" />
-              Échelle: {echelle}
+              Échelle: {echelle === 'jours' ? 'Jours' : echelle === 'semaines' ? 'Semaine' : 'Mois'}
             </button>
             
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden">
-              <div className="py-1">
-                <button 
-                  onClick={() => setEchelle('jours')}
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
-                >
-                  Jours
-                </button>
-                <button 
-                  onClick={() => setEchelle('semaines')}
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
-                >
-                  Semaines
-                </button>
-                <button 
-                  onClick={() => setEchelle('mois')}
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
-                >
-                  Mois
-                </button>
+            {menuEchelleOuvert && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+                <div className="py-1">
+                  <button 
+                    onClick={() => {
+                      setEchelle('jours')
+                      setMenuEchelleOuvert(false)
+                    }}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                  >
+                    Jours
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setEchelle('semaines')
+                      setMenuEchelleOuvert(false)
+                    }}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                  >
+                    Semaines
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setEchelle('mois')
+                      setMenuEchelleOuvert(false)
+                    }}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                  >
+                    Mois
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
