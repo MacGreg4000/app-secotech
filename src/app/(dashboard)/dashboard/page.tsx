@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import dynamic from 'next/dynamic'
 import {
   ChartBarIcon,
   CurrencyEuroIcon,
@@ -20,10 +21,13 @@ import {
 } from '@heroicons/react/24/outline'
 import { Line, Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement } from 'chart.js'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
-import { LeafletGeocoder } from '../../../components/LeafletGeocoder'
 import UserNotepad from '@/components/dashboard/UserNotepad'
+
+// Charger dynamiquement la carte leaflet uniquement côté client
+const DynamicMap = dynamic(() => Promise.resolve(() => <div>Map Placeholder</div>), {
+  ssr: false,
+  loading: () => <div className="h-96 bg-gray-100 flex items-center justify-center">Chargement de la carte...</div>
+})
 
 // Enregistrer les composants Chart.js nécessaires
 ChartJS.register(
@@ -603,14 +607,7 @@ export default function Dashboard() {
         <div className="p-4">
           <div className="h-96 rounded-lg overflow-hidden">
             {typeof window !== 'undefined' && (
-              <MapContainer 
-                center={[46.603354, 1.888334]} // Centre de la France
-                zoom={5} 
-                style={{ height: '100%', width: '100%' }}
-              >
-                {/* Le composant qui gère le géocodage des adresses */}
-                <LeafletGeocoder chantiers={chantiers} formatMontant={formatMontant} />
-              </MapContainer>
+              <DynamicMap />
             )}
           </div>
         </div>

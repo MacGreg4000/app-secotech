@@ -1,15 +1,48 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import EmplacementQRScanner from '@/components/inventory/EmplacementQRScanner'
 import Link from 'next/link'
 import { RackWithEmplacements, Materiau } from '@/types/inventory'
 
+// Composant qui utilise useSearchParams
+function SearchParamsHandler({ 
+  racks, 
+  onScanComplete 
+}: { 
+  racks: RackWithEmplacements[], 
+  onScanComplete: (rackId: string, ligne: number, colonne: number, emplacementQrCode: string) => void 
+}) {
+  const searchParams = useSearchParams()
+  
+  useEffect(() => {
+    // Vérifier si on a un code QR dans les paramètres d'URL
+    const qrCode = searchParams.get('code')
+    if (qrCode && racks.length > 0) {
+      // Extraire les informations du code QR
+      const qrCodeRegex = /^EMP-([a-zA-Z0-9-]+)-(\d+)-(\d+)$/
+      const match = qrCode.match(qrCodeRegex)
+      
+      if (match) {
+        const [_, rackId, ligneStr, colonneStr] = match
+        const ligne = parseInt(ligneStr)
+        const colonne = parseInt(colonneStr)
+        
+        if (!isNaN(ligne) && !isNaN(colonne)) {
+          // Traiter le code QR comme s'il avait été scanné
+          onScanComplete(rackId, ligne, colonne, qrCode)
+        }
+      }
+    }
+  }, [searchParams, racks, onScanComplete])
+  
+  return null
+}
+
 export default function InventoryScannerPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [racks, setRacks] = useState<RackWithEmplacements[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,25 +61,6 @@ export default function InventoryScannerPage() {
         }
         const data = await response.json()
         setRacks(data)
-        
-        // Vérifier si on a un code QR dans les paramètres d'URL
-        const qrCode = searchParams.get('code')
-        if (qrCode) {
-          // Extraire les informations du code QR
-          const qrCodeRegex = /^EMP-([a-zA-Z0-9-]+)-(\d+)-(\d+)$/
-          const match = qrCode.match(qrCodeRegex)
-          
-          if (match) {
-            const [_, rackId, ligneStr, colonneStr] = match
-            const ligne = parseInt(ligneStr)
-            const colonne = parseInt(colonneStr)
-            
-            if (!isNaN(ligne) && !isNaN(colonne)) {
-              // Traiter le code QR comme s'il avait été scanné
-              handleScanComplete(rackId, ligne, colonne, qrCode)
-            }
-          }
-        }
       } catch (err) {
         console.error('Erreur:', err)
         setError('Impossible de charger les données des racks')
@@ -56,7 +70,7 @@ export default function InventoryScannerPage() {
     }
     
     loadRacks()
-  }, [searchParams])
+  }, [])
   
   // Gérer le scan d'un QR code
   const handleScanComplete = async (rackId: string, ligne: number, colonne: number, emplacementQrCode: string) => {
@@ -163,6 +177,10 @@ export default function InventoryScannerPage() {
           { label: 'Scanner QR Code' }
         ]}
       />
+      
+      <Suspense fallback={null}>
+        <SearchParamsHandler racks={racks} onScanComplete={handleScanComplete} />
+      </Suspense>
       
       <div className="flex flex-col items-center pb-12">
         <h1 className="text-2xl font-bold mb-6">Scanner un QR code d'emplacement</h1>

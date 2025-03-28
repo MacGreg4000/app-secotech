@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { RackWithEmplacements, Materiau } from '@/types/inventory'
@@ -8,9 +8,26 @@ import { Breadcrumb } from '@/components/Breadcrumb'
 import { QrCodeIcon } from '@heroicons/react/24/outline'
 import EmplacementQRCodeModal from '@/components/inventory/EmplacementQRCodeModal'
 
+// Composant pour les paramètres de recherche qui utilise useSearchParams()
+function SearchParamsComponent({ onEmplacementFound }: { onEmplacementFound: (emplacementId: string, rackId: string) => void }) {
+  const searchParams = useSearchParams()
+  
+  useEffect(() => {
+    // Rechercher des paramètres d'URL pour la pré-sélection d'un emplacement
+    const emplacementId = searchParams.get('emplacementId')
+    const rackId = searchParams.get('rackId')
+    
+    if (emplacementId && rackId) {
+      // Si les paramètres sont présents, sélectionner automatiquement l'emplacement
+      onEmplacementFound(emplacementId, rackId)
+    }
+  }, [searchParams, onEmplacementFound])
+  
+  return null
+}
+
 export default function InventoryPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [racks, setRacks] = useState<RackWithEmplacements[]>([])
   const [materiaux, setMateriaux] = useState<Materiau[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -39,6 +56,15 @@ export default function InventoryPage() {
     qrCodeValue: string
   } | null>(null)
 
+  const handleEmplacementFound = (emplacementId: string, rackId: string) => {
+    const rack = racks.find((r: RackWithEmplacements) => r.id === rackId)
+    if (rack) {
+      setSelectedRackForAddition(rack)
+      setSelectedEmplacement(emplacementId)
+      setShowAddForm(true)
+    }
+  }
+
   // Charger les données initiales
   useEffect(() => {
     const loadData = async () => {
@@ -61,20 +87,6 @@ export default function InventoryPage() {
         const materiauxData = await materiauxResponse.json()
         setMateriaux(materiauxData)
         
-        // Rechercher des paramètres d'URL pour la pré-sélection d'un emplacement
-        const emplacementId = searchParams.get('emplacementId')
-        const rackId = searchParams.get('rackId')
-        
-        if (emplacementId && rackId) {
-          // Si les paramètres sont présents, sélectionner automatiquement l'emplacement
-          const rack = racksData.find((r: RackWithEmplacements) => r.id === rackId)
-          if (rack) {
-            setSelectedRackForAddition(rack)
-            setSelectedEmplacement(emplacementId)
-            setShowAddForm(true)
-          }
-        }
-        
       } catch (err) {
         console.error('Erreur:', err)
         setError('Erreur lors du chargement des données')
@@ -90,7 +102,7 @@ export default function InventoryPage() {
     if (savedSearches) {
       setRecentSearches(JSON.parse(savedSearches))
     }
-  }, [searchParams])
+  }, [])
   
   // Recherche de matériaux
   const handleSearch = (e: React.FormEvent) => {
@@ -304,16 +316,21 @@ export default function InventoryPage() {
   }
   
   return (
-    <div className="container mx-auto">
-      <Breadcrumb
+    <div className="container mx-auto px-4 py-8">
+      <Breadcrumb 
         items={[
           { label: 'Accueil', href: '/dashboard' },
-          { label: 'Inventaire' }
-        ]}
+          { label: 'Inventaire', href: '/inventory' }
+        ]} 
       />
+
+      <Suspense fallback={null}>
+        <SearchParamsComponent onEmplacementFound={handleEmplacementFound} />
+      </Suspense>
+      
+      <h1 className="text-3xl font-bold mb-6">Gestion de l'inventaire</h1>
       
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Gestion de l'inventaire</h1>
         <Link
           href="/inventory/scanner"
           className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
