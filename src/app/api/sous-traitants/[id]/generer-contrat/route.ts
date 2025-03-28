@@ -5,7 +5,7 @@ import { generateContratSoustraitance } from '@/lib/contrat-generator'
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     // Vérifier l'authentification
@@ -14,8 +14,11 @@ export async function POST(
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
     
+    // Extraire l'ID du sous-traitant depuis les paramètres de route
+    const { id } = context.params
+    
     // Générer le contrat
-    const contratUrl = await generateContratSoustraitance(params.id, session.user.id)
+    const contratUrl = await generateContratSoustraitance(id, session.user.id)
     
     return NextResponse.json({ url: contratUrl })
   } catch (error: any) {

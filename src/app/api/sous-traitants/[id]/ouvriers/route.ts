@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth'
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -15,16 +15,18 @@ export async function GET(
         { status: 401 }
       )
     }
+    
+    const { id } = context.params
 
-    console.log('Récupération des ouvriers pour le sous-traitant ID:', params.id);
+    console.log('Récupération des ouvriers pour le sous-traitant ID:', id);
 
     const ouvriers = await prisma.ouvrier.findMany({
       where: { 
-        sousTraitantId: params.id 
+        sousTraitantId: id 
       },
       include: {
         _count: {
-          select: { documentOuvrier: true }
+          select: { documentouvrier: true }
         }
       },
       orderBy: {
@@ -32,7 +34,7 @@ export async function GET(
       }
     })
 
-    console.log(`${ouvriers.length} ouvriers trouvés pour le sous-traitant ID: ${params.id}`);
+    console.log(`${ouvriers.length} ouvriers trouvés pour le sous-traitant ID: ${id}`);
     return NextResponse.json(ouvriers)
   } catch (error) {
     console.error('Erreur lors de la récupération des ouvriers:', error)
@@ -45,7 +47,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -55,10 +57,11 @@ export async function POST(
         { status: 401 }
       )
     }
-
+    
+    const { id } = context.params
     const body = await request.json()
     console.log('Données reçues pour la création de l\'ouvrier:', body);
-    console.log('ID du sous-traitant:', params.id);
+    console.log('ID du sous-traitant:', id);
 
     // Validation basique
     if (!body.nom || !body.prenom || !body.dateEntree || !body.poste) {
@@ -70,11 +73,11 @@ export async function POST(
 
     // Vérifier si le sous-traitant existe
     const sousTraitant = await prisma.soustraitant.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!sousTraitant) {
-      console.log('Sous-traitant non trouvé avec ID:', params.id);
+      console.log('Sous-traitant non trouvé avec ID:', id);
       return NextResponse.json(
         { error: 'Sous-traitant non trouvé' },
         { status: 404 }
@@ -94,7 +97,7 @@ export async function POST(
         telephone: body.telephone || null,
         dateEntree: new Date(body.dateEntree),
         poste: body.poste,
-        sousTraitantId: params.id,
+        sousTraitantId: id,
         updatedAt: new Date()
       }
     })

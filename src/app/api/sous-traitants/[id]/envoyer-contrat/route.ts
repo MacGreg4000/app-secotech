@@ -7,7 +7,7 @@ import { generateContratSoustraitance } from '@/lib/contrat-generator'
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     // Vérifier l'authentification
@@ -16,9 +16,12 @@ export async function POST(
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
     
+    // Extraire l'ID du sous-traitant
+    const { id } = context.params
+    
     // Récupérer le sous-traitant
     const soustraitant = await prisma.soustraitant.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
     
     if (!soustraitant) {
@@ -32,7 +35,7 @@ export async function POST(
     // Vérifier si un contrat existe déjà pour ce sous-traitant
     const existingContract = await (prisma as any).contrat.findFirst({
       where: { 
-        soustraitantId: params.id,
+        soustraitantId: id,
         estSigne: false
       }
     })
@@ -46,12 +49,12 @@ export async function POST(
       token = existingContract.token
     } else {
       // Générer un nouveau contrat
-      contratUrl = await generateContratSoustraitance(params.id, session.user.id)
+      contratUrl = await generateContratSoustraitance(id, session.user.id)
       
       // Récupérer le token du contrat nouvellement créé
       const newContract = await (prisma as any).contrat.findFirst({
         where: { 
-          soustraitantId: params.id,
+          soustraitantId: id,
           estSigne: false
         },
         orderBy: {

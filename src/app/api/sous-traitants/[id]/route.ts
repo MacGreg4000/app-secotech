@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth'
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -15,10 +15,12 @@ export async function DELETE(
         { status: 401 }
       )
     }
+    
+    const { id } = context.params
 
     // Vérifier si le sous-traitant existe
     const sousTraitant = await prisma.soustraitant.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!sousTraitant) {
@@ -30,7 +32,7 @@ export async function DELETE(
 
     // Supprimer le sous-traitant et tous ses ouvriers (cascade delete)
     await prisma.soustraitant.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({ success: true })
@@ -45,7 +47,7 @@ export async function DELETE(
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -55,11 +57,13 @@ export async function GET(
         { status: 401 }
       )
     }
+    
+    const { id } = context.params
 
-    console.log('Récupération du sous-traitant avec ID:', params.id);
+    console.log('Récupération du sous-traitant avec ID:', id);
 
     const sousTraitant = await prisma.soustraitant.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         ouvrier: {
           include: {
@@ -72,7 +76,7 @@ export async function GET(
     })
 
     if (!sousTraitant) {
-      console.log('Sous-traitant non trouvé avec ID:', params.id);
+      console.log('Sous-traitant non trouvé avec ID:', id);
       return NextResponse.json(
         { error: 'Sous-traitant non trouvé' },
         { status: 404 }
@@ -92,7 +96,7 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -102,7 +106,8 @@ export async function PUT(
         { status: 401 }
       )
     }
-
+    
+    const { id } = context.params
     const body = await request.json()
 
     // Validation basique
@@ -118,7 +123,7 @@ export async function PUT(
       where: {
         email: body.email,
         NOT: {
-          id: params.id
+          id
         }
       }
     })
@@ -131,7 +136,7 @@ export async function PUT(
     }
 
     const sousTraitant = await prisma.soustraitant.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         nom: body.nom,
         email: body.email,
