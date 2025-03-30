@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { 
@@ -42,7 +42,8 @@ interface Pret {
   emprunteur: string
 }
 
-export default function MachinePage({ params }: { params: { machineId: string } }) {
+export default function MachinePage(props: { params: Promise<{ machineId: string }> }) {
+  const params = use(props.params);
   const router = useRouter()
   const { data: session } = useSession()
   const [machine, setMachine] = useState<Machine | null>(null)

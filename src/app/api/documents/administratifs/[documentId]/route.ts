@@ -4,10 +4,8 @@ import { authOptions } from '@/lib/auth'
 import { unlink } from 'fs/promises'
 import path from 'path'
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { documentId: string } }
-) {
+export async function DELETE(request: Request, props: { params: Promise<{ documentId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: Request,
-  { params }: { params: { soustraitantId: string } }
+  context: { params: Promise<{ soustraitantId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -13,7 +13,10 @@ export async function GET(
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
-    if (!params.soustraitantId) {
+    // Récupérer les paramètres de l'URL
+    const { soustraitantId } = await context.params
+
+    if (!soustraitantId) {
       return NextResponse.json(
         { error: 'ID du sous-traitant manquant' },
         { status: 400 }
@@ -21,7 +24,7 @@ export async function GET(
     }
 
     const soustraitant = await prisma.soustraitant.findUnique({
-      where: { id: params.soustraitantId }
+      where: { id: soustraitantId }
     })
 
     if (!soustraitant) {

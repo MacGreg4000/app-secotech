@@ -6,8 +6,9 @@ import { authOptions } from '@/lib/auth'
 // DELETE /api/chantiers/[chantierId]/etats-avancement/[etatId]/lignes/[ligneId]
 export async function DELETE(
   request: Request,
-  { params }: { params: { chantierId: string; etatId: string; ligneId: string } }
+  props: { params: Promise<{ chantierId: string; etatId: string; ligneId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -67,8 +68,9 @@ export async function DELETE(
 // PUT /api/chantiers/[chantierId]/etats-avancement/[etatId]/lignes/[ligneId]
 export async function PUT(
   request: Request,
-  { params }: { params: { chantierId: string; etatId: string; ligneId: string } }
+  props: { params: Promise<{ chantierId: string; etatId: string; ligneId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

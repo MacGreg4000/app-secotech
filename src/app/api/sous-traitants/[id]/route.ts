@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth'
 
 export async function DELETE(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -16,7 +16,7 @@ export async function DELETE(
       )
     }
     
-    const { id } = context.params
+    const { id } = (await context.params)
 
     // Vérifier si le sous-traitant existe
     const sousTraitant = await prisma.soustraitant.findUnique({
@@ -47,7 +47,7 @@ export async function DELETE(
 
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -58,7 +58,7 @@ export async function GET(
       )
     }
     
-    const { id } = context.params
+    const { id } = (await context.params)
 
     console.log('Récupération du sous-traitant avec ID:', id);
 
@@ -96,7 +96,7 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -107,7 +107,7 @@ export async function PUT(
       )
     }
     
-    const { id } = context.params
+    const { id } = (await context.params)
     const body = await request.json()
 
     // Validation basique

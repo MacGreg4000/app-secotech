@@ -5,9 +5,15 @@ import { authOptions } from '@/lib/auth'
 
 export async function POST(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string; commandeId: string } }
+  context: { params: Promise<{ chantierId: string; soustraitantId: string; commandeId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    const soustraitantId = params.soustraitantId;
+    const commandeId = params.commandeId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -19,9 +25,9 @@ export async function POST(
     // Vérifier que la commande existe
     const commande = await prisma.$queryRaw`
       SELECT * FROM commande_soustraitant
-      WHERE id = ${parseInt(params.commandeId)}
-      AND chantierId = ${params.chantierId}
-      AND soustraitantId = ${params.soustraitantId}
+      WHERE id = ${parseInt(commandeId)}
+      AND chantierId = ${chantierId}
+      AND soustraitantId = ${soustraitantId}
     ` as any[]
 
     if (!commande || commande.length === 0) {
@@ -42,7 +48,7 @@ export async function POST(
     // Vérifier que la commande a des lignes
     const lignes = await prisma.$queryRaw`
       SELECT COUNT(*) as count FROM ligne_commande_soustraitant
-      WHERE commandeSousTraitantId = ${parseInt(params.commandeId)}
+      WHERE commandeSousTraitantId = ${parseInt(commandeId)}
     ` as any[]
 
     if (!lignes || lignes.length === 0 || lignes[0].count === 0) {
@@ -59,7 +65,7 @@ export async function POST(
         estVerrouillee = true,
         statut = 'VALIDEE',
         updatedAt = NOW()
-      WHERE id = ${parseInt(params.commandeId)}
+      WHERE id = ${parseInt(commandeId)}
     `
 
     // Récupérer la commande mise à jour
@@ -72,7 +78,7 @@ export async function POST(
       FROM commande_soustraitant c
       JOIN chantier ch ON c.chantierId = ch.chantierId
       JOIN soustraitant s ON c.soustraitantId = s.id
-      WHERE c.id = ${parseInt(params.commandeId)}
+      WHERE c.id = ${parseInt(commandeId)}
     ` as any[]
 
     return NextResponse.json(commandeMiseAJour[0])

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -21,7 +21,8 @@ interface Client {
   }>
 }
 
-export default function EditClientPage({ params }: { params: { clientId: string } }) {
+export default function EditClientPage(props: { params: Promise<{ clientId: string }> }) {
+  const params = use(props.params);
   const router = useRouter()
   const { data: session } = useSession()
   const [client, setClient] = useState<Client | null>(null)

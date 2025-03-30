@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { 
@@ -175,11 +175,12 @@ function UploadModal({ isOpen, onClose, onUpload, isUploading }: UploadModalProp
   )
 }
 
-export default function DocumentsOuvrierPage({ 
-  params 
-}: { 
-  params: { id: string, ouvrierId: string } 
-}) {
+export default function DocumentsOuvrierPage(
+  props: { 
+    params: Promise<{ id: string, ouvrierId: string }> 
+  }
+) {
+  const params = use(props.params);
   const router = useRouter()
   const { data: session } = useSession()
   const [ouvrier, setOuvrier] = useState<Ouvrier | null>(null)

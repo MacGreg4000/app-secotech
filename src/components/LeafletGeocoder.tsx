@@ -8,10 +8,8 @@ import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility
 import "leaflet-defaulticon-compatibility"
 import { createLogger } from '@/lib/logger'
 
-// Correction de l'icône Leaflet
-import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png'
-import iconUrl from 'leaflet/dist/images/marker-icon.png'
-import shadowUrl from 'leaflet/dist/images/marker-shadow.png'
+// Créer un logger spécifique pour ce composant
+const logger = createLogger('Geocoder');
 
 // Type pour les chantiers
 interface Chantier {
@@ -39,17 +37,9 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
   const [loading, setLoading] = useState(true)
   const [debugInfo, setDebugInfo] = useState<string>('')
 
-  // Créer un logger spécifique pour ce composant
-  const logger = createLogger('Geocoder');
-
   useEffect(() => {
-    // Fix pour l'icône Leaflet
-    delete (L.Icon.Default.prototype as any)._getIconUrl
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: iconRetinaUrl.src,
-      iconUrl: iconUrl.src,
-      shadowUrl: shadowUrl.src,
-    })
+    // Fix pour l'icône Leaflet - utilisation de leaflet-defaulticon-compatibility au lieu d'imports directs
+    // Cette bibliothèque règle automatiquement les problèmes d'icônes dans Next.js
 
     // Préparation des icônes avec couleurs selon état du chantier
     const chantierIcon = (etat: string) => {
@@ -305,4 +295,7 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
   )
 }
 
-export const LeafletGeocoder = GeocodeChantiers 
+// Exporter correctement le composant
+export default GeocodeChantiers
+// Pour compatibilité avec le code existant
+export { GeocodeChantiers as LeafletGeocoder } 

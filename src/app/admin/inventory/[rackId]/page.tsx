@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { RackWithEmplacements, Materiau } from '@/types/inventory'
 import { Breadcrumb } from '@/components/Breadcrumb'
 
-export default function RackDetailPage({ params }: { params: { rackId: string } }) {
+export default function RackDetailPage(props: { params: Promise<{ rackId: string }> }) {
+  const params = use(props.params);
   const router = useRouter()
   const [rack, setRack] = useState<RackWithEmplacements | null>(null)
   const [loading, setLoading] = useState(true)
@@ -18,7 +19,7 @@ export default function RackDetailPage({ params }: { params: { rackId: string } 
     quantite: ''
   })
   const [submitting, setSubmitting] = useState(false)
-  
+
   // Charger les détails du rack
   useEffect(() => {
     const loadRack = async () => {
@@ -45,7 +46,7 @@ export default function RackDetailPage({ params }: { params: { rackId: string } 
     
     loadRack()
   }, [params.rackId])
-  
+
   // Ajouter un matériau
   const handleAddMateriau = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -105,12 +106,12 @@ export default function RackDetailPage({ params }: { params: { rackId: string } 
       setSubmitting(false)
     }
   }
-  
+
   // Gérer la sélection d'un emplacement
   const handleEmplacementSelect = (emplacementId: string) => {
     setSelectedEmplacement(emplacementId === selectedEmplacement ? null : emplacementId)
   }
-  
+
   // Visualisation du rack
   const renderRackVisualization = () => {
     if (!rack) return null
@@ -196,7 +197,7 @@ export default function RackDetailPage({ params }: { params: { rackId: string } 
       </table>
     )
   }
-  
+
   return (
     <div className="container mx-auto">
       <Breadcrumb

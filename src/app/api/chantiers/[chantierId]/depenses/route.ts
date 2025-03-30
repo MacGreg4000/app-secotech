@@ -12,9 +12,13 @@ const DOCUMENTS_BASE_PATH = join(process.cwd(), 'public', 'uploads', 'documents'
 // GET /api/chantiers/[chantierId]/depenses
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string } }
+  context: { params: Promise<{ chantierId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -25,7 +29,7 @@ export async function GET(
 
     const depenses = await prisma.$queryRaw<Depense[]>`
       SELECT * FROM depense 
-      WHERE chantierId = ${params.chantierId}
+      WHERE chantierId = ${chantierId}
       ORDER BY date DESC
     `
 
@@ -42,9 +46,13 @@ export async function GET(
 // POST /api/chantiers/[chantierId]/depenses
 export async function POST(
   request: Request,
-  { params }: { params: { chantierId: string } }
+  context: { params: Promise<{ chantierId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -78,7 +86,7 @@ export async function POST(
     if (file && file.size > 0) {
       try {
         // Créer le dossier des documents si nécessaire
-        const chantierDir = join(DOCUMENTS_BASE_PATH, params.chantierId)
+        const chantierDir = join(DOCUMENTS_BASE_PATH, chantierId)
         
         // Créer d'abord le dossier de base s'il n'existe pas
         await mkdir(DOCUMENTS_BASE_PATH, { recursive: true })
@@ -99,10 +107,10 @@ export async function POST(
           data: {
             nom: fileName,
             type: 'justificatif-depense', // Type spécial pour les justificatifs de dépenses
-            url: `/uploads/documents/${params.chantierId}/${fileName}`,
+            url: `/uploads/documents/${chantierId}/${fileName}`,
             taille: file.size,
             mimeType: file.type,
-            chantierId: params.chantierId,
+            chantierId: chantierId,
             createdBy: session.user.id || '',
             updatedAt: new Date()
           }
@@ -140,7 +148,7 @@ export async function POST(
       ) 
       VALUES (
         ${depenseId}, 
-        ${params.chantierId}, 
+        ${chantierId}, 
         ${new Date(date)}, 
         ${montant}, 
         ${description}, 

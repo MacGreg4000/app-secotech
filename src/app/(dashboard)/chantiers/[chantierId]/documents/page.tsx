@@ -1,20 +1,34 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { type Chantier } from '@/types/chantier'
 import DocumentsContent from '@/components/chantier/DocumentsContent'
 import { DocumentExpirationAlert } from '@/components/DocumentExpirationAlert'
 
-export default function DocumentsPage({ params }: { params: { chantierId: string } }) {
+export default function DocumentsPage(props: { params: Promise<{ chantierId: string }> }) {
+  const params = use(props.params);
   const router = useRouter()
   const [chantier, setChantier] = useState<Chantier | null>(null)
   const [loading, setLoading] = useState(true)
+  const [chantierId, setChantierId] = useState<string | null>(null)
+
+  // Attendre les paramètres de route
+  useEffect(() => {
+    const initParams = async () => {
+      const awaitedParams = await params;
+      setChantierId(awaitedParams.chantierId);
+    };
+    
+    initParams();
+  }, [params]);
 
   useEffect(() => {
+    if (!chantierId) return;
+    
     const fetchChantier = async () => {
       try {
-        const response = await fetch(`/api/chantiers/${params.chantierId}`)
+        const response = await fetch(`/api/chantiers/${chantierId}`)
         if (response.ok) {
           const data = await response.json()
           setChantier(data)
@@ -27,7 +41,15 @@ export default function DocumentsPage({ params }: { params: { chantierId: string
     }
 
     fetchChantier()
-  }, [params.chantierId])
+  }, [chantierId])
+
+  if (!chantierId) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-6">
@@ -39,7 +61,7 @@ export default function DocumentsPage({ params }: { params: { chantierId: string
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center">
               <button
-                onClick={() => router.push(`/chantiers/${params.chantierId}/etats`)}
+                onClick={() => router.push(`/chantiers/${chantierId}/etats`)}
                 className="mr-3 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 bg-white dark:bg-gray-700 p-2 rounded-full shadow-md transition-all hover:shadow-lg border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600"
               >
                 <ArrowLeftIcon className="h-5 w-5" />
@@ -65,7 +87,7 @@ export default function DocumentsPage({ params }: { params: { chantierId: string
         
         {/* Contenu principal */}
         <div className="p-6">
-          <DocumentsContent chantierId={params.chantierId} />
+          <DocumentsContent chantierId={chantierId} />
         </div>
       </div>
     </div>

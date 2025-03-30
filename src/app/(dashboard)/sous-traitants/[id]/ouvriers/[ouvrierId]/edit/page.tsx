@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { FormInput, Button } from '@/components/ui'
@@ -13,11 +13,12 @@ interface FormData {
   poste: string
 }
 
-export default function EditOuvrierPage({ 
-  params 
-}: { 
-  params: { id: string, ouvrierId: string } 
-}) {
+export default function EditOuvrierPage(
+  props: { 
+    params: Promise<{ id: string, ouvrierId: string }> 
+  }
+) {
+  const params = use(props.params);
   const router = useRouter()
   const { data: session } = useSession()
   const [formData, setFormData] = useState<FormData>({

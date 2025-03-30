@@ -5,9 +5,13 @@ import { authOptions } from '@/lib/auth'
 
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string } }
+  context: { params: Promise<{ chantierId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -16,9 +20,9 @@ export async function GET(
       )
     }
 
-    const tasks = await prisma.adminTask.findMany({
+    const tasks = await prisma.admintask.findMany({
       where: {
-        chantierId: params.chantierId
+        chantierId: chantierId
       },
       include: {
         user: {

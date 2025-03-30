@@ -3,10 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/options'
 import { prismaWithExtensions } from '@/lib/prisma/types'
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { materiauId: string } }
-) {
+export async function DELETE(request: Request, props: { params: Promise<{ materiauId: string }> }) {
+  const params = await props.params;
   try {
     // Vérifier l'authentification
     const session = await getServerSession(authOptions)

@@ -3,22 +3,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-interface Params {
-  params: {
-    chantierId: string
-    soustraitantId: string
-    etatId: string
-  }
-}
-
-export async function POST(request: NextRequest, { params }: Params) {
+export async function POST(request: NextRequest, context: { params: Promise<{ chantierId: string; soustraitantId: string; etatId: string }> }) {
   const session = await getServerSession(authOptions)
   
   if (!session) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
   
-  const { chantierId, soustraitantId, etatId } = params
+  const { chantierId, soustraitantId, etatId } = await context.params
   
   try {
     // Vérifier l'accès au chantier

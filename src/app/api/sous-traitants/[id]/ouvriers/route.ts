@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth'
 
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -16,7 +16,7 @@ export async function GET(
       )
     }
     
-    const { id } = context.params
+    const { id } = (await context.params)
 
     console.log('Récupération des ouvriers pour le sous-traitant ID:', id);
 
@@ -47,7 +47,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -58,7 +58,7 @@ export async function POST(
       )
     }
     
-    const { id } = context.params
+    const { id } = (await context.params)
     const body = await request.json()
     console.log('Données reçues pour la création de l\'ouvrier:', body);
     console.log('ID du sous-traitant:', id);

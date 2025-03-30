@@ -3,10 +3,8 @@ import { prisma } from '@/lib/prisma/client'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-export async function GET(
-  request: Request,
-  { params }: { params: { chantierId: string } }
-) {
+export async function GET(request: Request, props: { params: Promise<{ chantierId: string }> }) {
+  const params = await props.params;
   try {
     console.log('Récupération des tâches pour le chantier:', params.chantierId)
     

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { format } from 'date-fns'
@@ -30,24 +30,25 @@ interface PersonnePresente {
   fonction: string
 }
 
-export default function NouveauRapportPage({ params }: { params: { chantierId: string } }) {
+export default function NouveauRapportPage(props: { params: Promise<{ chantierId: string }> }) {
+  const params = use(props.params);
   const { data: session } = useSession()
   const router = useRouter()
   const [chantier, setChantier] = useState<ChantierDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+
   // Champs du formulaire
   const [date, setDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'))
   const [notes, setNotes] = useState<string>('')
   const [photos, setPhotos] = useState<PhotoAnnotee[]>([])
   const [personnes, setPersonnes] = useState<PersonnePresente[]>([])
-  
+
   // Champs temporaires pour l'ajout de personnes
   const [nouveauNom, setNouveauNom] = useState<string>('')
   const [nouvelleFonction, setNouvelleFonction] = useState<string>('')
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {

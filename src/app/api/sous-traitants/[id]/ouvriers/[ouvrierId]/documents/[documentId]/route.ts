@@ -7,8 +7,9 @@ import { join } from 'path'
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string, ouvrierId: string, documentId: string } }
+  props: { params: Promise<{ id: string, ouvrierId: string, documentId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

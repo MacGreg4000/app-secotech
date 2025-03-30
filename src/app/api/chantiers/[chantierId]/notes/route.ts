@@ -5,10 +5,14 @@ import { prisma } from '@/lib/prisma/client'
 
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string } }
+  context: { params: Promise<{ chantierId: string }> }
 ) {
   try {
-    console.log('Récupération des notes pour le chantier:', params.chantierId)
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    
+    console.log('Récupération des notes pour le chantier:', chantierId)
     
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -29,12 +33,12 @@ export async function GET(
     // Vérifier si le chantier existe
     const chantier = await prisma.chantier.findUnique({
       where: {
-        chantierId: params.chantierId
+        chantierId: chantierId
       }
     })
 
     if (!chantier) {
-      console.log(`Erreur: Chantier ${params.chantierId} non trouvé`)
+      console.log(`Erreur: Chantier ${chantierId} non trouvé`)
       return NextResponse.json(
         { error: 'Chantier non trouvé' },
         { status: 404 }
@@ -44,7 +48,7 @@ export async function GET(
     try {
       const notes = await prisma.note.findMany({
         where: {
-          chantierId: params.chantierId
+          chantierId: chantierId
         },
         include: {
           user: {
@@ -59,7 +63,7 @@ export async function GET(
         }
       })
 
-      console.log(`${notes.length} notes trouvées pour le chantier ${params.chantierId}`)
+      console.log(`${notes.length} notes trouvées pour le chantier ${chantierId}`)
       return NextResponse.json(notes)
     } catch (prismaError: any) {
       console.error('Erreur Prisma lors de la récupération des notes:', prismaError)
@@ -85,10 +89,14 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { chantierId: string } }
+  context: { params: Promise<{ chantierId: string }> }
 ) {
   try {
-    console.log('Création d\'une note pour le chantier:', params.chantierId)
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    
+    console.log('Création d\'une note pour le chantier:', chantierId)
     
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -109,12 +117,12 @@ export async function POST(
     // Vérifier si le chantier existe
     const chantier = await prisma.chantier.findUnique({
       where: {
-        chantierId: params.chantierId
+        chantierId: chantierId
       }
     })
 
     if (!chantier) {
-      console.log(`Erreur: Chantier ${params.chantierId} non trouvé`)
+      console.log(`Erreur: Chantier ${chantierId} non trouvé`)
       return NextResponse.json(
         { error: 'Chantier non trouvé' },
         { status: 404 }
@@ -137,7 +145,7 @@ export async function POST(
       const note = await prisma.note.create({
         data: {
           contenu: body.contenu,
-          chantierId: params.chantierId,
+          chantierId: chantierId,
           createdBy: session.user.id,
           updatedAt: new Date() // Assurez-vous que updatedAt est défini
         },

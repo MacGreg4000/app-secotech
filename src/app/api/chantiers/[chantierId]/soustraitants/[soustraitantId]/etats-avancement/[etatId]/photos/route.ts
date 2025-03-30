@@ -20,8 +20,9 @@ interface Photo {
 // Ajoute des photos à un état d'avancement sous-traitant
 export async function POST(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string, etatId: string } }
+  props: { params: Promise<{ chantierId: string; soustraitantId: string, etatId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

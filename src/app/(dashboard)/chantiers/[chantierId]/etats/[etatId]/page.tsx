@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { type Chantier } from '@/types/chantier'
@@ -17,13 +17,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import EtatAvancementClient from '@/components/etat-avancement/EtatAvancementClient'
 
 interface PageProps {
-  params: {
+  params: Promise<{
     chantierId: string
     etatId: string
-  }
+  }>
 }
 
-export default function EtatAvancementPage({ params }: PageProps) {
+export default function EtatAvancementPage(props: PageProps) {
+  const params = use(props.params);
   const { data: session } = useSession()
   const router = useRouter()
   const [chantier, setChantier] = useState<Chantier | null>(null)
@@ -83,9 +84,17 @@ export default function EtatAvancementPage({ params }: PageProps) {
         
         // Si la réponse est OK, cela signifie qu'un état suivant existe
         setHasNextEtat(response.ok);
+        
+        // Si l'état n'existe pas (404), on ne génère pas d'erreur dans la console
+        if (response.status === 404) {
+          console.debug(`État d'avancement ${nextEtatNumber} non trouvé - comportement normal`);
+        } else if (!response.ok) {
+          // Pour les autres types d'erreurs, on les log comme avant
+          console.error(`Erreur lors de la vérification de l'état ${nextEtatNumber}:`, response.statusText);
+        }
       } catch (error) {
-        console.error('Erreur lors de la vérification des états suivants:', error);
-        // En cas d'erreur, on suppose qu'il n'y a pas d'état suivant
+        // On ne log pas les erreurs réseau ici pour éviter de polluer la console
+        // Elles sont généralement liées à l'absence de l'état suivant
         setHasNextEtat(false);
       }
     };

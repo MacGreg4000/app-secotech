@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, use } from 'react';
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, DocumentArrowDownIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
@@ -16,9 +16,9 @@ import toast, { Toaster } from 'react-hot-toast'
 import SelectField from '@/components/ui/SelectField'
 
 interface CommandePageProps {
-  params: {
+  params: Promise<{
     chantierId: string
-  }
+  }>
 }
 
 // Types pour la commande
@@ -53,7 +53,8 @@ interface Commande {
   estVerrouillee?: boolean;
 }
 
-export default function CommandePage({ params }: CommandePageProps) {
+export default function CommandePage(props: CommandePageProps) {
+  const params = use(props.params);
   const { data: session, status } = useSession()
   const router = useRouter()
   const [loading, setLoading] = useState(true)

@@ -8,10 +8,8 @@ import { join } from 'path'
 // Définir le chemin de base pour les documents
 const DOCUMENTS_BASE_PATH = join(process.cwd(), 'public', 'uploads', 'documents')
 
-export async function GET(
-  request: Request,
-  { params }: { params: { chantierId: string } }
-) {
+export async function GET(request: Request, props: { params: Promise<{ chantierId: string }> }) {
+  const params = await props.params;
   try {
     console.log('GET documents - params:', params)
     const session = await getServerSession(authOptions)
@@ -90,10 +88,8 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: { chantierId: string } }
-) {
+export async function POST(request: Request, props: { params: Promise<{ chantierId: string }> }) {
+  const params = await props.params;
   try {
     console.log('POST documents - début de la requête')
     const session = await getServerSession(authOptions)
@@ -219,10 +215,8 @@ export async function POST(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { chantierId: string } }
-) {
+export async function DELETE(request: Request, props: { params: Promise<{ chantierId: string }> }) {
+  const params = await props.params;
   try {
     console.log('DELETE document - début de la requête')
     const session = await getServerSession(authOptions)

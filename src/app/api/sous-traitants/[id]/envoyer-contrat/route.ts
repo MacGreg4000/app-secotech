@@ -7,7 +7,7 @@ import { generateContratSoustraitance } from '@/lib/contrat-generator'
 
 export async function POST(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // Vérifier l'authentification
@@ -17,7 +17,7 @@ export async function POST(
     }
     
     // Extraire l'ID du sous-traitant
-    const { id } = context.params
+    const { id } = (await context.params)
     
     // Récupérer le sous-traitant
     const soustraitant = await prisma.soustraitant.findUnique({

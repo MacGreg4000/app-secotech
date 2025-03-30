@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth'
 // PUT /api/chantiers/[chantierId]/soustraitants/[soustraitantId]/etats-avancement/[etatId]/lignes/[ligneId]
 export async function PUT(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string; etatId: string; ligneId: string } }
+  context: { params: Promise<{ chantierId: string; soustraitantId: string; etatId: string; ligneId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -17,11 +17,12 @@ export async function PUT(
       )
     }
 
+    const { chantierId, soustraitantId, etatId, ligneId } = await context.params
     const body = await request.json()
 
     const ligne = await prisma.ligne_soustraitant_etat_avancement.update({
       where: {
-        id: parseInt(params.ligneId)
+        id: parseInt(ligneId)
       },
       data: {
         quantiteActuelle: body.quantiteActuelle,

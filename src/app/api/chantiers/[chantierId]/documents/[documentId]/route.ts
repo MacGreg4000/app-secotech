@@ -9,8 +9,9 @@ const DOCUMENTS_BASE_PATH = join(process.cwd(), 'public', 'uploads', 'documents'
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { chantierId: string; documentId: string } }
+  props: { params: Promise<{ chantierId: string; documentId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {

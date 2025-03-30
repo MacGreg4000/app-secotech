@@ -3,10 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-export async function POST(
-  request: Request,
-  { params }: { params: { chantierId: string } }
-) {
+export async function POST(request: Request, props: { params: Promise<{ chantierId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

@@ -30,8 +30,9 @@ const updateSchema = z.object({
 // GET - Récupérer un état d'avancement sous-traitant
 export async function GET(
   request: NextRequest,
-  { params }: { params: { chantierId: string; soustraitantEtatId: string } }
+  props: { params: Promise<{ chantierId: string; soustraitantEtatId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -71,8 +72,9 @@ export async function GET(
 // PUT - Mettre à jour un état d'avancement sous-traitant
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { chantierId: string; soustraitantEtatId: string } }
+  props: { params: Promise<{ chantierId: string; soustraitantEtatId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -171,8 +173,9 @@ export async function PUT(
 // DELETE - Supprimer un état d'avancement sous-traitant
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { chantierId: string; soustraitantEtatId: string } }
+  props: { params: Promise<{ chantierId: string; soustraitantEtatId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

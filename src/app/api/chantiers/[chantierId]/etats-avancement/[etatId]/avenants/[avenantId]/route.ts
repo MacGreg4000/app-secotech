@@ -6,8 +6,9 @@ import { authOptions } from '@/lib/auth'
 // PUT /api/chantiers/[chantierId]/etats-avancement/[etatId]/avenants/[avenantId]
 export async function PUT(
   request: Request,
-  { params }: { params: { chantierId: string; etatId: string; avenantId: string } }
+  props: { params: Promise<{ chantierId: string; etatId: string; avenantId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -100,8 +101,9 @@ export async function PUT(
 // DELETE /api/chantiers/[chantierId]/etats-avancement/[etatId]/avenants/[avenantId]
 export async function DELETE(
   request: Request,
-  { params }: { params: { chantierId: string; etatId: string; avenantId: string } }
+  props: { params: Promise<{ chantierId: string; etatId: string; avenantId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

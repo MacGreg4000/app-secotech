@@ -113,6 +113,7 @@ export default function EtatAvancementClient({
 
   const handleQuantiteActuelleChange = async (ligneId: number, nouvelleQuantite: number) => {
     try {
+      // Mettre immédiatement à jour l'état local pour un retour visuel immédiat
       setQuantites(prev => ({
         ...prev,
         [ligneId]: nouvelleQuantite
@@ -123,8 +124,14 @@ export default function EtatAvancementClient({
         throw new Error('Ligne non trouvée')
       }
 
+      // Calculer les valeurs dérivées
       const montantActuel = nouvelleQuantite * ligne.prixUnitaire
       const montantTotal = montantActuel + ligne.montantPrecedent
+      
+      // Enregistrer temporairement la valeur exacte pour le dernier changement
+      const quantiteExacte = nouvelleQuantite;
+      
+      console.log(`Enregistrement de la quantité: ${quantiteExacte} pour la ligne ${ligneId}`);
 
       const response = await fetch(`/api/chantiers/${chantierId}/etats-avancement/${etatId}/lignes/${ligneId}`, {
         method: 'PUT',
@@ -132,8 +139,8 @@ export default function EtatAvancementClient({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          quantiteActuelle: nouvelleQuantite,
-          quantiteTotale: nouvelleQuantite + ligne.quantitePrecedente,
+          quantiteActuelle: quantiteExacte,
+          quantiteTotale: quantiteExacte + ligne.quantitePrecedente,
           montantActuel: montantActuel,
           montantTotal: montantTotal
         }),
@@ -142,14 +149,26 @@ export default function EtatAvancementClient({
       if (!response.ok) {
         const errorData = await response.json().catch(() => null)
         console.error('Erreur serveur:', errorData)
+        
+        // En cas d'erreur, restaurer l'ancienne valeur
         setQuantites(prev => ({
           ...prev,
           [ligneId]: ligne.quantiteActuelle || 0
         }))
         throw new Error(errorData?.message || 'Erreur lors de la mise à jour de la quantité')
       }
+      
+      // Si la requête est réussie, s'assurer que l'état local est correct
+      // Cela garantit que la valeur affichée correspond exactement à ce qui a été envoyé
+      setQuantites(prev => ({
+        ...prev,
+        [ligneId]: quantiteExacte
+      }))
 
-      router.refresh()
+      // Attendre un moment pour s'assurer que la mise à jour a bien eu lieu avant de rafraîchir
+      setTimeout(() => {
+        router.refresh();
+      }, 100);
     } catch (error) {
       console.error('Erreur détaillée:', error)
       toast.error('Erreur lors de la mise à jour de la quantité')
@@ -268,7 +287,10 @@ export default function EtatAvancementClient({
         quantite: updatedValues.quantite !== undefined ? updatedValues.quantite : (avenant.quantite || 0),
         quantiteActuelle: updatedValues.quantiteActuelle !== undefined ? updatedValues.quantiteActuelle : (avenant.quantiteActuelle || 0)
       };
-
+      
+      // Sauvegarder les valeurs exactes pour le champ modifié
+      const exactValues = { ...completeValues };
+      
       const quantiteActuelle = completeValues.quantiteActuelle || 0
       const prixUnitaire = completeValues.prixUnitaire || 0
       const montantActuel = quantiteActuelle * prixUnitaire
@@ -278,7 +300,7 @@ export default function EtatAvancementClient({
         avenantId,
         field,
         value,
-        completeValues,
+        exactValues,
         quantiteActuelle,
         prixUnitaire,
         montantActuel,
@@ -302,19 +324,38 @@ export default function EtatAvancementClient({
         throw new Error('Erreur lors de la mise à jour de l\'avenant')
       }
 
-      // Mettre à jour l'état local avec les nouvelles valeurs
-      const updatedAvenant = await response.json();
-      setAvenants(prev => prev.map(a => a.id === avenantId ? updatedAvenant : a));
-
-      // Aucun message de toast pour éviter de surcharger l'interface utilisateur
-      // avec des notifications à chaque modification
+      const serverAvenant = await response.json()
+      console.log('Avenant mis à jour:', serverAvenant)
       
-      router.refresh()
+      // Conserver les valeurs exactes saisies par l'utilisateur
+      setAvenantValues(prev => ({
+        ...prev,
+        [avenantId]: exactValues
+      }));
+      
+      // Mettre à jour l'avenant dans la liste, mais en conservant les valeurs exactes saisies
+      setAvenants(prev => prev.map(a => {
+        if (a.id === avenantId) {
+          return {
+            ...serverAvenant,
+            // Conserver les valeurs exactes pour les champs numériques
+            prixUnitaire: field === 'prixUnitaire' ? exactValues.prixUnitaire : serverAvenant.prixUnitaire,
+            quantite: field === 'quantite' ? exactValues.quantite : serverAvenant.quantite,
+            quantiteActuelle: field === 'quantiteActuelle' ? exactValues.quantiteActuelle : serverAvenant.quantiteActuelle
+          };
+        }
+        return a;
+      }));
+
+      // Attendre un court instant avant de rafraîchir pour s'assurer que les mises à jour sont bien appliquées
+      setTimeout(() => {
+        router.refresh();
+      }, 100);
     } catch (error) {
-      console.error('Erreur:', error)
+      console.error('Erreur lors de la mise à jour de l\'avenant:', error)
       toast.error('Erreur lors de la mise à jour de l\'avenant')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 
@@ -444,7 +485,7 @@ export default function EtatAvancementClient({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="number"
-                          value={quantites[ligne.id] === 0 ? '' : quantites[ligne.id]}
+                          value={quantites[ligne.id] === 0 ? "0" : quantites[ligne.id]?.toString()}
                           onChange={(e) => {
                             const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                             if (!isNaN(value)) {
@@ -580,7 +621,7 @@ export default function EtatAvancementClient({
                         <div className="flex items-center justify-end space-x-1">
                           <input
                             type="number"
-                            value={avenantValues[avenant.id]?.prixUnitaire === 0 ? '' : avenantValues[avenant.id]?.prixUnitaire}
+                            value={avenantValues[avenant.id]?.prixUnitaire === 0 ? "0" : avenantValues[avenant.id]?.prixUnitaire?.toString()}
                             onChange={(e) => {
                               const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                               if (!isNaN(value)) {
@@ -602,7 +643,7 @@ export default function EtatAvancementClient({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="number"
-                          value={avenantValues[avenant.id]?.quantite === 0 ? '' : avenantValues[avenant.id]?.quantite}
+                          value={avenantValues[avenant.id]?.quantite === 0 ? "0" : avenantValues[avenant.id]?.quantite?.toString()}
                           onChange={(e) => {
                             const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                             if (!isNaN(value)) {
@@ -629,7 +670,7 @@ export default function EtatAvancementClient({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="number"
-                          value={avenantValues[avenant.id]?.quantiteActuelle === 0 ? '' : avenantValues[avenant.id]?.quantiteActuelle}
+                          value={avenantValues[avenant.id]?.quantiteActuelle === 0 ? "0" : avenantValues[avenant.id]?.quantiteActuelle?.toString()}
                           onChange={(e) => {
                             const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                             if (!isNaN(value)) {

@@ -5,8 +5,9 @@ import { authOptions } from '@/lib/auth'
 
 export async function PUT(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string; commandeId: string; ligneId: string } }
+  props: { params: Promise<{ chantierId: string; soustraitantId: string; commandeId: string; ligneId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -109,8 +110,9 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string; commandeId: string; ligneId: string } }
+  props: { params: Promise<{ chantierId: string; soustraitantId: string; commandeId: string; ligneId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

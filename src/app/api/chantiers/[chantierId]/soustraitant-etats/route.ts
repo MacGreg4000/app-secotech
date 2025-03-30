@@ -10,10 +10,8 @@ const createSchema = z.object({
 })
 
 // GET - Récupérer tous les états d'avancement d'un sous-traitant
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { chantierId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ chantierId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -92,10 +90,8 @@ export async function GET(
 }
 
 // POST - Créer un nouvel état d'avancement
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { chantierId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ chantierId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

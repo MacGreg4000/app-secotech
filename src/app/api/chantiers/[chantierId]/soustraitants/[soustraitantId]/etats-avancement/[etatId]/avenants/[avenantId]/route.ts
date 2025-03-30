@@ -3,23 +3,58 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-interface Params {
-  params: {
-    chantierId: string
-    soustraitantId: string
-    etatId: string
-    avenantId: string
-  }
-}
-
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, context: { params: Promise<{ chantierId: string; soustraitantId: string; etatId: string; avenantId: string }> }) {
   const session = await getServerSession(authOptions)
   
   if (!session) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
   
-  const { chantierId, soustraitantId, etatId, avenantId } = params
+  const { chantierId, soustraitantId, etatId, avenantId } = await context.params
+  
+  try {
+    // Vérifier l'accès au chantier
+    const userHasAccess = await prisma.user.findFirst({
+      where: {
+        id: session.user.id,
+        OR: [
+          { role: 'ADMIN' },
+          { role: 'MANAGER' },
+        ]
+      }
+    })
+    
+    if (!userHasAccess) {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
+    }
+    
+    // Récupérer l'avenant
+    const avenant = await prisma.avenant_soustraitant_etat_avancement.findUnique({
+      where: {
+        id: parseInt(avenantId),
+        soustraitantEtatAvancementId: parseInt(etatId)
+      }
+    })
+    
+    if (!avenant) {
+      return NextResponse.json({ error: 'Avenant non trouvé' }, { status: 404 })
+    }
+    
+    return NextResponse.json(avenant)
+  } catch (error) {
+    console.error('Erreur:', error)
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}
+
+export async function PUT(request: NextRequest, context: { params: Promise<{ chantierId: string; soustraitantId: string; etatId: string; avenantId: string }> }) {
+  const session = await getServerSession(authOptions)
+  
+  if (!session) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  }
+  
+  const { chantierId, soustraitantId, etatId, avenantId } = await context.params
   
   try {
     // Vérifier l'accès au chantier
@@ -55,13 +90,14 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
     
     // Vérifier si l'avenant existe
-    const avenantExistant = await prisma.avenant_soustraitant_etat_avancement.findUnique({
+    const avenant = await prisma.avenant_soustraitant_etat_avancement.findUnique({
       where: {
         id: parseInt(avenantId),
+        soustraitantEtatAvancementId: parseInt(etatId)
       }
     })
     
-    if (!avenantExistant) {
+    if (!avenant) {
       return NextResponse.json({ error: 'Avenant non trouvé' }, { status: 404 })
     }
     
@@ -72,23 +108,23 @@ export async function PUT(request: NextRequest, { params }: Params) {
     // Mettre à jour l'avenant
     const updatedAvenant = await prisma.avenant_soustraitant_etat_avancement.update({
       where: {
-        id: parseInt(avenantId),
+        id: parseInt(avenantId)
       },
       data: {
-        article: data.article !== undefined ? data.article : avenantExistant.article,
-        description: data.description !== undefined ? data.description : avenantExistant.description,
-        type: data.type !== undefined ? data.type : avenantExistant.type,
-        unite: data.unite !== undefined ? data.unite : avenantExistant.unite,
-        prixUnitaire: data.prixUnitaire !== undefined ? data.prixUnitaire : avenantExistant.prixUnitaire,
-        quantite: data.quantite !== undefined ? data.quantite : avenantExistant.quantite,
-        quantitePrecedente: data.quantitePrecedente !== undefined ? data.quantitePrecedente : avenantExistant.quantitePrecedente,
-        quantiteActuelle: data.quantiteActuelle !== undefined ? data.quantiteActuelle : avenantExistant.quantiteActuelle,
-        quantiteTotale: data.quantiteTotale !== undefined ? data.quantiteTotale : avenantExistant.quantiteTotale,
-        montantPrecedent: data.montantPrecedent !== undefined ? data.montantPrecedent : avenantExistant.montantPrecedent,
-        montantActuel: data.montantActuel !== undefined ? data.montantActuel : avenantExistant.montantActuel,
-        montantTotal: data.montantTotal !== undefined ? data.montantTotal : avenantExistant.montantTotal,
+        article: data.article !== undefined ? data.article : avenant.article,
+        description: data.description !== undefined ? data.description : avenant.description,
+        type: data.type !== undefined ? data.type : avenant.type,
+        unite: data.unite !== undefined ? data.unite : avenant.unite,
+        prixUnitaire: data.prixUnitaire !== undefined ? parseFloat(data.prixUnitaire) : avenant.prixUnitaire,
+        quantite: data.quantite !== undefined ? parseFloat(data.quantite) : avenant.quantite,
+        quantitePrecedente: data.quantitePrecedente !== undefined ? parseFloat(data.quantitePrecedente) : avenant.quantitePrecedente,
+        quantiteActuelle: data.quantiteActuelle !== undefined ? parseFloat(data.quantiteActuelle) : avenant.quantiteActuelle,
+        quantiteTotale: data.quantiteTotale !== undefined ? parseFloat(data.quantiteTotale) : avenant.quantiteTotale,
+        montantPrecedent: data.montantPrecedent !== undefined ? parseFloat(data.montantPrecedent) : avenant.montantPrecedent,
+        montantActuel: data.montantActuel !== undefined ? parseFloat(data.montantActuel) : avenant.montantActuel,
+        montantTotal: data.montantTotal !== undefined ? parseFloat(data.montantTotal) : avenant.montantTotal,
         updatedAt: now
-      }
+      },
     })
     
     return NextResponse.json(updatedAvenant)
@@ -98,14 +134,14 @@ export async function PUT(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ chantierId: string; soustraitantId: string; etatId: string; avenantId: string }> }) {
   const session = await getServerSession(authOptions)
   
   if (!session) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
   
-  const { chantierId, soustraitantId, etatId, avenantId } = params
+  const { chantierId, soustraitantId, etatId, avenantId } = await context.params
   
   try {
     // Vérifier l'accès au chantier

@@ -13,13 +13,13 @@ interface EtatAvancementSSTraitantProps {
 
 // Type simplifié pour les valeurs d'avenants éditables
 interface AvenantValues {
-  article?: string;
-  description?: string;
-  type?: string;
-  unite?: string;
-  prixUnitaire?: number;
-  quantite?: number;
-  quantiteActuelle?: number;
+  article: string;
+  description: string;
+  type: string;
+  unite: string;
+  prixUnitaire: number;
+  quantite: number;
+  quantiteActuelle: number;
 }
 
 export default function EtatAvancementSSTraitant({
@@ -29,62 +29,60 @@ export default function EtatAvancementSSTraitant({
 }: EtatAvancementSSTraitantProps) {
   const router = useRouter()
   const [isEditingComments, setIsEditingComments] = useState(false)
-  const [commentaires, setCommentaires] = useState(etatAvancement.commentaires || '')
+  const [commentaires, setCommentaires] = useState(etatAvancement?.commentaires || '')
   const [summary, setSummary] = useState<SoustraitantEtatSummary>({
     totalCommandeInitiale: { precedent: 0, actuel: 0, total: 0 },
     totalAvenants: { precedent: 0, actuel: 0, total: 0 },
     totalGeneral: { precedent: 0, actuel: 0, total: 0 }
   })
   const [quantites, setQuantites] = useState<{ [key: number]: number }>({})
-  const [avenants, setAvenants] = useState(etatAvancement.avenants)
+  const [avenants, setAvenants] = useState<AvenantSoustraitantEtat[]>([])
   const [avenantValues, setAvenantValues] = useState<{ [key: number]: AvenantValues }>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
 
   // Ajouter un log pour déboguer
-  console.log('Avenants reçus dans EtatAvancementClient:', etatAvancement.avenants);
-  console.log('Commentaires reçus dans EtatAvancementClient:', etatAvancement.commentaires);
+  console.log('Avenants reçus dans EtatAvancementClient:', etatAvancement?.avenants || []);
+  console.log('Commentaires reçus dans EtatAvancementClient:', etatAvancement?.commentaires || '');
 
-  // Mettre à jour les commentaires lorsque etatAvancement change
+  // Initialisation des données
   useEffect(() => {
-    console.log('etatAvancement a changé, mise à jour des commentaires:', etatAvancement.commentaires);
-    setCommentaires(etatAvancement.commentaires || '');
-  }, [etatAvancement]);
-
-  useEffect(() => {
+    if (!etatAvancement || isInitialized) return;
+    
     // Initialiser les quantités avec les valeurs actuelles
     const initialQuantites = etatAvancement?.lignes?.reduce((acc: { [key: number]: number }, ligne: LigneSoustraitantEtat) => {
-      acc[ligne.id] = ligne.quantiteActuelle || 0
+      acc[ligne.id] = ligne.quantiteActuelle ?? 0
       return acc
     }, {} as { [key: number]: number }) || {}
     setQuantites(initialQuantites)
 
     // Initialiser les valeurs des avenants
+    const initialAvenants = etatAvancement?.avenants || [];
+    setAvenants(initialAvenants);
+    
     const initialAvenantValues: { [key: number]: AvenantValues } = {};
     
-    if (etatAvancement.avenants && Array.isArray(etatAvancement.avenants)) {
-      etatAvancement.avenants.forEach((avenant: AvenantSoustraitantEtat) => {
+    if (initialAvenants && Array.isArray(initialAvenants)) {
+      initialAvenants.forEach((avenant: AvenantSoustraitantEtat) => {
         initialAvenantValues[avenant.id] = {
-          article: avenant.article,
-          description: avenant.description,
-          type: avenant.type,
-          unite: avenant.unite,
-          prixUnitaire: avenant.prixUnitaire,
-          quantite: avenant.quantite,
-          quantiteActuelle: avenant.quantiteActuelle || 0
+          article: avenant.article || '',
+          description: avenant.description || '',
+          type: avenant.type || 'QP',
+          unite: avenant.unite || 'U',
+          prixUnitaire: avenant.prixUnitaire ?? 0,
+          quantite: avenant.quantite ?? 0,
+          quantiteActuelle: avenant.quantiteActuelle ?? 0
         };
       });
       
       console.log('Valeurs initiales des avenants:', initialAvenantValues);
       setAvenantValues(initialAvenantValues);
-      
-      // Mettre à jour l'état des avenants pour s'assurer qu'ils sont correctement initialisés
-      setAvenants(etatAvancement.avenants);
-    } else {
-      console.log('Aucun avenant trouvé ou format incorrect:', etatAvancement.avenants);
-      // Initialiser avec un tableau vide pour éviter les erreurs
-      setAvenants([]);
+      setIsInitialized(true);
     }
-  }, [etatAvancement])
+    
+    // Mettre à jour les commentaires
+    setCommentaires(etatAvancement.commentaires || '');
+  }, [etatAvancement, isInitialized]);
 
   // Calcul des valeurs dérivées pour les lignes
   const calculatedLignes = etatAvancement?.lignes?.map((ligne: LigneSoustraitantEtat) => {
@@ -105,12 +103,12 @@ export default function EtatAvancementSSTraitant({
   // Calcul des valeurs dérivées pour les avenants
   const calculatedAvenants = avenants?.map((avenant: AvenantSoustraitantEtat) => {
     const values = avenantValues[avenant.id] ?? {
-      article: avenant.article,
-      description: avenant.description,
-      type: avenant.type,
-      unite: avenant.unite,
-      prixUnitaire: avenant.prixUnitaire,
-      quantite: avenant.quantite,
+      article: avenant.article || '',
+      description: avenant.description || '',
+      type: avenant.type || 'QP',
+      unite: avenant.unite || 'U',
+      prixUnitaire: avenant.prixUnitaire || 0,
+      quantite: avenant.quantite || 0,
       quantiteActuelle: avenant.quantiteActuelle || 0
     };
     const quantiteActuelle = values.quantiteActuelle || 0;
@@ -128,8 +126,48 @@ export default function EtatAvancementSSTraitant({
     }
   })
 
+  // Calcul des totaux à partir des valeurs calculées
+  const totalCommandeInitiale = {
+    precedent: calculatedLignes?.reduce((sum: number, ligne: LigneSoustraitantEtat) => sum + ligne.montantPrecedent, 0) || 0,
+    actuel: calculatedLignes?.reduce((sum: number, ligne: LigneSoustraitantEtat) => sum + ligne.montantActuel, 0) || 0,
+    total: calculatedLignes?.reduce((sum: number, ligne: LigneSoustraitantEtat) => sum + ligne.montantTotal, 0) || 0
+  }
+
+  const totalAvenants = {
+    precedent: calculatedAvenants?.reduce((sum: number, avenant: AvenantSoustraitantEtat) => sum + avenant.montantPrecedent, 0) || 0,
+    actuel: calculatedAvenants?.reduce((sum: number, avenant: AvenantSoustraitantEtat) => sum + avenant.montantActuel, 0) || 0,
+    total: calculatedAvenants?.reduce((sum: number, avenant: AvenantSoustraitantEtat) => sum + avenant.montantTotal, 0) || 0
+  }
+
+  // Mettre à jour les totaux à chaque changement de quantités ou avenants
+  useEffect(() => {
+    // Calculer les totaux
+    const totalCommandeInitiale = {
+      precedent: calculatedLignes?.reduce((sum: number, ligne: LigneSoustraitantEtat) => sum + ligne.montantPrecedent, 0) || 0,
+      actuel: calculatedLignes?.reduce((sum: number, ligne: LigneSoustraitantEtat) => sum + ligne.montantActuel, 0) || 0,
+      total: calculatedLignes?.reduce((sum: number, ligne: LigneSoustraitantEtat) => sum + ligne.montantTotal, 0) || 0
+    }
+
+    const totalAvenants = {
+      precedent: calculatedAvenants?.reduce((sum: number, avenant: AvenantSoustraitantEtat) => sum + avenant.montantPrecedent, 0) || 0,
+      actuel: calculatedAvenants?.reduce((sum: number, avenant: AvenantSoustraitantEtat) => sum + avenant.montantActuel, 0) || 0,
+      total: calculatedAvenants?.reduce((sum: number, avenant: AvenantSoustraitantEtat) => sum + avenant.montantTotal, 0) || 0
+    }
+
+    setSummary({
+      totalCommandeInitiale,
+      totalAvenants,
+      totalGeneral: {
+        precedent: totalCommandeInitiale.precedent + totalAvenants.precedent,
+        actuel: totalCommandeInitiale.actuel + totalAvenants.actuel,
+        total: totalCommandeInitiale.total + totalAvenants.total
+      }
+    })
+  }, [quantites, avenantValues, etatAvancement?.lignes, avenants]) // Dépendances stables
+
   const handleQuantiteActuelleChange = async (ligneId: number, nouvelleQuantite: number) => {
     try {
+      // Mettre immédiatement à jour l'état local pour un retour visuel immédiat
       setQuantites(prev => ({
         ...prev,
         [ligneId]: nouvelleQuantite
@@ -140,8 +178,14 @@ export default function EtatAvancementSSTraitant({
         throw new Error('Ligne non trouvée')
       }
 
+      // Calculer les valeurs dérivées
       const montantActuel = nouvelleQuantite * ligne.prixUnitaire
       const montantTotal = montantActuel + ligne.montantPrecedent
+      
+      // Enregistrer temporairement la valeur exacte pour le dernier changement
+      const quantiteExacte = nouvelleQuantite;
+      
+      console.log(`Enregistrement de la quantité: ${quantiteExacte} pour la ligne ${ligneId}`);
 
       const response = await fetch(`/api/chantiers/${chantierId}/soustraitants/${etatAvancement.soustraitantId}/etats-avancement/${etatId}/lignes/${ligneId}`, {
         method: 'PUT',
@@ -149,8 +193,8 @@ export default function EtatAvancementSSTraitant({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          quantiteActuelle: nouvelleQuantite,
-          quantiteTotale: nouvelleQuantite + ligne.quantitePrecedente,
+          quantiteActuelle: quantiteExacte,
+          quantiteTotale: quantiteExacte + ligne.quantitePrecedente,
           montantActuel: montantActuel,
           montantTotal: montantTotal
         }),
@@ -159,14 +203,26 @@ export default function EtatAvancementSSTraitant({
       if (!response.ok) {
         const errorData = await response.json().catch(() => null)
         console.error('Erreur serveur:', errorData)
+        
+        // En cas d'erreur, restaurer l'ancienne valeur
         setQuantites(prev => ({
           ...prev,
           [ligneId]: ligne.quantiteActuelle || 0
         }))
         throw new Error(errorData?.message || 'Erreur lors de la mise à jour de la quantité')
       }
+      
+      // Si la requête est réussie, s'assurer que l'état local est correct
+      // Cela garantit que la valeur affichée correspond exactement à ce qui a été envoyé
+      setQuantites(prev => ({
+        ...prev,
+        [ligneId]: quantiteExacte
+      }))
 
-      router.refresh()
+      // Attendre un moment pour s'assurer que la mise à jour a bien eu lieu avant de rafraîchir
+      setTimeout(() => {
+        router.refresh();
+      }, 100);
     } catch (error) {
       console.error('Erreur détaillée:', error)
       toast.error('Erreur lors de la mise à jour de la quantité')
@@ -255,31 +311,6 @@ export default function EtatAvancementSSTraitant({
     }
   };
 
-  useEffect(() => {
-    // Calculer les totaux
-    const totalCommandeInitiale = {
-      precedent: calculatedLignes?.reduce((sum: number, ligne: LigneSoustraitantEtat) => sum + ligne.montantPrecedent, 0) || 0,
-      actuel: calculatedLignes?.reduce((sum: number, ligne: LigneSoustraitantEtat) => sum + ligne.montantActuel, 0) || 0,
-      total: calculatedLignes?.reduce((sum: number, ligne: LigneSoustraitantEtat) => sum + ligne.montantTotal, 0) || 0
-    }
-
-    const totalAvenants = {
-      precedent: calculatedAvenants?.reduce((sum: number, avenant: AvenantSoustraitantEtat) => sum + avenant.montantPrecedent, 0) || 0,
-      actuel: calculatedAvenants?.reduce((sum: number, avenant: AvenantSoustraitantEtat) => sum + avenant.montantActuel, 0) || 0,
-      total: calculatedAvenants?.reduce((sum: number, avenant: AvenantSoustraitantEtat) => sum + avenant.montantTotal, 0) || 0
-    }
-
-    setSummary({
-      totalCommandeInitiale,
-      totalAvenants,
-      totalGeneral: {
-        precedent: totalCommandeInitiale.precedent + totalAvenants.precedent,
-        actuel: totalCommandeInitiale.actuel + totalAvenants.actuel,
-        total: totalCommandeInitiale.total + totalAvenants.total
-      }
-    })
-  }, [calculatedLignes, calculatedAvenants])
-
   const handleAvenantChange = async (avenantId: number, field: string, value: string | number) => {
     try {
       // Mettre à jour l'état local immédiatement
@@ -301,14 +332,16 @@ export default function EtatAvancementSSTraitant({
 
       // Récupérer les valeurs mises à jour
       const currentValues = avenantValues[avenantId] || {
-        article: avenant.article,
-        description: avenant.description,
-        type: avenant.type,
-        unite: avenant.unite,
-        prixUnitaire: avenant.prixUnitaire,
-        quantite: avenant.quantite,
+        article: avenant.article || '',
+        description: avenant.description || '',
+        type: avenant.type || 'QP',
+        unite: avenant.unite || 'U',
+        prixUnitaire: avenant.prixUnitaire || 0,
+        quantite: avenant.quantite || 0,
         quantiteActuelle: avenant.quantiteActuelle || 0
       };
+      
+      // Sauvegarder les valeurs exactes avant l'envoi
       const updatedValues = {
         ...currentValues,
         [field]: value
@@ -319,6 +352,9 @@ export default function EtatAvancementSSTraitant({
       const prixUnitaire = updatedValues.prixUnitaire !== undefined ? updatedValues.prixUnitaire : 0;
       const montantActuel = quantiteActuelle * prixUnitaire;
       const montantTotal = montantActuel + avenant.montantPrecedent;
+      
+      // Log des valeurs avant envoi pour déboguer
+      console.log(`Mise à jour de l'avenant ${avenantId}, champ ${field}, valeur: ${value}`, updatedValues);
 
       // Préparer les données pour l'API
       const dataToUpdate = {
@@ -341,11 +377,33 @@ export default function EtatAvancementSSTraitant({
         throw new Error('Erreur lors de la mise à jour de l\'avenant')
       }
 
-      // Mettre à jour l'état local avec les données du serveur
+      // Mettre à jour l'état local avec les données du serveur mais en conservant les valeurs exactes envoyées
       const updatedAvenant = await response.json();
-      setAvenants(prev => prev.map((a: AvenantSoustraitantEtat) => a.id === avenantId ? updatedAvenant : a));
+      
+      // S'assurer que les valeurs exactes sont conservées
+      setAvenantValues(prev => {
+        const exactValues = { ...prev };
+        if (exactValues[avenantId]) {
+          // Conserver les valeurs exactes entrées par l'utilisateur
+          exactValues[avenantId] = {
+            ...updatedValues
+          };
+        }
+        return exactValues;
+      });
+      
+      setAvenants(prev => prev.map((a: AvenantSoustraitantEtat) => a.id === avenantId ? {
+        ...updatedAvenant,
+        // S'assurer que les valeurs numériques sont exactement celles envoyées
+        prixUnitaire: field === 'prixUnitaire' ? updatedValues.prixUnitaire : updatedAvenant.prixUnitaire,
+        quantite: field === 'quantite' ? updatedValues.quantite : updatedAvenant.quantite,
+        quantiteActuelle: field === 'quantiteActuelle' ? updatedValues.quantiteActuelle : updatedAvenant.quantiteActuelle
+      } : a));
 
-      router.refresh()
+      // Attendre un moment pour s'assurer que la mise à jour a bien eu lieu avant de rafraîchir
+      setTimeout(() => {
+        router.refresh();
+      }, 100);
     } catch (error) {
       console.error('Erreur:', error)
       toast.error('Erreur lors de la mise à jour de l\'avenant')
@@ -507,7 +565,7 @@ export default function EtatAvancementSSTraitant({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="number"
-                          value={quantites[ligne.id] === 0 ? '' : quantites[ligne.id]}
+                          value={quantites[ligne.id] === 0 ? "0" : quantites[ligne.id]?.toString() || "0"}
                           onChange={(e) => {
                             const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                             if (!isNaN(value)) {
@@ -591,7 +649,7 @@ export default function EtatAvancementSSTraitant({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="text"
-                          value={avenantValues[avenant.id]?.article ?? avenant.article}
+                          value={avenantValues[avenant.id]?.article ?? ''}
                           onChange={(e) => handleAvenantChange(avenant.id, 'article', e.target.value)}
                           className="w-full border rounded px-1 py-0.5 text-xs dark:bg-gray-800 dark:border-gray-600"
                         />
@@ -603,7 +661,7 @@ export default function EtatAvancementSSTraitant({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="text"
-                          value={avenantValues[avenant.id]?.description ?? avenant.description}
+                          value={avenantValues[avenant.id]?.description ?? ''}
                           onChange={(e) => handleAvenantChange(avenant.id, 'description', e.target.value)}
                           className="w-full border rounded px-1 py-0.5 text-xs dark:bg-gray-800 dark:border-gray-600"
                         />
@@ -614,7 +672,7 @@ export default function EtatAvancementSSTraitant({
                     <td className="w-16 px-2 py-3 text-xs text-gray-900 dark:text-gray-200">
                       {!etatAvancement.estFinalise ? (
                         <select
-                          value={avenantValues[avenant.id]?.type ?? avenant.type}
+                          value={avenantValues[avenant.id]?.type ?? 'QP'}
                           onChange={(e) => handleAvenantChange(avenant.id, 'type', e.target.value)}
                           className="border rounded px-1 py-0.5 text-xs dark:bg-gray-800 dark:border-gray-600"
                         >
@@ -630,7 +688,7 @@ export default function EtatAvancementSSTraitant({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="text"
-                          value={avenantValues[avenant.id]?.unite ?? avenant.unite}
+                          value={avenantValues[avenant.id]?.unite ?? 'U'}
                           onChange={(e) => handleAvenantChange(avenant.id, 'unite', e.target.value)}
                           className="w-16 border rounded px-1 py-0.5 text-xs dark:bg-gray-800 dark:border-gray-600"
                         />
@@ -643,7 +701,7 @@ export default function EtatAvancementSSTraitant({
                         <div className="flex items-center justify-end space-x-1">
                           <input
                             type="number"
-                            value={avenantValues[avenant.id]?.prixUnitaire === 0 ? '' : avenantValues[avenant.id]?.prixUnitaire}
+                            value={(avenantValues[avenant.id]?.prixUnitaire === 0 || avenantValues[avenant.id]?.prixUnitaire === undefined) ? "0" : avenantValues[avenant.id]?.prixUnitaire.toString()}
                             onChange={(e) => {
                               const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                               if (!isNaN(value)) {
@@ -665,7 +723,7 @@ export default function EtatAvancementSSTraitant({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="number"
-                          value={avenantValues[avenant.id]?.quantite === 0 ? '' : avenantValues[avenant.id]?.quantite}
+                          value={(avenantValues[avenant.id]?.quantite === 0 || avenantValues[avenant.id]?.quantite === undefined) ? "0" : avenantValues[avenant.id]?.quantite.toString()}
                           onChange={(e) => {
                             const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                             if (!isNaN(value)) {
@@ -692,7 +750,7 @@ export default function EtatAvancementSSTraitant({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="number"
-                          value={avenantValues[avenant.id]?.quantiteActuelle === 0 ? '' : avenantValues[avenant.id]?.quantiteActuelle}
+                          value={(avenantValues[avenant.id]?.quantiteActuelle === 0 || avenantValues[avenant.id]?.quantiteActuelle === undefined) ? "0" : avenantValues[avenant.id]?.quantiteActuelle.toString()}
                           onChange={(e) => {
                             const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                             if (!isNaN(value)) {

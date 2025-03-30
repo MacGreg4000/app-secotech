@@ -12,8 +12,9 @@ const DOCUMENTS_BASE_PATH = join(process.cwd(), 'public', 'uploads', 'documents'
 // GET /api/chantiers/[chantierId]/depenses/[depenseId]
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string, depenseId: string } }
+  props: { params: Promise<{ chantierId: string, depenseId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -50,8 +51,9 @@ export async function GET(
 // PUT /api/chantiers/[chantierId]/depenses/[depenseId]
 export async function PUT(
   request: Request,
-  { params }: { params: { chantierId: string, depenseId: string } }
+  props: { params: Promise<{ chantierId: string, depenseId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -178,8 +180,9 @@ export async function PUT(
 // DELETE /api/chantiers/[chantierId]/depenses/[depenseId]
 export async function DELETE(
   request: Request,
-  { params }: { params: { chantierId: string, depenseId: string } }
+  props: { params: Promise<{ chantierId: string, depenseId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

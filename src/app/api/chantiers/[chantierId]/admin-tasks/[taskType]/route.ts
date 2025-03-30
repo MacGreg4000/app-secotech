@@ -5,8 +5,9 @@ import { prisma } from '@/lib/prisma/client'
 
 export async function PUT(
   request: Request,
-  { params }: { params: { chantierId: string; taskType: string } }
+  props: { params: Promise<{ chantierId: string; taskType: string }> }
 ) {
+  const params = await props.params;
   try {
     console.log(`Mise à jour de la tâche ${params.taskType} pour le chantier ${params.chantierId}`)
     

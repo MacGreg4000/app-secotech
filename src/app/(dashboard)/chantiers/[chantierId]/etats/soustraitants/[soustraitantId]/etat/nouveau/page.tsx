@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { 
@@ -60,21 +60,22 @@ interface CommandeSousTraitant {
   }[];
 }
 
-export default function NouvelEtatAvancementPage({
-  params
-}: {
-  params: { chantierId: string; soustraitantId: string }
-}) {
+export default function NouvelEtatAvancementPage(
+  props: {
+    params: Promise<{ chantierId: string; soustraitantId: string }>
+  }
+) {
+  const params = use(props.params);
   const { data: session } = useSession()
   const router = useRouter()
-  
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [commandeValidee, setCommandeValidee] = useState<CommandeSousTraitant | null>(null)
   const [etatAvancement, setEtatAvancement] = useState<EtatAvancement | null>(null)
   const [photos, setPhotos] = useState<File[]>([])
   const [photosPreviews, setPhotosPreviews] = useState<string[]>([])
-  
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -176,7 +177,7 @@ export default function NouvelEtatAvancementPage({
       fetchData()
     }
   }, [session, params.chantierId, params.soustraitantId])
-  
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newPhotos = Array.from(e.target.files)
@@ -187,13 +188,13 @@ export default function NouvelEtatAvancementPage({
       setPhotosPreviews(prev => [...prev, ...newPreviews])
     }
   }
-  
+
   const handleRemovePhoto = (index: number) => {
     setPhotos(prev => prev.filter((_, i) => i !== index))
     URL.revokeObjectURL(photosPreviews[index])
     setPhotosPreviews(prev => prev.filter((_, i) => i !== index))
   }
-  
+
   const handleSaveEtat = async (finalise: boolean = false) => {
     if (!etatAvancement) return
     
@@ -250,13 +251,13 @@ export default function NouvelEtatAvancementPage({
       setLoading(false)
     }
   }
-  
+
   if (loading) return (
     <div className="flex justify-center items-center h-64">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
     </div>
   )
-  
+
   if (error) return (
     <div className="container mx-auto py-6">
       <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-lg border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
@@ -273,7 +274,7 @@ export default function NouvelEtatAvancementPage({
       </div>
     </div>
   )
-  
+
   if (!etatAvancement) return (
     <div className="container mx-auto py-6">
       <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400">
@@ -290,13 +291,13 @@ export default function NouvelEtatAvancementPage({
       </div>
     </div>
   )
-  
+
   // Calcul des totaux pour l'affichage
   const totalMontantActuel = etatAvancement.lignes.reduce((sum, ligne) => sum + ligne.montantActuel, 0)
   const totalMontantGlobal = etatAvancement.lignes.reduce((sum, ligne) => sum + ligne.montantTotal, 0)
   const totalCommande = commandeValidee?.lignes.reduce((sum, ligne) => sum + ligne.total, 0) || 0
   const pourcentageAvancement = totalCommande > 0 ? Math.round((totalMontantGlobal / totalCommande) * 100) : 0
-  
+
   return (
     <div className="container mx-auto py-6">
       <Toaster position="top-right" />

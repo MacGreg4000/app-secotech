@@ -6,9 +6,13 @@ import { authOptions } from '@/lib/auth'
 // GET /api/chantiers/[chantierId] - Récupère un chantier spécifique
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string } }
+  context: { params: Promise<{ chantierId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
@@ -16,7 +20,7 @@ export async function GET(
 
     const chantier = await prisma.chantier.findUnique({
       where: {
-        chantierId: params.chantierId,
+        chantierId: chantierId,
       },
       include: {
         client: true,
@@ -40,9 +44,13 @@ export async function GET(
 // PUT /api/chantiers/[chantierId] - Met à jour un chantier
 export async function PUT(
   request: Request,
-  { params }: { params: { chantierId: string } }
+  context: { params: Promise<{ chantierId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -54,7 +62,7 @@ export async function PUT(
     const body = await request.json()
 
     const chantier = await prisma.chantier.update({
-      where: { chantierId: params.chantierId },
+      where: { chantierId: chantierId },
       data: {
         nomChantier: body.nomChantier,
         dateCommencement: new Date(body.dateCommencement),
@@ -76,7 +84,7 @@ export async function PUT(
       // Supprimer l'ancien document PPSS s'il existe
       const existingDocument = await prisma.document.findFirst({
         where: {
-          chantierId: params.chantierId,
+          chantierId: chantierId,
           type: 'PPSS'
         }
       })
@@ -102,7 +110,7 @@ export async function PUT(
 
       // Appel à l'API pour générer le nouveau PPSS
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
-      const ppssResponse = await fetch(`${baseUrl}/api/chantiers/${params.chantierId}/generer-ppss`, {
+      const ppssResponse = await fetch(`${baseUrl}/api/chantiers/${chantierId}/generer-ppss`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,9 +140,13 @@ export async function PUT(
 // DELETE /api/chantiers/[chantierId] - Supprime un chantier
 export async function DELETE(
   request: Request,
-  { params }: { params: { chantierId: string } }
+  context: { params: Promise<{ chantierId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -145,7 +157,7 @@ export async function DELETE(
 
     // Vérifier si le chantier existe
     const chantier = await prisma.chantier.findUnique({
-      where: { chantierId: params.chantierId }
+      where: { chantierId: chantierId }
     })
 
     if (!chantier) {
@@ -157,7 +169,7 @@ export async function DELETE(
 
     // Supprimer le chantier
     await prisma.chantier.delete({
-      where: { chantierId: params.chantierId }
+      where: { chantierId: chantierId }
     })
 
     return NextResponse.json(

@@ -6,8 +6,9 @@ import nodemailer from 'nodemailer'
 
 export async function POST(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string; commandeId: string } }
+  props: { params: Promise<{ chantierId: string; soustraitantId: string; commandeId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

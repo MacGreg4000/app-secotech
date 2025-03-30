@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma/client'
 
-export async function GET(
-  request: Request,
-  { params }: { params: { token: string } }
-) {
+export async function GET(request: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   try {
     const contrat = await (prisma as any).contrat.findUnique({
       where: { token: params.token },

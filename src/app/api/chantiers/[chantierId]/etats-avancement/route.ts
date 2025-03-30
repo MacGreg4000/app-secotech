@@ -6,9 +6,13 @@ import { authOptions } from '@/lib/auth'
 // GET /api/chantiers/[chantierId]/etats-avancement
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string } }
+  context: { params: Promise<{ chantierId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -19,7 +23,7 @@ export async function GET(
 
     const etatsAvancement = await prisma.etatAvancement.findMany({
       where: {
-        chantierId: params.chantierId
+        chantierId: chantierId
       },
       include: {
         lignes: true,
@@ -44,9 +48,13 @@ export async function GET(
 // POST /api/chantiers/[chantierId]/etats-avancement
 export async function POST(
   request: Request,
-  { params }: { params: { chantierId: string } }
+  context: { params: Promise<{ chantierId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -58,7 +66,7 @@ export async function POST(
     // Vérifier si c'est le premier état d'avancement
     const existingEtats = await prisma.etatAvancement.count({
       where: {
-        chantierId: params.chantierId
+        chantierId: chantierId
       }
     })
 
@@ -67,7 +75,7 @@ export async function POST(
     // Récupérer le dernier état d'avancement
     const lastEtat = await prisma.etatAvancement.findFirst({
       where: {
-        chantierId: params.chantierId
+        chantierId: chantierId
       },
       orderBy: {
         numero: 'desc'
@@ -115,7 +123,7 @@ export async function POST(
     // Créer le nouvel état d'avancement
     const etatAvancement = await prisma.etatAvancement.create({
       data: {
-        chantierId: params.chantierId,
+        chantierId: chantierId,
         numero: nextNumero,
         createdBy: session.user.email || '',
         estFinalise: false,
@@ -130,7 +138,7 @@ export async function POST(
       console.log('Premier état, chargement de la commande...')
       const commande = await prisma.commande.findFirst({
         where: {
-          chantierId: params.chantierId,
+          chantierId: chantierId,
           statut: 'VALIDEE'
         },
         include: {

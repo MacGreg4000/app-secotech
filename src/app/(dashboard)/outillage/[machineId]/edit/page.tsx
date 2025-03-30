@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { toast } from 'react-hot-toast'
@@ -15,7 +15,8 @@ interface FormData {
   statut: 'DISPONIBLE' | 'PRETE' | 'EN_PANNE' | 'EN_REPARATION' | 'MANQUE_CONSOMMABLE'
 }
 
-export default function EditMachinePage({ params }: { params: { machineId: string } }) {
+export default function EditMachinePage(props: { params: Promise<{ machineId: string }> }) {
+  const params = use(props.params);
   const router = useRouter()
   const { data: session } = useSession()
   const [saving, setSaving] = useState(false)

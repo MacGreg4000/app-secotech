@@ -36,6 +36,7 @@ export default function EditableSoustraitantEtat({
       total: 0
     }
   })
+  const [valueBeingEdited, setValueBeingEdited] = useState<string | null>(null)
 
   // Initialiser les lignes et avenants
   useEffect(() => {
@@ -102,8 +103,13 @@ export default function EditableSoustraitantEtat({
 
   // Mettre à jour la quantité actuelle d'une ligne
   const handleLigneQuantiteChange = (id: number, valueStr: string) => {
-    // Convertir la valeur en nombre, sans le zéro en tête
-    const value = parseFloat(valueStr) || 0;
+    // Permettre la saisie de valeurs vides ou de nombres
+    let value = 0;
+    
+    if (valueStr !== '') {
+      value = parseFloat(valueStr);
+      if (isNaN(value)) value = 0;
+    }
     
     setLignes(prevLignes => 
       prevLignes.map(ligne => {
@@ -121,8 +127,13 @@ export default function EditableSoustraitantEtat({
 
   // Mettre à jour la quantité actuelle d'un avenant
   const handleAvenantQuantiteChange = (id: number, valueStr: string) => {
-    // Convertir la valeur en nombre, sans le zéro en tête
-    const value = parseFloat(valueStr) || 0;
+    // Permettre la saisie de valeurs vides ou de nombres
+    let value = 0;
+    
+    if (valueStr !== '') {
+      value = parseFloat(valueStr);
+      if (isNaN(value)) value = 0;
+    }
     
     setAvenants(prevAvenants => 
       prevAvenants.map(avenant => {
@@ -263,8 +274,12 @@ export default function EditableSoustraitantEtat({
                     <input
                       type="text"
                       className="w-20 p-1 text-center border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      value={ligne.quantiteActuelle}
-                      onChange={(e) => handleLigneQuantiteChange(ligne.id, e.target.value)}
+                      value={ligne.quantiteActuelle === 0 && valueBeingEdited === `ligne-${ligne.id}` ? '' : ligne.quantiteActuelle}
+                      onChange={(e) => {
+                        setValueBeingEdited(`ligne-${ligne.id}`);
+                        handleLigneQuantiteChange(ligne.id, e.target.value);
+                      }}
+                      onBlur={() => setValueBeingEdited('')}
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">{ligne.quantiteTotale.toLocaleString('fr-FR')}</td>
@@ -343,8 +358,12 @@ export default function EditableSoustraitantEtat({
                       <input
                         type="text"
                         className="w-20 p-1 text-center border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        value={avenant.quantiteActuelle}
-                        onChange={(e) => handleAvenantQuantiteChange(avenant.id, e.target.value)}
+                        value={avenant.quantiteActuelle === 0 && valueBeingEdited === `avenant-${avenant.id}` ? '' : avenant.quantiteActuelle}
+                        onChange={(e) => {
+                          setValueBeingEdited(`avenant-${avenant.id}`);
+                          handleAvenantQuantiteChange(avenant.id, e.target.value);
+                        }}
+                        onBlur={() => setValueBeingEdited('')}
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">{avenant.quantiteTotale.toLocaleString('fr-FR')}</td>

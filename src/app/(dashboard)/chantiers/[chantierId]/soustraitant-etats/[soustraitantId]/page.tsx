@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { DocumentExpirationAlert } from '@/components/DocumentExpirationAlert'
@@ -20,13 +20,14 @@ import EditableSoustraitantEtat from '@/components/etat-avancement/EditableSoust
 import EtatAvancementSSTraitant from '@/components/etat-avancement/EtatAvancementSSTraitant'
 
 interface PageProps {
-  params: {
+  params: Promise<{
     chantierId: string
     soustraitantId: string
-  }
+  }>
 }
 
-export default function SoustraitantEtatsPage({ params }: PageProps) {
+export default function SoustraitantEtatsPage(props: PageProps) {
+  const params = use(props.params);
   const { data: session } = useSession()
   const router = useRouter()
   const [soustraitant, setSoustraitant] = useState<any | null>(null)
@@ -39,6 +40,23 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [allEtats, setAllEtats] = useState<SoustraitantEtat[]>([])
   const [currentEtatId, setCurrentEtatId] = useState<number | null>(null)
+  const [routeParams, setRouteParams] = useState<{
+    chantierId?: string;
+    soustraitantId?: string;
+  }>({});
+
+  // Attendre les paramètres de route
+  useEffect(() => {
+    const initParams = async () => {
+      const awaitedParams = await params;
+      setRouteParams({
+        chantierId: awaitedParams.chantierId,
+        soustraitantId: awaitedParams.soustraitantId
+      });
+    };
+    
+    initParams();
+  }, [params]);
 
   // Fonction pour gérer la navigation
   const handleNavigation = (path: string) => {
@@ -46,9 +64,11 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
   }
 
   useEffect(() => {
+    if (!routeParams.chantierId || !routeParams.soustraitantId) return;
+    
     const fetchSoustraitant = async () => {
       try {
-        const response = await fetch(`/api/soustraitants/${params.soustraitantId}`)
+        const response = await fetch(`/api/soustraitants/${routeParams.soustraitantId}`)
         if (!response.ok) {
           throw new Error('Erreur lors de la récupération du sous-traitant')
         }
@@ -62,7 +82,7 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
 
     const fetchAllEtats = async () => {
       try {
-        const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement`)
+        const response = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement`)
         if (!response.ok) {
           throw new Error('Erreur lors de la récupération des états d\'avancement')
         }
@@ -89,11 +109,13 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
       fetchSoustraitant()
       fetchAllEtats()
     }
-  }, [session, params.chantierId, params.soustraitantId, currentEtatId])
+  }, [session, routeParams, currentEtatId])
 
   const fetchEtatAvancement = async (etatId: number) => {
+    if (!routeParams.chantierId || !routeParams.soustraitantId) return;
+    
     try {
-      const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etatId}`)
+      const response = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement/${etatId}`)
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération de l\'état d\'avancement')
       }
@@ -152,10 +174,10 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
   }
 
   const handleDownloadPDF = async () => {
-    if (!etatAvancement) return
+    if (!etatAvancement || !routeParams.chantierId || !routeParams.soustraitantId) return
     
     try {
-      const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etatAvancement.id}/pdf`, {
+      const response = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement/${etatAvancement.id}/pdf`, {
         method: 'GET',
       })
 
@@ -167,7 +189,7 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `etat-avancement-soustraitant-${params.chantierId}-${params.soustraitantId}-${etatAvancement.numero}.pdf`
+      a.download = `etat-avancement-soustraitant-${routeParams.chantierId}-${routeParams.soustraitantId}-${etatAvancement.numero}.pdf`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -178,12 +200,12 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
   }
 
   const handleValidateEtat = async () => {
-    if (!etatAvancement) return;
+    if (!etatAvancement || !routeParams.chantierId || !routeParams.soustraitantId) return;
     
     try {
       setValidating(true);
       
-      const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etatAvancement.id}/finaliser`, {
+      const response = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement/${etatAvancement.id}/finaliser`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -218,7 +240,7 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
       toast.success('État d\'avancement validé avec succès !');
       
       // Rediriger vers la liste des états d'avancement
-      router.push(`/chantiers/${params.chantierId}/etats`);
+      router.push(`/chantiers/${routeParams.chantierId}/etats`);
     } catch (error) {
       console.error('Erreur:', error);
       toast.error('Erreur lors de la validation de l\'état d\'avancement');
@@ -228,12 +250,12 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
   };
 
   const handleReopenEtat = async () => {
-    if (!etatAvancement) return;
+    if (!etatAvancement || !routeParams.chantierId || !routeParams.soustraitantId) return;
     
     try {
       setValidating(true);
       
-      const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etatAvancement.id}/rouvrir`, {
+      const response = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement/${etatAvancement.id}/rouvrir`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -277,14 +299,14 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
   const handleCreateEtat = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement`, {
+      const response = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          chantierId: params.chantierId,
-          soustraitantId: params.soustraitantId
+          chantierId: routeParams.chantierId,
+          soustraitantId: routeParams.soustraitantId
         }),
       })
 
@@ -304,7 +326,7 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
       const newEtat = await response.json()
       
       // Rafraîchir la liste des états
-      const updatedEtatsResponse = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement`)
+      const updatedEtatsResponse = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement`)
       if (updatedEtatsResponse.ok) {
         const updatedEtats = await updatedEtatsResponse.json()
         setAllEtats(updatedEtats)
@@ -331,7 +353,7 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
     
     try {
       setLoading(true)
-      const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etatAvancement.id}`, {
+      const response = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement/${etatAvancement.id}`, {
         method: 'DELETE',
       })
 
@@ -342,7 +364,7 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
       toast.success('État d\'avancement supprimé avec succès !')
       
       // Rafraîchir la liste des états
-      const updatedEtatsResponse = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement`)
+      const updatedEtatsResponse = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement`)
       if (updatedEtatsResponse.ok) {
         const updatedEtats = await updatedEtatsResponse.json()
         setAllEtats(updatedEtats)
@@ -373,7 +395,7 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
     try {
       setLoading(true)
       
-      const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etatId}`)
+      const response = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement/${etatId}`)
       
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération de l\'état d\'avancement')
@@ -417,7 +439,7 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center">
               <button
-                onClick={() => handleNavigation(`/chantiers/${params.chantierId}/etats`)}
+                onClick={() => handleNavigation(`/chantiers/${routeParams.chantierId}/etats`)}
                 className="mr-3 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 bg-white dark:bg-gray-700 p-2 rounded-full shadow-md transition-all hover:shadow-lg border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600"
               >
                 <ArrowLeftIcon className="h-5 w-5" />
@@ -512,7 +534,7 @@ export default function SoustraitantEtatsPage({ params }: PageProps) {
         <div className="p-6 overflow-auto">
           <EtatAvancementSSTraitant 
             etatAvancement={etatAvancement}
-            chantierId={params.chantierId}
+            chantierId={routeParams.chantierId || ""}
             etatId={currentEtatId ? currentEtatId.toString() : ''}
           />
         </div>

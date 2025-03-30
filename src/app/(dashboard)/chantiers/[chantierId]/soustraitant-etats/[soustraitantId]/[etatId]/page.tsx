@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { DocumentExpirationAlert } from '@/components/DocumentExpirationAlert'
@@ -16,14 +16,15 @@ import { SoustraitantEtat } from '@/types/etat-avancement'
 import SoustraitantEtatComponent from '@/components/etat-avancement/SoustraitantEtat'
 
 interface PageProps {
-  params: {
+  params: Promise<{
     chantierId: string
     soustraitantId: string
     etatId: string
-  }
+  }>
 }
 
-export default function SoustraitantEtatDetailPage({ params }: PageProps) {
+export default function SoustraitantEtatDetailPage(props: PageProps) {
+  const params = use(props.params);
   const { data: session } = useSession()
   const router = useRouter()
   const [soustraitant, setSoustraitant] = useState<any | null>(null)
@@ -35,6 +36,25 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
   const [hasPrevEtat, setHasPrevEtat] = useState(false)
   const [allEtats, setAllEtats] = useState<SoustraitantEtat[]>([])
   const [currentEtatId, setCurrentEtatId] = useState<string | null>(null)
+  const [routeParams, setRouteParams] = useState<{
+    chantierId: string;
+    soustraitantId: string;
+    etatId: string;
+  } | null>(null)
+
+  // Attendre les paramètres de route
+  useEffect(() => {
+    const initParams = async () => {
+      const awaitedParams = await params;
+      setRouteParams({
+        chantierId: awaitedParams.chantierId,
+        soustraitantId: awaitedParams.soustraitantId,
+        etatId: awaitedParams.etatId
+      });
+    };
+    
+    initParams();
+  }, [params]);
 
   // Fonction pour gérer la navigation
   const handleNavigation = (path: string) => {
@@ -42,9 +62,11 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
   }
 
   useEffect(() => {
+    if (!session || !routeParams) return;
+    
     const fetchSoustraitant = async () => {
       try {
-        const response = await fetch(`/api/soustraitants/${params.soustraitantId}`)
+        const response = await fetch(`/api/soustraitants/${routeParams.soustraitantId}`)
         if (!response.ok) {
           throw new Error('Erreur lors de la récupération du sous-traitant')
         }
@@ -58,14 +80,14 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
 
     const fetchAllEtats = async () => {
       try {
-        const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement`)
+        const response = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement`)
         if (!response.ok) {
           throw new Error('Erreur lors de la récupération des états d\'avancement')
         }
         const data = await response.json()
         if (Array.isArray(data) && data.length > 0) {
           setAllEtats(data)
-          checkAdjacentEtats(params.etatId)
+          checkAdjacentEtats(routeParams.etatId)
         }
       } catch (error) {
         console.error('Erreur:', error)
@@ -77,7 +99,7 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
       try {
         setLoading(true)
         
-        const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etatId}`)
+        const response = await fetch(`/api/chantiers/${routeParams.chantierId}/soustraitants/${routeParams.soustraitantId}/etats-avancement/${etatId}`)
         
         if (!response.ok) {
           throw new Error('Erreur lors de la récupération de l\'état d\'avancement')
@@ -106,12 +128,10 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
       }
     }
 
-    if (session) {
-      fetchSoustraitant()
-      fetchAllEtats()
-      loadEtatAvancement(params.etatId)
-    }
-  }, [session, params.chantierId, params.soustraitantId, params.etatId])
+    fetchSoustraitant()
+    fetchAllEtats()
+    loadEtatAvancement(routeParams.etatId)
+  }, [session, routeParams]);
 
   const checkAdjacentEtats = (etatId: string) => {
     if (allEtats.length === 0) return
@@ -126,20 +146,20 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
   const navigateToPrevEtat = () => {
     if (!hasPrevEtat || allEtats.length === 0) return
     
-    const currentIndex = allEtats.findIndex(etat => etat.id.toString() === params.etatId)
+    const currentIndex = allEtats.findIndex(etat => etat.id.toString() === routeParams?.etatId)
     if (currentIndex > 0) {
       const prevEtat = allEtats[currentIndex - 1]
-      router.push(`/chantiers/${params.chantierId}/soustraitant-etats/${params.soustraitantId}/${prevEtat.id}`)
+      router.push(`/chantiers/${routeParams?.chantierId}/soustraitant-etats/${routeParams?.soustraitantId}/${prevEtat.id}`)
     }
   }
 
   const navigateToNextEtat = () => {
     if (!hasNextEtat || allEtats.length === 0) return
     
-    const currentIndex = allEtats.findIndex(etat => etat.id.toString() === params.etatId)
+    const currentIndex = allEtats.findIndex(etat => etat.id.toString() === routeParams?.etatId)
     if (currentIndex < allEtats.length - 1) {
       const nextEtat = allEtats[currentIndex + 1]
-      router.push(`/chantiers/${params.chantierId}/soustraitant-etats/${params.soustraitantId}/${nextEtat.id}`)
+      router.push(`/chantiers/${routeParams?.chantierId}/soustraitant-etats/${routeParams?.soustraitantId}/${nextEtat.id}`)
     }
   }
 
@@ -147,7 +167,7 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
     if (!etatAvancement) return
     
     try {
-      const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etatAvancement.id}/pdf`, {
+      const response = await fetch(`/api/chantiers/${routeParams?.chantierId}/soustraitants/${routeParams?.soustraitantId}/etats-avancement/${etatAvancement.id}/pdf`, {
         method: 'GET',
       })
 
@@ -159,7 +179,7 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `etat-avancement-soustraitant-${params.chantierId}-${params.soustraitantId}-${etatAvancement.numero}.pdf`
+      a.download = `etat-avancement-soustraitant-${routeParams?.chantierId}-${routeParams?.soustraitantId}-${etatAvancement.numero}.pdf`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -175,7 +195,7 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
     try {
       setValidating(true)
       
-      const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etatAvancement.id}/finaliser`, {
+      const response = await fetch(`/api/chantiers/${routeParams?.chantierId}/soustraitants/${routeParams?.soustraitantId}/etats-avancement/${etatAvancement.id}/finaliser`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -193,7 +213,7 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
       alert('État d\'avancement validé avec succès !')
       
       // Rediriger vers la liste des états d'avancement
-      router.push(`/chantiers/${params.chantierId}/etats`)
+      router.push(`/chantiers/${routeParams?.chantierId}/etats`)
     } catch (error) {
       console.error('Erreur:', error)
       setError('Erreur lors de la validation de l\'état d\'avancement')
@@ -208,7 +228,7 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
     try {
       setValidating(true)
       
-      const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etatAvancement.id}/rouvrir`, {
+      const response = await fetch(`/api/chantiers/${routeParams?.chantierId}/soustraitants/${routeParams?.soustraitantId}/etats-avancement/${etatAvancement.id}/rouvrir`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -246,7 +266,7 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center">
               <button
-                onClick={() => handleNavigation(`/chantiers/${params.chantierId}/soustraitant-etats/${params.soustraitantId}`)}
+                onClick={() => handleNavigation(`/chantiers/${routeParams?.chantierId}/soustraitant-etats/${routeParams?.soustraitantId}`)}
                 className="mr-3 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 bg-white dark:bg-gray-700 p-2 rounded-full shadow-md transition-all hover:shadow-lg border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600"
               >
                 <ArrowLeftIcon className="h-5 w-5" />
@@ -465,7 +485,7 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
             <SoustraitantEtatComponent 
               soustraitantEtat={etatAvancement} 
-              chantierId={params.chantierId}
+              chantierId={routeParams?.chantierId || ""}
             />
           </div>
           <div className="mt-8 mb-4">
@@ -485,9 +505,9 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
                   {allEtats.map((etat) => (
                     <tr 
                       key={etat.id} 
-                      className={`hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer relative ${etat.id.toString() === params.etatId ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer relative ${etat.id.toString() === routeParams?.etatId ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                       onClick={() => {
-                        router.push(`/chantiers/${params.chantierId}/soustraitant-etats/${params.soustraitantId}/${etat.id}`);
+                        router.push(`/chantiers/${routeParams?.chantierId}/soustraitant-etats/${routeParams?.soustraitantId}/${etat.id}`);
                       }}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
@@ -515,7 +535,7 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              router.push(`/chantiers/${params.chantierId}/soustraitant-etats/${params.soustraitantId}/${etat.id}`);
+                              router.push(`/chantiers/${routeParams?.chantierId}/soustraitant-etats/${routeParams?.soustraitantId}/${etat.id}`);
                             }}
                             className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                             title="Voir"
@@ -528,14 +548,14 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
                                 e.stopPropagation();
                                 if (confirm('Êtes-vous sûr de vouloir supprimer cet état d\'avancement ?')) {
                                   try {
-                                    const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etat.id}`, {
+                                    const response = await fetch(`/api/chantiers/${routeParams?.chantierId}/soustraitants/${routeParams?.soustraitantId}/etats-avancement/${etat.id}`, {
                                       method: 'DELETE',
                                     });
                                     if (!response.ok) throw new Error('Erreur lors de la suppression');
                                     
                                     // Rediriger vers la page précédente si on supprime l'état actuel
-                                    if (etat.id.toString() === params.etatId) {
-                                      router.push(`/chantiers/${params.chantierId}/soustraitant-etats/${params.soustraitantId}`);
+                                    if (etat.id.toString() === routeParams?.etatId) {
+                                      router.push(`/chantiers/${routeParams?.chantierId}/soustraitant-etats/${routeParams?.soustraitantId}`);
                                     } else {
                                       // Rafraîchir la page pour mettre à jour les données
                                       window.location.reload();
@@ -559,7 +579,7 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
                               e.stopPropagation();
                               
                               // Télécharger le PDF de cet état
-                              fetch(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/etats-avancement/${etat.id}/pdf`, {
+                              fetch(`/api/chantiers/${routeParams?.chantierId}/soustraitants/${routeParams?.soustraitantId}/etats-avancement/${etat.id}/pdf`, {
                                 method: 'GET',
                               })
                               .then(response => {
@@ -570,7 +590,7 @@ export default function SoustraitantEtatDetailPage({ params }: PageProps) {
                                 const url = window.URL.createObjectURL(blob);
                                 const a = document.createElement('a');
                                 a.href = url;
-                                a.download = `etat-avancement-soustraitant-${params.chantierId}-${params.soustraitantId}-${etat.numero}.pdf`;
+                                a.download = `etat-avancement-soustraitant-${routeParams?.chantierId}-${routeParams?.soustraitantId}-${etat.numero}.pdf`;
                                 document.body.appendChild(a);
                                 a.click();
                                 window.URL.revokeObjectURL(url);

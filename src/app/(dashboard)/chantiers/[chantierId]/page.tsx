@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { type Chantier } from '@/types/chantier'
@@ -12,7 +12,8 @@ interface Client {
   adresse: string | null
 }
 
-export default function EditChantierPage({ params }: { params: { chantierId: string } }) {
+export default function EditChantierPage(props: { params: Promise<{ chantierId: string }> }) {
+  const params = use(props.params);
   const router = useRouter()
   const { data: session } = useSession()
   const [chantier, setChantier] = useState<Chantier | null>(null)

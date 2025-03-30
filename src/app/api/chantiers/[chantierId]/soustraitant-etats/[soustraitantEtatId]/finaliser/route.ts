@@ -6,8 +6,9 @@ import { prisma } from '@/lib/prisma'
 // POST - Finaliser un état d'avancement sous-traitant
 export async function POST(
   request: NextRequest,
-  { params }: { params: { chantierId: string; soustraitantEtatId: string } }
+  props: { params: Promise<{ chantierId: string; soustraitantEtatId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

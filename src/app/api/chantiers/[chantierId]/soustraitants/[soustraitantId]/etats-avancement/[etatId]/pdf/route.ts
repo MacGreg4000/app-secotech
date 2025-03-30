@@ -339,7 +339,7 @@ function generateHTML(data: any, settings: any) {
 
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string; etatId: string } }
+  context: { params: Promise<{ chantierId: string; soustraitantId: string; etatId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -347,11 +347,13 @@ export async function GET(
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
+    const { chantierId, soustraitantId, etatId } = await context.params
+
     // Récupérer l'état d'avancement du sous-traitant
     const etatAvancement = await prisma.soustraitant_etat_avancement.findFirst({
       where: {
-        id: parseInt(params.etatId),
-        soustraitantId: params.soustraitantId
+        id: parseInt(etatId),
+        soustraitantId: soustraitantId
       },
       include: {
         soustraitant: true,
@@ -366,7 +368,7 @@ export async function GET(
 
     // Récupérer les informations du chantier
     const chantier = await prisma.chantier.findUnique({
-      where: { chantierId: params.chantierId }
+      where: { chantierId: chantierId }
     })
 
     if (!chantier) {
@@ -445,12 +447,12 @@ export async function GET(
     await browser.close()
 
     // Créer le dossier des documents s'il n'existe pas
-    const documentsDir = path.join(process.cwd(), 'public', 'chantiers', params.chantierId, 'documents')
+    const documentsDir = path.join(process.cwd(), 'public', 'chantiers', chantierId, 'documents')
     if (!fs.existsSync(documentsDir)) {
       fs.mkdirSync(documentsDir, { recursive: true })
     }
 
-    const fileName = `etat-avancement-soustraitant-${params.soustraitantId}-${params.etatId}-${new Date().toISOString().split('T')[0]}.pdf`
+    const fileName = `etat-avancement-soustraitant-${soustraitantId}-${etatId}-${new Date().toISOString().split('T')[0]}.pdf`
     const filePath = path.join(documentsDir, fileName)
 
     // Sauvegarder le PDF
@@ -466,13 +468,13 @@ export async function GET(
         data: {
           nom: `État d'avancement sous-traitant n°${etatAvancement.numero}`,
           type: 'ETAT_AVANCEMENT_SOUSTRAITANT',
-          url: `/chantiers/${params.chantierId}/documents/${fileName}`,
+          url: `/chantiers/${chantierId}/documents/${fileName}`,
           taille: pdfBuffer.length,
           mimeType: 'application/pdf',
           updatedAt: new Date(),
           chantier: {
             connect: {
-              chantierId: params.chantierId
+              chantierId: chantierId
             }
           },
           user: {

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -17,7 +17,8 @@ interface RapportVisite {
   }
 }
 
-export default function RapportsVisitePage({ params }: { params: { chantierId: string } }) {
+export default function RapportsVisitePage(props: { params: Promise<{ chantierId: string }> }) {
+  const params = use(props.params);
   const router = useRouter()
   const { data: session } = useSession()
   const [rapports, setRapports] = useState<RapportVisite[]>([])

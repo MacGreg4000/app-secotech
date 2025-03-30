@@ -5,9 +5,13 @@ import { authOptions } from '@/lib/auth'
 
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string } }
+  context: { params: Promise<{ chantierId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -24,7 +28,7 @@ export async function GET(
         s.email as soustraitantEmail
       FROM commande_soustraitant c
       JOIN soustraitant s ON c.soustraitantId = s.id
-      WHERE c.chantierId = ${params.chantierId}
+      WHERE c.chantierId = ${chantierId}
       ORDER BY c.dateCommande DESC
     ` as any[]
 

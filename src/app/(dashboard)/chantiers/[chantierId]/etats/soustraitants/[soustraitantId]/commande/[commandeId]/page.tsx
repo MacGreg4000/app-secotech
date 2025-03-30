@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { 
@@ -42,20 +42,21 @@ interface CommandeSousTraitant {
   lignes: LigneCommande[];
 }
 
-export default function CommandeSousTraitantPage({
-  params
-}: {
-  params: { chantierId: string; soustraitantId: string; commandeId: string }
-}) {
+export default function CommandeSousTraitantPage(
+  props: {
+    params: Promise<{ chantierId: string; soustraitantId: string; commandeId: string }>
+  }
+) {
+  const params = use(props.params);
   const { data: session } = useSession()
   const router = useRouter()
-  
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [commande, setCommande] = useState<CommandeSousTraitant | null>(null)
   const [ligneEnEdition, setLigneEnEdition] = useState<number | null>(null)
   const [lignesTemp, setLignesTemp] = useState<{[key: number]: LigneCommande}>({})
-  
+
   const fetchCommande = async () => {
     try {
       setLoading(true)
@@ -79,13 +80,13 @@ export default function CommandeSousTraitantPage({
       setLoading(false)
     }
   }
-  
+
   useEffect(() => {
     if (session) {
       fetchCommande()
     }
   }, [session, params.chantierId, params.soustraitantId, params.commandeId])
-  
+
   const handleEditLigne = (id: number) => {
     if (commande && commande.estVerrouillee) {
       toast.error('La commande est verrouillée et ne peut pas être modifiée')
@@ -98,11 +99,11 @@ export default function CommandeSousTraitantPage({
       setLigneEnEdition(id)
     }
   }
-  
+
   const handleCancelEdit = () => {
     setLigneEnEdition(null)
   }
-  
+
   const handleSaveLigne = async (id: number) => {
     if (!commande) return
     
@@ -148,7 +149,7 @@ export default function CommandeSousTraitantPage({
       toast.error('Erreur lors de la mise à jour de la ligne')
     }
   }
-  
+
   const handleDeleteLigne = async (id: number) => {
     if (!commande) return
     
@@ -185,7 +186,7 @@ export default function CommandeSousTraitantPage({
       toast.error('Erreur lors de la suppression de la ligne')
     }
   }
-  
+
   const handleInputChange = (id: number, field: keyof LigneCommande, value: string | number) => {
     setLignesTemp(prev => {
       const ligneTemp = prev[id] || {}
@@ -209,7 +210,7 @@ export default function CommandeSousTraitantPage({
       return { ...prev, [id]: updatedLigne }
     })
   }
-  
+
   const handleVerrouillage = async () => {
     if (!commande) return
     
@@ -239,13 +240,13 @@ export default function CommandeSousTraitantPage({
       setLoading(false)
     }
   }
-  
+
   const handleGenererPDF = () => {
     if (!commande) return
     
     window.open(`/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/commandes/${params.commandeId}/pdf`, '_blank')
   }
-  
+
   const handleEnvoyerEmail = async () => {
     if (!commande) return
     
@@ -267,13 +268,13 @@ export default function CommandeSousTraitantPage({
       setLoading(false)
     }
   }
-  
+
   if (loading) return (
     <div className="flex justify-center items-center h-64">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
     </div>
   )
-  
+
   if (error) return (
     <div className="container mx-auto py-6">
       <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-lg border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
@@ -290,7 +291,7 @@ export default function CommandeSousTraitantPage({
       </div>
     </div>
   )
-  
+
   if (!commande) return (
     <div className="container mx-auto py-6">
       <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400">
@@ -307,7 +308,7 @@ export default function CommandeSousTraitantPage({
       </div>
     </div>
   )
-  
+
   return (
     <div className="container mx-auto py-6">
       <Toaster position="top-right" />

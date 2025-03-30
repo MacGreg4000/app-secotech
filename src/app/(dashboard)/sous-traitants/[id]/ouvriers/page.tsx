@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -75,11 +75,12 @@ function DeleteModal({
   );
 }
 
-export default function OuvriersPage({ 
-  params 
-}: { 
-  params: { id: string } 
-}) {
+export default function OuvriersPage(
+  props: { 
+    params: Promise<{ id: string }> 
+  }
+) {
+  const params = use(props.params);
   const router = useRouter()
   const { data: session } = useSession()
   const [sousTraitant, setSousTraitant] = useState<SousTraitant | null>(null)

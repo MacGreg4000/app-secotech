@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 // @ts-ignore
 import SignatureCanvas from 'react-signature-canvas'
@@ -23,7 +23,8 @@ interface ContratData {
   }
 }
 
-export default function SignerContratPage({ params }: { params: { token: string } }) {
+export default function SignerContratPage(props: { params: Promise<{ token: string }> }) {
+  const params = use(props.params);
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [contrat, setContrat] = useState<ContratData | null>(null)

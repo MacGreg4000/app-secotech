@@ -5,8 +5,9 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string; bonCommandeId: string } }
+  props: { params: Promise<{ chantierId: string; bonCommandeId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

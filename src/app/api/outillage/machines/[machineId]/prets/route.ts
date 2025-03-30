@@ -3,10 +3,8 @@ import { prisma } from '@/lib/prisma/client'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-export async function GET(
-  request: Request,
-  { params }: { params: { machineId: string } }
-) {
+export async function GET(request: Request, props: { params: Promise<{ machineId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -43,10 +41,8 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: { machineId: string } }
-) {
+export async function POST(request: Request, props: { params: Promise<{ machineId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     console.log('Session:', session)

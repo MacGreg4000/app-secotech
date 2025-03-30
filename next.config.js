@@ -4,6 +4,8 @@ const nextConfig = {
   reactStrictMode: true,
   images: {
     domains: ['localhost'],
+    // Configurations spécifiques pour les images statiques
+    disableStaticImages: false,
   },
   // Packages externes pour les composants serveur
   serverExternalPackages: ['pdf-lib'],
@@ -21,7 +23,16 @@ const nextConfig = {
   // Ignorer les erreurs ESLint
   eslint: {
     ignoreDuringBuilds: true,
-  }
+  },
+  // Configuration pour permettre l'importation d'images
+  webpack(config) {
+    config.module.rules.push({
+      test: /\.(png|jpg|gif|svg|eot|ttf|woff|woff2)$/,
+      type: 'asset/resource',
+    });
+
+    return config;
+  },
 }
 
 module.exports = nextConfig 

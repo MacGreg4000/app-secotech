@@ -12,8 +12,9 @@ const ALLOWED_TYPES = ['carte_identite', 'limosa', 'a1', 'livre_parts']
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string, ouvrierId: string } }
+  props: { params: Promise<{ id: string, ouvrierId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

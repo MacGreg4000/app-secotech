@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -25,11 +25,12 @@ interface Ouvrier {
   }
 }
 
-export default function OuvrierPage({ 
-  params 
-}: { 
-  params: { id: string, ouvrierId: string } 
-}) {
+export default function OuvrierPage(
+  props: { 
+    params: Promise<{ id: string, ouvrierId: string }> 
+  }
+) {
+  const params = use(props.params);
   const router = useRouter()
   const { data: session } = useSession()
   const [ouvrier, setOuvrier] = useState<Ouvrier | null>(null)

@@ -4,10 +4,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
 // GET /api/clients/[clientId] - Récupère un client spécifique
-export async function GET(
-  request: Request,
-  { params }: { params: { clientId: string } }
-) {
+export async function GET(request: Request, props: { params: Promise<{ clientId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -54,10 +52,8 @@ export async function GET(
 }
 
 // PUT /api/clients/[clientId] - Met à jour un client
-export async function PUT(
-  request: Request,
-  { params }: { params: { clientId: string } }
-) {
+export async function PUT(request: Request, props: { params: Promise<{ clientId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -105,10 +101,8 @@ export async function PUT(
 }
 
 // DELETE /api/clients/[clientId] - Supprime un client
-export async function DELETE(
-  request: Request,
-  { params }: { params: { clientId: string } }
-) {
+export async function DELETE(request: Request, props: { params: Promise<{ clientId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

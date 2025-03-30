@@ -6,9 +6,13 @@ import { authOptions } from '@/lib/auth'
 // GET /api/outillage/machines/[machineId] - Récupère une machine spécifique
 export async function GET(
   request: Request,
-  { params }: { params: { machineId: string } }
+  context: { params: Promise<{ machineId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const machineId = params.machineId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -19,7 +23,7 @@ export async function GET(
 
     const machine = await prisma.machine.findUnique({
       where: {
-        id: params.machineId
+        id: machineId
       }
     })
 
@@ -43,9 +47,13 @@ export async function GET(
 // PUT /api/outillage/machines/[machineId] - Met à jour une machine
 export async function PUT(
   request: Request,
-  { params }: { params: { machineId: string } }
+  context: { params: Promise<{ machineId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const machineId = params.machineId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -58,7 +66,7 @@ export async function PUT(
 
     // Vérifier si la machine existe
     const existingMachine = await prisma.machine.findUnique({
-      where: { id: params.machineId }
+      where: { id: machineId }
     })
 
     if (!existingMachine) {
@@ -72,7 +80,7 @@ export async function PUT(
     if (existingMachine.statut === 'PRETE' && body.statut !== 'PRETE') {
       const pretEnCours = await prisma.pret.findFirst({
         where: {
-          machineId: params.machineId,
+          machineId: machineId,
           statut: 'EN_COURS'
         }
       })
@@ -87,7 +95,7 @@ export async function PUT(
 
     const updatedMachine = await prisma.machine.update({
       where: {
-        id: params.machineId
+        id: machineId
       },
       data: {
         nom: body.nom,
@@ -113,10 +121,14 @@ export async function PUT(
 // DELETE /api/outillage/machines/[machineId] - Supprime une machine
 export async function DELETE(
   request: Request,
-  { params }: { params: { machineId: string } }
+  context: { params: Promise<{ machineId: string }> }
 ) {
   try {
-    console.log(`Tentative de suppression de la machine ${params.machineId}`)
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const machineId = params.machineId;
+    
+    console.log(`Tentative de suppression de la machine ${machineId}`)
     
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -140,11 +152,11 @@ export async function DELETE(
 
     // Vérifier si la machine existe
     const machine = await prisma.machine.findUnique({
-      where: { id: params.machineId }
+      where: { id: machineId }
     })
 
     if (!machine) {
-      console.log(`Erreur: Machine ${params.machineId} non trouvée`)
+      console.log(`Erreur: Machine ${machineId} non trouvée`)
       return NextResponse.json(
         { error: 'Machine non trouvée' },
         { status: 404 }
@@ -156,13 +168,13 @@ export async function DELETE(
     // Vérifier si la machine a des prêts en cours
     const pretEnCours = await prisma.pret.findFirst({
       where: {
-        machineId: params.machineId,
+        machineId: machineId,
         statut: 'EN_COURS'
       }
     })
 
     if (pretEnCours) {
-      console.log(`Erreur: Machine ${params.machineId} actuellement prêtée, prêt ID: ${pretEnCours.id}`)
+      console.log(`Erreur: Machine ${machineId} actuellement prêtée, prêt ID: ${pretEnCours.id}`)
       return NextResponse.json(
         { error: 'Impossible de supprimer la machine : elle est actuellement prêtée' },
         { status: 400 }
@@ -172,7 +184,7 @@ export async function DELETE(
     // Vérifier s'il y a un historique de prêts pour cette machine
     const historiqueCount = await prisma.pret.count({
       where: {
-        machineId: params.machineId
+        machineId: machineId
       }
     })
 
@@ -183,10 +195,10 @@ export async function DELETE(
       try {
         await prisma.pret.deleteMany({
           where: {
-            machineId: params.machineId
+            machineId: machineId
           }
         })
-        console.log(`${historiqueCount} prêts associés à la machine ${params.machineId} ont été supprimés`)
+        console.log(`${historiqueCount} prêts associés à la machine ${machineId} ont été supprimés`)
       } catch (pretDeleteError: any) {
         console.error('Erreur lors de la suppression des prêts associés:', pretDeleteError)
         return NextResponse.json(
@@ -200,11 +212,11 @@ export async function DELETE(
       // Supprimer la machine
       await prisma.machine.delete({
         where: {
-          id: params.machineId
+          id: machineId
         }
       })
       
-      console.log(`Machine ${params.machineId} supprimée avec succès par ${session.user.email}`)
+      console.log(`Machine ${machineId} supprimée avec succès par ${session.user.email}`)
       return new NextResponse(null, { status: 204 })
     } catch (deleteError: any) {
       console.error('Erreur spécifique lors de la suppression:', deleteError)

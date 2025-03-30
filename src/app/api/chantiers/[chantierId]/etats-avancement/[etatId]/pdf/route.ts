@@ -378,8 +378,9 @@ function generateHTML(data: any, settings: any) {
 
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string; etatId: string } }
+  props: { params: Promise<{ chantierId: string; etatId: string }> }
 ) {
+  const params = await props.params;
   try {
     // Ajouter des logs pour le debug
     console.log(`Génération de PDF pour le chantier ${params.chantierId}, état ${params.etatId}`);

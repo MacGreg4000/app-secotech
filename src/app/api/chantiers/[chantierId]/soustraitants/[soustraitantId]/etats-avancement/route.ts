@@ -17,7 +17,7 @@ interface Photo {
 // Récupère les états d'avancement d'un sous-traitant pour un chantier
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string } }
+  context: { params: Promise<{ chantierId: string; soustraitantId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -28,13 +28,16 @@ export async function GET(
       )
     }
 
+    // Récupérer les paramètres de l'URL
+    const { chantierId, soustraitantId } = await context.params
+
     // Vérifier que le sous-traitant existe pour ce chantier
     const soustraitantExists = await prisma.$queryRaw`
       SELECT COUNT(*) as count
       FROM soustraitant s
       JOIN commande_soustraitant cs ON s.id = cs.soustraitantId
-      WHERE s.id = ${params.soustraitantId}
-      AND cs.chantierId = ${params.chantierId}
+      WHERE s.id = ${soustraitantId}
+      AND cs.chantierId = ${chantierId}
     ` as { count: number }[]
 
     if (!soustraitantExists || !soustraitantExists[0] || soustraitantExists[0].count === 0) {
@@ -47,7 +50,7 @@ export async function GET(
     // Récupérer tous les états d'avancement du sous-traitant pour ce chantier
     const etatsAvancement = await prisma.soustraitant_etat_avancement.findMany({
       where: {
-        soustraitantId: params.soustraitantId
+        soustraitantId: soustraitantId
       },
       orderBy: {
         numero: 'asc'
@@ -57,7 +60,7 @@ export async function GET(
     // Récupérer le nom du sous-traitant
     const soustraitant = await prisma.soustraitant.findUnique({
       where: {
-        id: params.soustraitantId
+        id: soustraitantId
       },
       select: {
         nom: true
@@ -148,11 +151,14 @@ export async function GET(
 // Crée un nouvel état d'avancement pour un sous-traitant
 export async function POST(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string } }
+  context: { params: Promise<{ chantierId: string; soustraitantId: string }> }
 ) {
   try {
     console.log('Début de la requête POST pour créer un état d\'avancement')
-    console.log('Paramètres:', params)
+    console.log('Paramètres:', (await context.params))
+
+    // Récupérer les paramètres de l'URL
+    const { chantierId, soustraitantId } = await context.params
 
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -165,16 +171,16 @@ export async function POST(
 
     const body = await request.json()
     console.log('Corps de la requête:', body)
-    const { chantierId, soustraitantId, commandeId } = body
+    const { commandeId } = body
 
     // Vérifier que le sous-traitant existe et est lié au chantier
-    console.log('Vérification du sous-traitant:', params.soustraitantId)
+    console.log('Vérification du sous-traitant:', soustraitantId)
     const soustraitantResult = await prisma.$queryRaw`
       SELECT s.*
       FROM soustraitant s
       JOIN commande_soustraitant cs ON s.id = cs.soustraitantId
-      WHERE s.id = ${params.soustraitantId}
-      AND cs.chantierId = ${params.chantierId}
+      WHERE s.id = ${soustraitantId}
+      AND cs.chantierId = ${chantierId}
       LIMIT 1
     ` as any[]
 
@@ -195,8 +201,8 @@ export async function POST(
     const commande = await prisma.commandeSousTraitant.findFirst({
       where: {
         id: commandeId,
-        soustraitantId: params.soustraitantId,
-        chantierId: params.chantierId
+        soustraitantId: soustraitantId,
+        chantierId: chantierId
       },
       include: {
         lignes: true
@@ -224,7 +230,7 @@ export async function POST(
     // Vérifier si c'est le premier état d'avancement
     const existingEtats = await prisma.soustraitant_etat_avancement.count({
       where: {
-        soustraitantId: params.soustraitantId
+        soustraitantId: soustraitantId
       }
     })
 
@@ -233,7 +239,7 @@ export async function POST(
     // Récupérer le dernier état d'avancement
     const lastEtat = await prisma.soustraitant_etat_avancement.findFirst({
       where: {
-        soustraitantId: params.soustraitantId
+        soustraitantId: soustraitantId
       },
       orderBy: {
         numero: 'desc'
@@ -255,7 +261,7 @@ export async function POST(
     // Récupérer dernier état client (nécessaire pour lier à l'état sous-traitant)
     const dernierEtatClient = await prisma.etatAvancement.findFirst({
       where: {
-        chantierId: params.chantierId
+        chantierId: chantierId
       },
       orderBy: {
         numero: 'desc'
@@ -275,7 +281,7 @@ export async function POST(
     // Créer le nouvel état d'avancement
     const etatAvancement = await prisma.soustraitant_etat_avancement.create({
       data: {
-        soustraitantId: params.soustraitantId,
+        soustraitantId: soustraitantId,
         commandeSousTraitantId: commande.id,
         numero: nextNumero,
         date: new Date(),

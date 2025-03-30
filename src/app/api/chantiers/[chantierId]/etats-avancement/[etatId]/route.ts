@@ -7,8 +7,9 @@ import { LigneEtatAvancement, AvenantEtatAvancement } from '@prisma/client'
 // GET /api/chantiers/[chantierId]/etats-avancement/[etatId]
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string; etatId: string } }
+  props: { params: Promise<{ chantierId: string; etatId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -61,8 +62,9 @@ export async function GET(
 // PUT /api/chantiers/[chantierId]/etats-avancement/[etatId]
 export async function PUT(
   request: Request,
-  { params }: { params: { chantierId: string; etatId: string } }
+  props: { params: Promise<{ chantierId: string; etatId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -105,8 +107,9 @@ export async function PUT(
 // DELETE /api/chantiers/[chantierId]/etats-avancement/[etatId]
 export async function DELETE(
   request: Request,
-  { params }: { params: { chantierId: string; etatId: string } }
+  props: { params: Promise<{ chantierId: string; etatId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

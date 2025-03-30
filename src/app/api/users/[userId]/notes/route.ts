@@ -7,9 +7,13 @@ import { Prisma } from '@prisma/client'
 // Récupérer les notes d'un utilisateur
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const userId = params.userId;
+
     // Vérifier l'authentification
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
@@ -18,14 +22,14 @@ export async function GET(
 
     // Vérifier que l'utilisateur demande ses propres notes
     // ou qu'il a les droits d'administration
-    if (session.user.id !== params.userId && session.user.role !== 'ADMIN') {
+    if (session.user.id !== userId && session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
     }
     
     // Récupérer les notes de l'utilisateur avec une requête SQL brute
     const userNotesResults = await prisma.$queryRaw`
       SELECT content, updatedAt FROM user_notes 
-      WHERE userId = ${params.userId}
+      WHERE userId = ${userId}
     `
     
     // Convertir le résultat en un tableau
@@ -55,9 +59,13 @@ export async function GET(
 // Mettre à jour les notes d'un utilisateur
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const userId = params.userId;
+
     // Vérifier l'authentification
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
@@ -66,7 +74,7 @@ export async function PUT(
 
     // Vérifier que l'utilisateur modifie ses propres notes
     // ou qu'il a les droits d'administration
-    if (session.user.id !== params.userId && session.user.role !== 'ADMIN') {
+    if (session.user.id !== userId && session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
     }
 
@@ -82,7 +90,7 @@ export async function PUT(
 
     // Vérifier si les notes existent déjà
     const existingNotesResults = await prisma.$queryRaw`
-      SELECT id FROM user_notes WHERE userId = ${params.userId}
+      SELECT id FROM user_notes WHERE userId = ${userId}
     `
     const existingNotesArray = existingNotesResults as { id: number }[]
     const now = new Date()
@@ -92,20 +100,20 @@ export async function PUT(
       await prisma.$executeRaw`
         UPDATE user_notes 
         SET content = ${content}, updatedAt = ${now}
-        WHERE userId = ${params.userId}
+        WHERE userId = ${userId}
       `
     } else {
       // Sinon, créer de nouvelles notes
       await prisma.$executeRaw`
         INSERT INTO user_notes (userId, content, createdAt, updatedAt)
-        VALUES (${params.userId}, ${content}, ${now}, ${now})
+        VALUES (${userId}, ${content}, ${now}, ${now})
       `
     }
     
     // Récupérer les notes mises à jour
     const updatedNotesResults = await prisma.$queryRaw`
       SELECT content, updatedAt FROM user_notes 
-      WHERE userId = ${params.userId}
+      WHERE userId = ${userId}
     `
     const updatedNotesArray = updatedNotesResults as { content: string; updatedAt: Date }[]
     const userNotes = updatedNotesArray[0]

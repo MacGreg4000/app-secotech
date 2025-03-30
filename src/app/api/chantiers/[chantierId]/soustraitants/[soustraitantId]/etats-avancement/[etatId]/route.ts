@@ -11,14 +11,14 @@ interface Params {
   }
 }
 
-export async function GET(request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, context: { params: Promise<{ chantierId: string; soustraitantId: string; etatId: string }> }) {
   const session = await getServerSession(authOptions)
   
   if (!session) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
   
-  const { chantierId, soustraitantId, etatId } = params
+  const { chantierId, soustraitantId, etatId } = await context.params
   
   try {
     // Vérifier l'accès au chantier
@@ -74,14 +74,14 @@ export async function GET(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ chantierId: string; soustraitantId: string; etatId: string }> }) {
   const session = await getServerSession(authOptions)
   
   if (!session) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
   
-  const { chantierId, soustraitantId, etatId } = params
+  const { chantierId, soustraitantId, etatId } = await context.params
   
   try {
     // Vérifier l'accès au chantier
@@ -207,14 +207,14 @@ export async function PUT(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ chantierId: string; soustraitantId: string; etatId: string }> }) {
   const session = await getServerSession(authOptions)
   
   if (!session) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
   
-  const { chantierId, soustraitantId, etatId } = params
+  const { chantierId, soustraitantId, etatId } = await context.params
   
   try {
     // Vérifier l'accès au chantier

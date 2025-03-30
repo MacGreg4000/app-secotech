@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { DocumentExpirationAlert } from '@/components/DocumentExpirationAlert'
@@ -12,7 +12,9 @@ import {
   BuildingOfficeIcon,
   WrenchScrewdriverIcon,
   BanknotesIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  PencilSquareIcon,
+  ChevronDoubleRightIcon
 } from '@heroicons/react/24/outline'
 import { EtatAvancement, SoustraitantEtat } from '@/types/etat-avancement'
 import { CollapsibleSection } from '@/components/CollapsibleSection'
@@ -21,6 +23,7 @@ import SousTraitantSelectModal from '@/components/SousTraitantSelectModal'
 import { toast, Toaster } from 'react-hot-toast'
 import { DepenseSection } from '@/components'
 import CardFinancialSummary from '@/components/CardFinancialSummary'
+import React from 'react'
 
 // Type étendu pour gérer à la fois les états d'avancement client et sous-traitant
 interface EtatAvancementEtendu extends EtatAvancement {
@@ -29,9 +32,17 @@ interface EtatAvancementEtendu extends EtatAvancement {
 }
 
 interface SousTraitant {
-  id: string
-  nom: string
-  etatsAvancement: EtatAvancement[]
+  id?: string;
+  soustraitantId: string;
+  nom: string;
+  etatsAvancement: EtatAvancementEtendu[];
+  commande: {
+    id: string | number;
+    reference?: string;
+    dateCommande: string;
+    total: number;
+    estVerrouillee: boolean;
+  };
 }
 
 interface CommandeSousTraitant {
@@ -44,167 +55,221 @@ interface CommandeSousTraitant {
   estVerrouillee: boolean
 }
 
-export default function ChantierEtatsPage({ 
-  params 
-}: { 
-  params: { chantierId: string } 
-}) {
+interface PageProps {
+  params: Promise<{
+    chantierId: string
+  }>
+}
+
+export default function ChantierEtatsPage(props: PageProps) {
+  const params = use(props.params);
   const { data: session } = useSession()
   const router = useRouter()
-  const [chantier, setChantier] = useState<Chantier | null>(null)
-  const [etatsAvancement, setEtatsAvancement] = useState<EtatAvancement[]>([])
-  const [sousTraitantsAvecCommandes, setSousTraitantsAvecCommandes] = useState<{
-    soustraitantId: string;
-    soustraitantNom: string;
-    commande: CommandeSousTraitant;
-    etatsAvancement: EtatAvancement[];
-  }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [showSelectModal, setShowSelectModal] = useState(false)
+  const [chantier, setChantier] = useState<any>(null)
+  const [etatsAvancement, setEtatsAvancement] = useState<EtatAvancement[]>([])
+  const [sousTraitants, setSousTraitants] = useState<SousTraitant[]>([])
+  const [selectedSoustraitant, setSelectedSoustraitant] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('etats')
+  const [isCreating, setIsCreating] = useState(false)
+  const [chantierId, setChantierId] = useState<string | null>(null)
+  const [dataLoaded, setDataLoaded] = useState(false)
 
+  // Attendre les paramètres de route
   useEffect(() => {
-    const fetchChantier = async () => {
-      try {
-        const response = await fetch(`/api/chantiers/${params.chantierId}`)
-        if (!response.ok) throw new Error('Erreur lors de la récupération du chantier')
-        const data = await response.json()
-        setChantier(data)
-      } catch (error) {
-        console.error('Erreur:', error)
-        setError('Erreur lors du chargement du chantier')
-      } finally {
-        setLoading(false)
-      }
-    }
+    const initParams = async () => {
+      const awaitedParams = await params;
+      setChantierId(awaitedParams.chantierId);
+    };
+    
+    initParams();
+  }, [params]);
 
-    const fetchEtatsAvancement = async () => {
+  // Charger les données du chantier et des états d'avancement
+  useEffect(() => {
+    if (!session || !chantierId || dataLoaded) return;
+    
+    const fetchData = async () => {
       try {
-        const response = await fetch(`/api/chantiers/${params.chantierId}/etats-avancement`)
-        if (!response.ok) throw new Error('Erreur lors de la récupération des états d\'avancement')
-        const data = await response.json()
-        console.log('États d\'avancement client:', data);
-        setEtatsAvancement(data)
-      } catch (error) {
-        console.error('Erreur:', error)
-        // Ne pas afficher d'erreur si c'est juste que les états n'existent pas encore
-      }
-    }
-
-    const fetchSousTraitantsAvecCommandes = async () => {
-      try {
-        // Récupérer les commandes sous-traitants validées
-        const commandesResponse = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/commandes`)
-        if (!commandesResponse.ok) throw new Error('Erreur lors de la récupération des commandes sous-traitants')
-        const commandes = await commandesResponse.json()
+        setLoading(true);
+        setError(null);
         
-        // Filtrer pour ne garder que les commandes validées
-        const commandesValidees = commandes.filter((commande: any) => commande.estVerrouillee)
+        // Récupérer les informations du chantier
+        const chantierPromise = fetch(`/api/chantiers/${chantierId}`)
+          .then(res => {
+            if (!res.ok) throw new Error('Erreur lors de la récupération du chantier');
+            return res.json();
+          });
         
-        // Pour chaque commande validée, récupérer les états d'avancement du sous-traitant
-        const sousTraitantsData = await Promise.all(
-          commandesValidees.map(async (commande: any) => {
-            try {
-              const etatsResponse = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${commande.soustraitantId}/etats-avancement`)
-              let etats = etatsResponse.ok ? await etatsResponse.json() : []
+        // Récupérer les états d'avancement client
+        const etatsPromise = fetch(`/api/chantiers/${chantierId}/etats-avancement`)
+          .then(res => {
+            if (!res.ok) throw new Error('Erreur lors de la récupération des états d\'avancement');
+            return res.json();
+          });
+        
+        // Récupérer les sous-traitants et leurs commandes
+        const commandesPromise = fetch(`/api/chantiers/${chantierId}/soustraitants/commandes`)
+          .then(res => {
+            if (!res.ok) throw new Error('Erreur lors de la récupération des commandes des sous-traitants');
+            return res.json();
+          });
+        
+        // Attendre que toutes les requêtes principales soient terminées
+        const [chantierData, etatData, commandesData] = await Promise.all([
+          chantierPromise,
+          etatsPromise,
+          commandesPromise
+        ]);
+        
+        setChantier(chantierData);
+        setEtatsAvancement(etatData);
+        
+        // Pour chaque sous-traitant avec commande, récupérer les états d'avancement en parallèle
+        const etatsPromises = commandesData.map(async (commande: CommandeSousTraitant) => {
+          try {
+            const etatsResponse = await fetch(`/api/chantiers/${chantierId}/soustraitants/${commande.soustraitantId}/etats-avancement`);
+            
+            if (etatsResponse.ok) {
+              const etatsData = await etatsResponse.json();
               
-              console.log(`États d'avancement pour sous-traitant ${commande.soustraitantId}:`, etats);
-              
-              // Ajouter les propriétés 'typeSoustraitant' et 'soustraitantId' à chaque état
-              if (Array.isArray(etats)) {
-                etats = etats.map(etat => ({
-                  ...etat,
-                  typeSoustraitant: true,
-                  soustraitantId: commande.soustraitantId
-                }))
-              }
+              // Ajouter les propriétés typeSoustraitant et soustraitantId à chaque état
+              const etatsAvecType = etatsData.map((etat: EtatAvancement) => ({
+                ...etat,
+                typeSoustraitant: true,
+                soustraitantId: commande.soustraitantId
+              }));
               
               return {
                 soustraitantId: commande.soustraitantId,
-                soustraitantNom: commande.soustraitantNom,
-                commande: commande,
-                etatsAvancement: etats
-              }
-            } catch (error) {
-              console.error(`Erreur lors de la récupération des états d'avancement pour le sous-traitant ${commande.soustraitantId}:`, error)
-              return {
-                soustraitantId: commande.soustraitantId,
-                soustraitantNom: commande.soustraitantNom,
-                commande: commande,
-                etatsAvancement: []
-              }
+                nom: commande.soustraitantNom,
+                etatsAvancement: etatsAvecType,
+                commande: {
+                  id: commande.id,
+                  reference: commande.reference,
+                  dateCommande: commande.dateCommande,
+                  total: commande.total,
+                  estVerrouillee: commande.estVerrouillee
+                }
+              };
             }
-          })
-        )
+            return null;
+          } catch (error) {
+            console.error(`Erreur lors de la récupération des états pour le sous-traitant ${commande.soustraitantId}:`, error);
+            return null;
+          }
+        });
         
-        console.log('Données des sous-traitants avec commandes et états:', sousTraitantsData);
-        setSousTraitantsAvecCommandes(sousTraitantsData)
+        const soustraitantsData = (await Promise.all(etatsPromises)).filter(data => data !== null) as SousTraitant[];
+        setSousTraitants(soustraitantsData);
+        setDataLoaded(true);
+        
       } catch (error) {
-        console.error('Erreur:', error)
-        // Ne pas afficher d'erreur si c'est juste que les commandes n'existent pas encore
+        console.error(error);
+        setError('Erreur lors du chargement des données');
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+    
+    fetchData();
+  }, [session, chantierId, dataLoaded]);
 
-    if (session) {
-      fetchChantier()
-      fetchEtatsAvancement()
-      fetchSousTraitantsAvecCommandes()
-    }
-  }, [session, params.chantierId])
-
-  const handleCreateEtatAvancement = async () => {
+  const handleCreateEtat = async () => {
+    if (!chantierId) return;
+    
     try {
-      setLoading(true)
-      const response = await fetch(`/api/chantiers/${params.chantierId}/etats-avancement`, {
+      setIsCreating(true);
+      
+      // Appel à l'API pour créer un nouvel état d'avancement client
+      const response = await fetch(`/api/chantiers/${chantierId}/etats-avancement`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          chantierId: params.chantierId,
-        }),
-      })
-
+          chantierId: chantierId,
+          date: new Date()
+        })
+      });
+      
       if (!response.ok) {
-        const errorData = await response.json()
-        
-        // Vérifier si l'erreur est due à un état précédent non finalisé
-        if (response.status === 400 && errorData.error && errorData.error.includes('état d\'avancement précédent doit être finalisé')) {
-          toast.error('L\'état d\'avancement précédent doit être finalisé avant de créer un nouvel état.')
-          setLoading(false)
-          return
-        }
-        
-        throw new Error(errorData.error || 'Erreur lors de la création de l\'état d\'avancement')
+        throw new Error('Erreur lors de la création de l\'état d\'avancement');
       }
-
-      const newEtat = await response.json()
-      router.push(`/chantiers/${params.chantierId}/etats/${newEtat.numero}`)
+      
+      const newEtat = await response.json();
+      
+      // Rediriger vers le nouvel état
+      router.push(`/chantiers/${chantierId}/etats/${newEtat.numero}`);
+      
+      toast.success('État d\'avancement créé avec succès');
     } catch (error) {
-      console.error('Erreur:', error)
-      setError('Erreur lors de la création de l\'état d\'avancement')
+      console.error(error);
+      toast.error('Erreur lors de la création de l\'état d\'avancement');
     } finally {
-      setLoading(false)
+      setIsCreating(false);
     }
   }
 
-  const handleAddSousTraitant = () => {
-    setIsModalOpen(true)
+  const handleCreateSoustraitantEtat = (sousTraitantId: string) => {
+    if (!chantierId) return;
+    
+    setShowSelectModal(false);
+    router.push(`/chantiers/${chantierId}/etats/soustraitants/selection-postes?soustraitantId=${sousTraitantId}`);
   }
 
-  const handleSousTraitantSelect = (sousTraitantId: string) => {
-    router.push(`/chantiers/${params.chantierId}/etats/soustraitants/selection-postes?soustraitantId=${sousTraitantId}`)
-    setIsModalOpen(false)
+  const handleViewEtat = (etat: any) => {
+    if (etat.soustraitantId) {
+      // Si c'est un état sous-traitant
+      router.push(`/chantiers/${chantierId}/soustraitant-etats/${etat.soustraitantId}`);
+    } else {
+      // Si c'est un état client
+      router.push(`/chantiers/${chantierId}/etats/${etat.numero}`);
+    }
   }
 
-  const TableEtatsAvancement = ({ etats }: { etats: EtatAvancementEtendu[] }) => {
+  const handleEditEtat = (etat: any) => {
+    console.log('Éditer état', etat)
+  }
+
+  const handleDeleteEtat = async (etat: any) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cet état d\'avancement ?')) {
+      return
+    }
+    
+    try {
+      const response = await fetch(`/api/chantiers/${chantierId}/etats-avancement/${etat.numero}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        throw new Error('Erreur lors de la suppression de l\'état d\'avancement')
+      }
+      
+      // Mettre à jour la liste des états
+      const etatsResponse = await fetch(`/api/chantiers/${chantierId}/etats-avancement`);
+      const updatedEtats = await etatsResponse.json();
+      setEtatsAvancement(updatedEtats);
+      
+      toast.success('État d\'avancement supprimé avec succès')
+    } catch (error) {
+      console.error(error)
+      toast.error('Erreur lors de la suppression de l\'état d\'avancement')
+    }
+  }
+
+  function TableEtatsAvancement({ etats }: { etats: EtatAvancementEtendu[] }) {
     const router = useRouter()
     
     const handleRowClick = (etat: EtatAvancementEtendu) => {
+      if (!chantierId) return;
+      
       if (etat.typeSoustraitant && etat.soustraitantId) {
-        router.push(`/chantiers/${params.chantierId}/soustraitant-etats/${etat.soustraitantId}`);
+        router.push(`/chantiers/${chantierId}/soustraitant-etats/${etat.soustraitantId}/${etat.id}`)
       } else {
-        router.push(`/chantiers/${params.chantierId}/etats/${etat.numero}`);
+        router.push(`/chantiers/${chantierId}/etats/${etat.numero}`)
       }
     }
     
@@ -213,15 +278,26 @@ export default function ChantierEtatsPage({
       // Ne pas permettre la suppression d'un état finalisé
       if (etat.estFinalise) return false;
       
-      // Vérifier si c'est le dernier état (numéro le plus élevé)
-      const isLastEtat = !allEtats.some(e => 
-        !e.typeSoustraitant && e.numero > etat.numero
-      );
-      
-      return isLastEtat;
+      if (etat.typeSoustraitant) {
+        // Pour un état sous-traitant, vérifier si c'est le dernier état (numéro le plus élevé)
+        const isLastEtat = !allEtats.some(e => 
+          e.typeSoustraitant && e.soustraitantId === etat.soustraitantId && e.numero > etat.numero
+        );
+        
+        return isLastEtat;
+      } else {
+        // Pour un état client, vérifier si c'est le dernier état (numéro le plus élevé)
+        const isLastEtat = !allEtats.some(e => 
+          !e.typeSoustraitant && e.numero > etat.numero
+        );
+        
+        return isLastEtat;
+      }
     };
     
     const handleDeleteEtat = async (e: React.MouseEvent, etat: EtatAvancementEtendu) => {
+      if (!chantierId) return;
+      
       e.stopPropagation();
       
       if (!confirm(`Êtes-vous sûr de vouloir supprimer l'état d'avancement n°${etat.numero} ?`)) {
@@ -231,9 +307,19 @@ export default function ChantierEtatsPage({
       try {
         setLoading(true);
         
-        const response = await fetch(`/api/chantiers/${params.chantierId}/etats-avancement/${etat.numero}`, {
-          method: 'DELETE',
-        });
+        let response;
+        
+        if (etat.typeSoustraitant && etat.soustraitantId) {
+          // Suppression d'un état sous-traitant
+          response = await fetch(`/api/chantiers/${chantierId}/soustraitants/${etat.soustraitantId}/etats-avancement/${etat.id}`, {
+            method: 'DELETE',
+          });
+        } else {
+          // Suppression d'un état client
+          response = await fetch(`/api/chantiers/${chantierId}/etats-avancement/${etat.numero}`, {
+            method: 'DELETE',
+          });
+        }
         
         if (!response.ok) {
           const errorData = await response.json();
@@ -242,11 +328,32 @@ export default function ChantierEtatsPage({
         
         toast.success(`État d'avancement n°${etat.numero} supprimé avec succès`);
         
-        // Rafraîchir la liste des états
-        const etatsResponse = await fetch(`/api/chantiers/${params.chantierId}/etats-avancement`);
-        if (etatsResponse.ok) {
-          const data = await etatsResponse.json();
-          setEtatsAvancement(data);
+        // Rafraîchir la liste des états en fonction du type
+        if (etat.typeSoustraitant && etat.soustraitantId) {
+          // Rafraîchir les états sous-traitants
+          const stIndex = sousTraitants.findIndex(st => st.soustraitantId === etat.soustraitantId);
+          if (stIndex >= 0) {
+            const updatedSousTraitants = [...sousTraitants];
+            const etatsResponse = await fetch(`/api/chantiers/${chantierId}/soustraitants/${etat.soustraitantId}/etats-avancement`);
+            if (etatsResponse.ok) {
+              const etatsData = await etatsResponse.json();
+              // Ajouter les propriétés typeSoustraitant et soustraitantId à chaque état
+              const etatsAvecType = etatsData.map((et: EtatAvancement) => ({
+                ...et,
+                typeSoustraitant: true,
+                soustraitantId: etat.soustraitantId
+              }));
+              updatedSousTraitants[stIndex].etatsAvancement = etatsAvecType;
+              setSousTraitants(updatedSousTraitants);
+            }
+          }
+        } else {
+          // Rafraîchir les états client
+          const etatsResponse = await fetch(`/api/chantiers/${chantierId}/etats-avancement`);
+          if (etatsResponse.ok) {
+            const data = await etatsResponse.json();
+            setEtatsAvancement(data);
+          }
         }
       } catch (error) {
         console.error('Erreur:', error);
@@ -256,80 +363,85 @@ export default function ChantierEtatsPage({
       }
     };
     
-    return (
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-800">
-            <tr>
-              <th className="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">N°</th>
-              <th className="w-48 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Date</th>
-              <th className="w-56 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Montant de l'état</th>
-              <th className="w-40 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Statut</th>
-              <th className="w-32 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
-            {etats.map((etat) => (
-              <tr 
-                key={etat.id} 
-                className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                onClick={() => handleRowClick(etat)}
-              >
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                  {etat.numero}
-                  {etat.typeSoustraitant && (
-                    <span className="ml-2 text-xs text-blue-500">(Sous-traitant)</span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(etat.date).toLocaleDateString('fr-FR')}
-                  {etat.mois && <span className="ml-2 italic">({etat.mois})</span>}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {(etat.lignes.reduce((sum, ligne) => sum + ligne.montantActuel, 0) + 
-                    etat.avenants.reduce((sum, avenant) => sum + avenant.montantActuel, 0)
-                  ).toLocaleString('fr-FR')} €
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    etat.estFinalise 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                      : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                  }`}>
-                    {etat.estFinalise ? 'Finalisé' : 'En cours'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right space-x-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (etat.typeSoustraitant && etat.soustraitantId) {
-                        router.push(`/chantiers/${params.chantierId}/soustraitant-etats/${etat.soustraitantId}`);
-                      } else {
-                        router.push(`/chantiers/${params.chantierId}/etats/${etat.numero}`);
-                      }
-                    }}
-                    className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    <EyeIcon className="h-5 w-5 inline" />
-                  </button>
-                  
-                  {!etat.typeSoustraitant && canDeleteEtat(etat, etats) && (
-                    <button
-                      onClick={(e) => handleDeleteEtat(e, etat)}
-                      className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 ml-2"
-                      title="Supprimer cet état d'avancement"
-                    >
-                      <TrashIcon className="h-5 w-5 inline" />
-                    </button>
-                  )}
-                </td>
+    // Memoization du rendu de la table pour éviter les re-rendus inutiles
+    const tableContent = React.useMemo(() => {
+      return (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">N°</th>
+                <th className="w-48 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Date</th>
+                <th className="w-56 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Montant de l'état</th>
+                <th className="w-40 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Statut</th>
+                <th className="w-32 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
+              {etats.map((etat) => (
+                <tr 
+                  key={etat.id} 
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                  onClick={() => handleRowClick(etat)}
+                >
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                    {etat.numero}
+                    {etat.typeSoustraitant && (
+                      <span className="ml-2 text-xs text-blue-500">(Sous-traitant)</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {new Date(etat.date).toLocaleDateString('fr-FR')}
+                    {etat.mois && <span className="ml-2 italic">({etat.mois})</span>}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {(etat.lignes.reduce((sum, ligne) => sum + ligne.montantActuel, 0) + 
+                      etat.avenants.reduce((sum, avenant) => sum + avenant.montantActuel, 0)
+                    ).toLocaleString('fr-FR')} €
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      etat.estFinalise 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                    }`}>
+                      {etat.estFinalise ? 'Finalisé' : 'En cours'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right space-x-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (etat.typeSoustraitant && etat.soustraitantId) {
+                          router.push(`/chantiers/${chantierId}/soustraitant-etats/${etat.soustraitantId}/${etat.id}`);
+                        } else {
+                          router.push(`/chantiers/${chantierId}/etats/${etat.numero}`);
+                        }
+                      }}
+                      className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      <EyeIcon className="h-5 w-5 inline" />
+                    </button>
+                    
+                    {canDeleteEtat(etat, etats) && (
+                      <button
+                        onClick={(e) => handleDeleteEtat(e, etat)}
+                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 ml-2"
+                        title="Supprimer cet état d'avancement"
+                      >
+                        <TrashIcon className="h-5 w-5 inline" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }, [etats, chantierId]);
+    
+    return tableContent;
   }
 
   if (loading) return (
@@ -337,13 +449,13 @@ export default function ChantierEtatsPage({
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
     </div>
   )
-  
+
   if (error) return (
     <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-lg border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
       {error}
     </div>
   )
-  
+
   if (!chantier) return (
     <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400">
       Chantier non trouvé
@@ -404,7 +516,7 @@ export default function ChantierEtatsPage({
                     Aucun état d'avancement client n'a encore été créé.
                   </p>
                   <button
-                    onClick={handleCreateEtatAvancement}
+                    onClick={handleCreateEtat}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-500 dark:bg-blue-700 dark:hover:bg-blue-600 flex items-center mx-auto justify-center shadow-md transition-all hover:shadow-lg border border-blue-700 hover:border-blue-500 dark:border-blue-600 dark:hover:border-blue-500"
                   >
                     <PlusIcon className="h-5 w-5 mr-2" />
@@ -415,7 +527,7 @@ export default function ChantierEtatsPage({
                 <>
                   <div className="flex justify-end mb-4">
                     <button
-                      onClick={handleCreateEtatAvancement}
+                      onClick={handleCreateEtat}
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-500 dark:bg-blue-700 dark:hover:bg-blue-600 flex items-center justify-center shadow-md transition-all hover:shadow-lg border border-blue-700 hover:border-blue-500 dark:border-blue-600 dark:hover:border-blue-500"
                     >
                       <PlusIcon className="h-5 w-5 mr-2" />
@@ -431,10 +543,10 @@ export default function ChantierEtatsPage({
           </CollapsibleSection>
 
           {/* Sections pour chaque sous-traitant avec une commande validée */}
-          {sousTraitantsAvecCommandes.map((st) => (
+          {sousTraitants.map((st) => (
             <CollapsibleSection
               key={st.soustraitantId}
-              title={`Sous-traitant: ${st.soustraitantNom}`}
+              title={`Sous-traitant: ${st.nom}`}
               icon="🏗️"
               defaultOpen={true}
             >
@@ -450,14 +562,14 @@ export default function ChantierEtatsPage({
                   </div>
                   <div className="flex space-x-2">
                     <Link
-                      href={`/chantiers/${params.chantierId}/etats/soustraitants/${st.soustraitantId}/commande/${st.commande.id}`}
+                      href={`/chantiers/${chantierId}/etats/soustraitants/${st.soustraitantId}/commande/${st.commande.id}`}
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-500 dark:bg-blue-700 dark:hover:bg-blue-600 flex items-center justify-center shadow-sm transition-all hover:shadow-md border border-blue-700 hover:border-blue-500 dark:border-blue-600 dark:hover:border-blue-500"
                     >
                       <EyeIcon className="h-5 w-5 mr-2" />
                       Voir commande
                     </Link>
                     <button
-                      onClick={() => window.open(`/api/chantiers/${params.chantierId}/soustraitants/${st.soustraitantId}/commandes/${st.commande.id}/pdf`, '_blank')}
+                      onClick={() => window.open(`/api/chantiers/${chantierId}/soustraitants/${st.soustraitantId}/commandes/${st.commande.id}/pdf`, '_blank')}
                       className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-500 dark:bg-green-700 dark:hover:bg-green-600 flex items-center justify-center shadow-sm transition-all hover:shadow-md border border-green-700 hover:border-green-500 dark:border-green-600 dark:hover:border-green-500"
                     >
                       <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
@@ -482,13 +594,13 @@ export default function ChantierEtatsPage({
                         onClick={async () => {
                           try {
                             setLoading(true)
-                            const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${st.soustraitantId}/etats-avancement`, {
+                            const response = await fetch(`/api/chantiers/${chantierId}/soustraitants/${st.soustraitantId}/etats-avancement`, {
                               method: 'POST',
                               headers: {
                                 'Content-Type': 'application/json',
                               },
                               body: JSON.stringify({
-                                chantierId: params.chantierId,
+                                chantierId: chantierId,
                                 soustraitantId: st.soustraitantId,
                                 commandeId: st.commande.id
                               }),
@@ -508,7 +620,7 @@ export default function ChantierEtatsPage({
                             }
 
                             const newEtat = await response.json()
-                            router.push(`/chantiers/${params.chantierId}/soustraitant-etats/${st.soustraitantId}`)
+                            router.push(`/chantiers/${chantierId}/soustraitant-etats/${st.soustraitantId}`)
                           } catch (error) {
                             console.error('Erreur:', error)
                             toast.error('Erreur lors de la création de l\'état d\'avancement')
@@ -529,13 +641,13 @@ export default function ChantierEtatsPage({
                           onClick={async () => {
                             try {
                               setLoading(true)
-                              const response = await fetch(`/api/chantiers/${params.chantierId}/soustraitants/${st.soustraitantId}/etats-avancement`, {
+                              const response = await fetch(`/api/chantiers/${chantierId}/soustraitants/${st.soustraitantId}/etats-avancement`, {
                                 method: 'POST',
                                 headers: {
                                   'Content-Type': 'application/json',
                                 },
                                 body: JSON.stringify({
-                                  chantierId: params.chantierId,
+                                  chantierId: chantierId,
                                   soustraitantId: st.soustraitantId,
                                   commandeId: st.commande.id
                                 }),
@@ -555,7 +667,7 @@ export default function ChantierEtatsPage({
                               }
 
                               const newEtat = await response.json()
-                              router.push(`/chantiers/${params.chantierId}/soustraitant-etats/${st.soustraitantId}`)
+                              router.push(`/chantiers/${chantierId}/soustraitant-etats/${st.soustraitantId}`)
                             } catch (error) {
                               console.error('Erreur:', error)
                               toast.error('Erreur lors de la création de l\'état d\'avancement')
@@ -570,7 +682,7 @@ export default function ChantierEtatsPage({
                         </button>
                       </div>
                       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                        <TableEtatsAvancement etats={st.etatsAvancement as EtatAvancementEtendu[]} />
+                        <TableEtatsAvancement etats={st.etatsAvancement} />
                       </div>
                     </>
                   )}
@@ -581,7 +693,7 @@ export default function ChantierEtatsPage({
 
           <div className="mt-6 mb-6">
             <button
-              onClick={handleAddSousTraitant}
+              onClick={() => setShowSelectModal(true)}
               className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-500 dark:bg-gray-700 dark:hover:bg-gray-600 flex items-center shadow-md transition-all hover:shadow-lg border border-gray-700 hover:border-gray-500 dark:border-gray-600 dark:hover:border-gray-500"
             >
               <PlusIcon className="h-5 w-5 mr-2" />
@@ -594,7 +706,7 @@ export default function ChantierEtatsPage({
             icon="💰"
             defaultOpen={true}
           >
-            <DepenseSection chantierId={params.chantierId} />
+            <DepenseSection chantierId={chantierId || ""} />
           </CollapsibleSection>
 
           <CollapsibleSection
@@ -604,7 +716,7 @@ export default function ChantierEtatsPage({
           >
             <div className="mt-4">
               <CardFinancialSummary 
-                chantierId={params.chantierId}
+                chantierId={chantierId || ""}
                 etatId="global"
               />
             </div>
@@ -613,10 +725,10 @@ export default function ChantierEtatsPage({
       </div>
 
       <SousTraitantSelectModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleSousTraitantSelect}
-        chantierId={params.chantierId}
+        isOpen={showSelectModal}
+        onClose={() => setShowSelectModal(false)}
+        onSubmit={handleCreateSoustraitantEtat}
+        chantierId={chantierId || ""}
       />
     </div>
   )

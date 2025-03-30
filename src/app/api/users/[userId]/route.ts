@@ -5,10 +5,8 @@ import { authOptions } from '@/lib/auth'
 import bcrypt from 'bcrypt'
 
 // GET /api/users/[userId] - Récupère un utilisateur spécifique
-export async function GET(
-  request: Request,
-  { params }: { params: { userId: string } }
-) {
+export async function GET(request: Request, props: { params: Promise<{ userId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -47,10 +45,8 @@ export async function GET(
 }
 
 // PUT /api/users/[userId] - Met à jour un utilisateur
-export async function PUT(
-  request: Request,
-  { params }: { params: { userId: string } }
-) {
+export async function PUT(request: Request, props: { params: Promise<{ userId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -109,10 +105,8 @@ export async function PUT(
 }
 
 // DELETE /api/users/[userId] - Supprime un utilisateur
-export async function DELETE(
-  request: Request,
-  { params }: { params: { userId: string } }
-) {
+export async function DELETE(request: Request, props: { params: Promise<{ userId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

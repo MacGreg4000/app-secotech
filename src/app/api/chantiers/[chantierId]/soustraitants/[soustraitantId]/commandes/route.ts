@@ -5,8 +5,9 @@ import { authOptions } from '@/lib/auth'
 
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string } }
+  props: { params: Promise<{ chantierId: string; soustraitantId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -55,8 +56,9 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string } }
+  props: { params: Promise<{ chantierId: string; soustraitantId: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions)
     if (!session) {

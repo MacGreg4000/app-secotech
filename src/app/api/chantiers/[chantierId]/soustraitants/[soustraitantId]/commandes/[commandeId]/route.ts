@@ -5,9 +5,15 @@ import { authOptions } from '@/lib/auth'
 
 export async function GET(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string; commandeId: string } }
+  context: { params: Promise<{ chantierId: string; soustraitantId: string; commandeId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    const soustraitantId = params.soustraitantId;
+    const commandeId = params.commandeId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -30,9 +36,9 @@ export async function GET(
       FROM commande_soustraitant c
       JOIN chantier ch ON c.chantierId = ch.chantierId
       JOIN soustraitant s ON c.soustraitantId = s.id
-      WHERE c.id = ${parseInt(params.commandeId)}
-      AND c.chantierId = ${params.chantierId}
-      AND c.soustraitantId = ${params.soustraitantId}
+      WHERE c.id = ${parseInt(commandeId)}
+      AND c.chantierId = ${chantierId}
+      AND c.soustraitantId = ${soustraitantId}
     ` as any[]
 
     if (!commande || commande.length === 0) {
@@ -45,7 +51,7 @@ export async function GET(
     // Récupérer les lignes de commande
     const lignes = await prisma.$queryRaw`
       SELECT * FROM ligne_commande_soustraitant
-      WHERE commandeSousTraitantId = ${parseInt(params.commandeId)}
+      WHERE commandeSousTraitantId = ${parseInt(commandeId)}
       ORDER BY ordre ASC
     ` as any[]
 
@@ -64,9 +70,15 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string; commandeId: string } }
+  context: { params: Promise<{ chantierId: string; soustraitantId: string; commandeId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    const soustraitantId = params.soustraitantId;
+    const commandeId = params.commandeId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -81,9 +93,9 @@ export async function PUT(
     // Vérifier que la commande existe
     const commande = await prisma.$queryRaw`
       SELECT * FROM commande_soustraitant
-      WHERE id = ${parseInt(params.commandeId)}
-      AND chantierId = ${params.chantierId}
-      AND soustraitantId = ${params.soustraitantId}
+      WHERE id = ${parseInt(commandeId)}
+      AND chantierId = ${chantierId}
+      AND soustraitantId = ${soustraitantId}
     ` as any[]
 
     if (!commande || commande.length === 0) {
@@ -106,7 +118,7 @@ export async function PUT(
       // Supprimer les lignes existantes
       await prisma.$executeRaw`
         DELETE FROM ligne_commande_soustraitant
-        WHERE commandeSousTraitantId = ${parseInt(params.commandeId)}
+        WHERE commandeSousTraitantId = ${parseInt(commandeId)}
       `
 
       // Calculer les totaux
@@ -141,7 +153,7 @@ export async function PUT(
             createdAt,
             updatedAt
           ) VALUES (
-            ${parseInt(params.commandeId)},
+            ${parseInt(commandeId)},
             ${ligne.ordre},
             ${ligne.article},
             ${ligne.description},
@@ -166,14 +178,14 @@ export async function PUT(
           tva = ${tva},
           total = ${total},
           updatedAt = NOW()
-        WHERE id = ${parseInt(params.commandeId)}
+        WHERE id = ${parseInt(commandeId)}
       `
     } else {
       // Mettre à jour uniquement les champs de base de la commande
       // Récupérer d'abord le sous-total actuel
       const commandeActuelle = await prisma.$queryRaw`
         SELECT sousTotal FROM commande_soustraitant
-        WHERE id = ${parseInt(params.commandeId)}
+        WHERE id = ${parseInt(commandeId)}
       ` as any[]
       
       const sousTotal = commandeActuelle[0].sousTotal;
@@ -191,7 +203,7 @@ export async function PUT(
           tva = ${nouvelleTVA},
           total = ${nouveauTotal},
           updatedAt = NOW()
-        WHERE id = ${parseInt(params.commandeId)}
+        WHERE id = ${parseInt(commandeId)}
       `
     }
 
@@ -205,13 +217,13 @@ export async function PUT(
       FROM commande_soustraitant c
       JOIN chantier ch ON c.chantierId = ch.chantierId
       JOIN soustraitant s ON c.soustraitantId = s.id
-      WHERE c.id = ${parseInt(params.commandeId)}
+      WHERE c.id = ${parseInt(commandeId)}
     ` as any[]
 
     // Récupérer les lignes de commande
     const lignesCommande = await prisma.$queryRaw`
       SELECT * FROM ligne_commande_soustraitant
-      WHERE commandeSousTraitantId = ${parseInt(params.commandeId)}
+      WHERE commandeSousTraitantId = ${parseInt(commandeId)}
       ORDER BY ordre ASC
     ` as any[]
 
@@ -230,9 +242,15 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { chantierId: string; soustraitantId: string; commandeId: string } }
+  context: { params: Promise<{ chantierId: string; soustraitantId: string; commandeId: string }> }
 ) {
   try {
+    // Récupérer et attendre les paramètres
+    const params = await context.params;
+    const chantierId = params.chantierId;
+    const soustraitantId = params.soustraitantId;
+    const commandeId = params.commandeId;
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json(
@@ -244,9 +262,9 @@ export async function DELETE(
     // Vérifier que la commande existe
     const commande = await prisma.$queryRaw`
       SELECT * FROM commande_soustraitant
-      WHERE id = ${parseInt(params.commandeId)}
-      AND chantierId = ${params.chantierId}
-      AND soustraitantId = ${params.soustraitantId}
+      WHERE id = ${parseInt(commandeId)}
+      AND chantierId = ${chantierId}
+      AND soustraitantId = ${soustraitantId}
     ` as any[]
 
     if (!commande || commande.length === 0) {
@@ -267,13 +285,13 @@ export async function DELETE(
     // Supprimer les lignes de commande
     await prisma.$executeRaw`
       DELETE FROM ligne_commande_soustraitant
-      WHERE commandeSousTraitantId = ${parseInt(params.commandeId)}
+      WHERE commandeSousTraitantId = ${parseInt(commandeId)}
     `
 
     // Supprimer la commande
     await prisma.$executeRaw`
       DELETE FROM commande_soustraitant
-      WHERE id = ${parseInt(params.commandeId)}
+      WHERE id = ${parseInt(commandeId)}
     `
 
     return NextResponse.json({ success: true })
