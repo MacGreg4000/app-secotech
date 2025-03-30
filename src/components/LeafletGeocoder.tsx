@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { useMap, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css'
+import "leaflet-defaulticon-compatibility"
+import { createLogger } from '@/lib/logger'
 
 // Correction de l'icône Leaflet
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png'
@@ -36,6 +39,9 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
   const [loading, setLoading] = useState(true)
   const [debugInfo, setDebugInfo] = useState<string>('')
 
+  // Créer un logger spécifique pour ce composant
+  const logger = createLogger('Geocoder');
+
   useEffect(() => {
     // Fix pour l'icône Leaflet
     delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -57,76 +63,6 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
       })
     }
 
-    // Ajouter le style pour les icônes personnalisées s'il n'existe pas déjà
-    if (!document.getElementById('marker-pin-style')) {
-      const style = document.createElement('style')
-      style.id = 'marker-pin-style'
-      style.innerHTML = `
-        .marker-pin {
-          width: 30px;
-          height: 30px;
-          border-radius: 50% 50% 50% 0;
-          position: absolute;
-          transform: rotate(-45deg);
-          left: 50%;
-          top: 50%;
-          margin: -15px 0 0 -15px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .marker-pin::after {
-          content: '';
-          width: 22px;
-          height: 22px;
-          margin: 4px 0 0 4px;
-          background: white;
-          position: absolute;
-          border-radius: 50%;
-        }
-        .bg-green-500 { background-color: #10B981; }
-        .bg-yellow-500 { background-color: #F59E0B; }
-        .bg-blue-500 { background-color: #3B82F6; }
-        
-        /* Style moderne pour la popover */
-        .leaflet-popup-content-wrapper {
-          border-radius: 8px;
-          box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-        }
-        .leaflet-popup-content {
-          margin: 12px 16px;
-          line-height: 1.5;
-        }
-        .leaflet-popup-tip {
-          box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        /* Style moderne pour les contrôles de zoom */
-        .leaflet-control-zoom a {
-          background-color: white;
-          color: #333;
-          transition: all 0.2s ease;
-        }
-        .leaflet-control-zoom a:hover {
-          background-color: #f0f0f0;
-          color: #000;
-        }
-        .leaflet-bar {
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-        
-        /* Style discret pour l'attribution */
-        .leaflet-control-attribution {
-          font-size: 9px !important;
-          opacity: 0.7;
-          padding: 2px 4px !important;
-          background-color: rgba(255, 255, 255, 0.7) !important;
-        }
-        .leaflet-control-attribution a {
-          color: #555 !important;
-        }
-      `
-      document.head.appendChild(style)
-    }
-
     // Ajouter un style personnalisé à la carte elle-même
     map.getContainer().style.borderRadius = '8px'
     map.getContainer().style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)'
@@ -145,8 +81,8 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
       // Filtrer pour ne garder que les chantiers "En cours"
       const chantiersEnCours = chantiers.filter(c => c.etat === "En cours")
       
-      console.log('Total chantiers:', chantiers.length)
-      console.log('Chantiers en cours:', chantiersEnCours.length)
+      logger.info(`Total chantiers: ${chantiers.length}`);
+      logger.info(`Chantiers en cours: ${chantiersEnCours.length}`);
       
       setDebugInfo(`Total: ${chantiers.length}, En cours: ${chantiersEnCours.length}`)
 
@@ -159,7 +95,7 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
         c => !c.latitude && !c.longitude && (c.adresseChantier || c.adresse || (c as any).address || (c as any).location)
       )
 
-      console.log('Chantiers à géocoder:', needsGeocoding.length)
+      logger.info(`Chantiers à géocoder: ${needsGeocoding.length}`);
       
       if (needsGeocoding.length === 0 && existingCoords.length === 0) {
         setDebugInfo(prev => `${prev} | Aucun chantier en cours à afficher`)
@@ -171,12 +107,12 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
         const adresse = chantier.adresseChantier || chantier.adresse || (chantier as any).address || (chantier as any).location
         
         if (!adresse) {
-          console.log(`Pas d'adresse pour: ${chantier.nom}`)
+          logger.warn(`Pas d'adresse pour: ${chantier.nom}`);
           continue
         }
 
         try {
-          console.log(`Géocodage pour: ${chantier.nom} - Adresse: ${adresse}`)
+          logger.debug(`Géocodage pour: ${chantier.nom} - Adresse: ${adresse}`);
           
           // Utiliser l'API Photon pour géocoder l'adresse (meilleure que Nominatim)
           const response = await fetch(
@@ -190,7 +126,7 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
 
           if (response.ok) {
             const data = await response.json()
-            console.log(`Résultat pour ${chantier.nom}:`, data)
+            logger.debug(`Résultat pour ${chantier.nom}:`, data);
             
             if (data && data.features && data.features.length > 0) {
               const result = data.features[0]
@@ -206,9 +142,9 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
                 latitude,
                 longitude
               })
-              console.log(`Géocodage réussi pour: ${chantier.nom} - [${latitude}, ${longitude}]`)
+              logger.info(`Géocodage réussi pour: ${chantier.nom} - [${latitude}, ${longitude}]`);
             } else {
-              console.log(`Pas de résultat pour: ${chantier.nom} - Adresse: ${adresse}`)
+              logger.warn(`Pas de résultat pour: ${chantier.nom} - Adresse: ${adresse}`);
               
               // Fallback à Nominatim si Photon ne trouve pas l'adresse
               try {
@@ -230,11 +166,11 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
                       latitude: parseFloat(nominatimResult.lat),
                       longitude: parseFloat(nominatimResult.lon),
                     })
-                    console.log(`Fallback Nominatim réussi pour: ${chantier.nom}`)
+                    logger.info(`Fallback Nominatim réussi pour: ${chantier.nom}`);
                   }
                 }
               } catch (fallbackError) {
-                console.error(`Erreur lors du fallback Nominatim pour ${chantier.nom}:`, fallbackError)
+                logger.error(`Erreur lors du fallback Nominatim pour ${chantier.nom}:`, fallbackError);
               }
             }
           }
@@ -242,11 +178,11 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
           // Petite pause entre les requêtes pour respecter la limite de l'API
           await new Promise(resolve => setTimeout(resolve, 1000))
         } catch (error) {
-          console.error(`Erreur lors du géocodage pour ${chantier.nom}:`, error)
+          logger.error(`Erreur lors du géocodage pour ${chantier.nom}:`, error)
         }
       }
 
-      console.log('Chantiers géolocalisés:', chantierWithCoords)
+      logger.info('Chantiers géolocalisés:', chantierWithCoords);
       setGeolocatedChantiers(chantierWithCoords)
       setLoading(false)
       setDebugInfo(prev => `${prev} | Chantiers géolocalisés: ${chantierWithCoords.length}`)
@@ -261,7 +197,7 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
           )
           map.fitBounds(bounds, { padding: [50, 50] })
         } catch (error) {
-          console.error('Erreur lors de l\'ajustement de la vue:', error)
+          logger.error('Erreur lors de l\'ajustement de la vue:', error)
         }
       }
     }

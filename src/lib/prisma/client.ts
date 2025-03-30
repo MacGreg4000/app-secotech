@@ -6,7 +6,7 @@ const prismaClientSingleton = () => {
     // Vérifier si nous sommes en mode de build statique et sans DATABASE_URL
     if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE === 'phase-production-build' && !process.env.DATABASE_URL) {
       // Créer un mock PrismaClient pour la compilation statique
-      console.log('🔶 Mode de build détecté, utilisation d\'un client Prisma mock')
+      // console.log('🔶 Mode de build détecté, utilisation d\'un client Prisma mock')
       return createMockPrismaClient()
     }
     
@@ -54,13 +54,14 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
 // Test de connexion uniquement si pas en mode build
 if (process.env.NEXT_PHASE !== 'phase-production-build') {
-  prisma.$connect()
-    .then(() => {
-      console.log('✅ Connexion à la base de données réussie')
-    })
-    .catch((e) => {
-      console.error('❌ Erreur de connexion à la base de données:', e)
-    })
+  try {
+    // Vérifier la connexion à la base de données
+    await prisma.$connect()
+    // Connexion réussie
+    // console.log('✅ Connexion à la base de données réussie')
+  } catch (error) {
+    console.error('❌ Erreur de connexion à la base de données:', error)
+  }
 }
 
 // Types personnalisés pour les commandes sous-traitant
