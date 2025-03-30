@@ -84,6 +84,22 @@
     "eslint": {
       "@humanwhocodes/config-array": "npm:@eslint/config-array",
       "@humanwhocodes/object-schema": "npm:@eslint/object-schema"
+    },
+    "glob": "11.0.1",
+    "rimraf": "6.0.1",
+    "fast-csv": {
+      "lodash.isequal": "npm:lodash-es"
+    },
+    "unzipper": {
+      "fstream": "npm:graceful-fs"
+    },
+    "exceljs": {
+      "archiver": {
+        "glob": "11.0.1"
+      },
+      "unzipper": {
+        "fstream": "npm:graceful-fs"
+      }
     }
   }
 }
