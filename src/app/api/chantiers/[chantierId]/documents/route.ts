@@ -53,7 +53,7 @@ export async function GET(request: Request, props: { params: Promise<{ chantierI
     const documentsWithUser = await prisma.document.findMany({
       where: whereClause,
       include: {
-        user: true
+        User: true
       }
     })
 
@@ -122,6 +122,35 @@ export async function POST(request: Request, props: { params: Promise<{ chantier
     // Récupérer les notes si elles sont fournies
     const notes = formData.get('notes') as string || ''
     console.log('POST documents - notes reçues:', notes ? 'Oui' : 'Non')
+    
+    // Récupérer les métadonnées supplémentaires
+    let metadata: any = null;
+    
+    if (documentType === 'rapport-visite') {
+      // Personnes présentes
+      const personnesPresentes = formData.get('personnesPresentes');
+      // Tags utilisés
+      const tags = formData.get('tags');
+      
+      // Créer un objet de métadonnées si nécessaire
+      if (personnesPresentes || tags) {
+        metadata = {
+          personnes: personnesPresentes ? JSON.parse(personnesPresentes as string) : [],
+          tags: tags ? JSON.parse(tags as string) : [],
+          notes: notes
+        };
+      }
+    } else if (documentType === 'photo-chantier') {
+      // Récupérer les métadonnées pour les photos
+      const metadataStr = formData.get('metadata') as string;
+      if (metadataStr) {
+        try {
+          metadata = JSON.parse(metadataStr);
+        } catch (e) {
+          console.error('Erreur lors du parsing des métadonnées:', e);
+        }
+      }
+    }
 
     // Créer le dossier des documents si nécessaire
     const chantierDir = join(DOCUMENTS_BASE_PATH, params.chantierId)
@@ -171,6 +200,7 @@ export async function POST(request: Request, props: { params: Promise<{ chantier
       
       console.log('POST documents - Utilisateur trouvé:', userExists.id)
 
+      // Créer le document dans la base de données
       const document = await prisma.document.create({
         data: {
           nom: file.name,
@@ -180,17 +210,19 @@ export async function POST(request: Request, props: { params: Promise<{ chantier
           mimeType: file.type,
           chantierId: params.chantierId,
           createdBy: userExists.id,
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          ...(metadata ? { metadata: metadata as any } : {})
         },
         include: {
-          user: {
+          User: {
             select: {
               name: true,
               email: true
             }
           }
         }
-      })
+      });
+
       console.log('POST documents - document créé avec succès:', document.id)
       return NextResponse.json(document)
     } catch (dbError: any) {
@@ -206,10 +238,9 @@ export async function POST(request: Request, props: { params: Promise<{ chantier
       )
     }
   } catch (error: any) {
-    console.error('Erreur générale lors de l\'ajout du document:', error.message)
-    
+    console.error('Erreur globale dans POST documents:', error.message, error.stack)
     return NextResponse.json(
-      { error: `Erreur lors de l'ajout du document: ${error.message}` },
+      { error: `Erreur générale: ${error.message}` },
       { status: 500 }
     )
   }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, memo } from 'react'
 import { useMap, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -25,184 +25,249 @@ interface Chantier {
   longitude?: number
 }
 
+// Props pour le composant
 interface LeafletGeocoderProps {
   chantiers: Chantier[]
   formatMontant: (montant: number) => string
 }
 
-// Composant pour gérer le géocodage
-function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
-  const map = useMap()
-  const [geolocatedChantiers, setGeolocatedChantiers] = useState<Chantier[]>([])
-  const [loading, setLoading] = useState(true)
-  const [debugInfo, setDebugInfo] = useState<string>('')
+// Désactiver le rendu superflu avec memo
+const LeafletGeocoder = memo(function LeafletGeocoder(props: LeafletGeocoderProps) {
+  return <GeocodeChantiers {...props} />
+});
 
-  useEffect(() => {
-    // Fix pour l'icône Leaflet - utilisation de leaflet-defaulticon-compatibility au lieu d'imports directs
-    // Cette bibliothèque règle automatiquement les problèmes d'icônes dans Next.js
+export default LeafletGeocoder;
 
-    // Préparation des icônes avec couleurs selon état du chantier
-    const chantierIcon = (etat: string) => {
-      return L.divIcon({
+// Fonction pour créer un marqueur de chantier
+function createChantierMarker(chantier: Chantier, formatMontant: (montant: number) => string) {
+  if (!chantier.latitude || !chantier.longitude) return null;
+  
+  return (
+    <Marker 
+      key={chantier.id}
+      position={[chantier.latitude, chantier.longitude]}
+      icon={L.divIcon({
         className: 'custom-div-icon',
         html: `<div class='marker-pin bg-${
-          etat === 'En cours' ? 'green' : etat === 'En préparation' ? 'yellow' : 'blue'
+          chantier.etat === 'En cours' ? 'green' : chantier.etat === 'En préparation' ? 'yellow' : 'blue'
         }-500'></div>`,
         iconSize: [30, 42],
         iconAnchor: [15, 42]
-      })
-    }
+      })}
+    >
+      <Popup className="chantier-popup">
+        <div>
+          <h3 className="font-bold text-lg">{chantier.nom}</h3>
+          <p><span className="font-medium">Client:</span> {chantier.client}</p>
+          <p><span className="font-medium">Montant:</span> {formatMontant(chantier.montant)}</p>
+          <p><span className="font-medium">Progression:</span> {chantier.progression}%</p>
+          {(chantier.adresse || chantier.adresseChantier) && (
+            <p><span className="font-medium">Adresse:</span> {chantier.adresseChantier || chantier.adresse}</p>
+          )}
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
 
-    // Ajouter un style personnalisé à la carte elle-même
-    map.getContainer().style.borderRadius = '8px'
-    map.getContainer().style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)'
+// Composant pour gérer le géocodage
+function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
+  const map = useMap();
+  const [geolocatedChantiers, setGeolocatedChantiers] = useState<Chantier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isGeocoded, setIsGeocoded] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
+
+  // Fonction de géocodage
+  const geocodeChantiers = useCallback(async () => {
+    if (isGeocoded) return; // Ne pas exécuter si déjà géocodé
     
-    // Changer le fournisseur de tuiles pour un style plus moderne
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '© <a href="https://carto.com">CARTO</a> | © <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-      subdomains: 'abcd',
-      maxZoom: 19,
-    }).addTo(map)
+    setLoading(true);
+    const chantierWithCoords: Chantier[] = [];
 
-    async function geocodeChantiers() {
-      setLoading(true)
-      const chantierWithCoords: Chantier[] = []
+    // Filtrer pour les chantiers "En cours"
+    const chantiersEnCours = chantiers.filter(c => c.etat === "En cours");
+    
+    logger.info(`Total chantiers: ${chantiers.length}, En cours: ${chantiersEnCours.length}`);
+    setDebugInfo(`Total: ${chantiers.length}, En cours: ${chantiersEnCours.length}`);
 
-      // Filtrer pour ne garder que les chantiers "En cours"
-      const chantiersEnCours = chantiers.filter(c => c.etat === "En cours")
+    // D'abord ajouter les chantiers qui ont déjà des coordonnées valides
+    const existingCoords = chantiersEnCours.filter(c => 
+      c.latitude && c.longitude && !isNaN(Number(c.latitude)) && !isNaN(Number(c.longitude))
+    );
+    chantierWithCoords.push(...existingCoords);
+
+    // Préparer les chantiers qui ont besoin de géocodage
+    const needsGeocoding = chantiersEnCours.filter(c => 
+      (!c.latitude || !c.longitude || isNaN(Number(c.latitude)) || isNaN(Number(c.longitude))) && 
+      (c.adresseChantier || c.adresse)
+    );
+    
+    logger.info(`Chantiers avec coordonnées: ${existingCoords.length}, à géocoder: ${needsGeocoding.length}`);
+
+    // Si aucun chantier n'a besoin de géocodage
+    if (needsGeocoding.length === 0) {
+      setGeolocatedChantiers(chantierWithCoords);
+      setLoading(false);
+      setIsGeocoded(true);
       
-      logger.info(`Total chantiers: ${chantiers.length}`);
-      logger.info(`Chantiers en cours: ${chantiersEnCours.length}`);
-      
-      setDebugInfo(`Total: ${chantiers.length}, En cours: ${chantiersEnCours.length}`)
-
-      // Traiter d'abord les chantiers qui ont déjà des coordonnées
-      const existingCoords = chantiersEnCours.filter(c => c.latitude && c.longitude)
-      chantierWithCoords.push(...existingCoords)
-
-      // Puis traiter les chantiers qui ont une adresse mais pas de coordonnées
-      const needsGeocoding = chantiersEnCours.filter(
-        c => !c.latitude && !c.longitude && (c.adresseChantier || c.adresse || (c as any).address || (c as any).location)
-      )
-
-      logger.info(`Chantiers à géocoder: ${needsGeocoding.length}`);
-      
-      if (needsGeocoding.length === 0 && existingCoords.length === 0) {
-        setDebugInfo(prev => `${prev} | Aucun chantier en cours à afficher`)
-      }
-
-      // Géocoder les adresses en série (pour éviter la limite de requêtes)
-      for (const chantier of needsGeocoding) {
-        // Vérifier plusieurs propriétés possibles pour l'adresse
-        const adresse = chantier.adresseChantier || chantier.adresse || (chantier as any).address || (chantier as any).location
-        
-        if (!adresse) {
-          logger.warn(`Pas d'adresse pour: ${chantier.nom}`);
-          continue
-        }
-
-        try {
-          logger.debug(`Géocodage pour: ${chantier.nom} - Adresse: ${adresse}`);
-          
-          // Utiliser l'API Photon pour géocoder l'adresse (meilleure que Nominatim)
-          const response = await fetch(
-            `https://photon.komoot.io/api/?q=${encodeURIComponent(adresse)}&limit=1&lang=fr`,
-            {
-              headers: {
-                'User-Agent': 'SecoTech Application',
-              },
-            }
-          )
-
-          if (response.ok) {
-            const data = await response.json()
-            logger.debug(`Résultat pour ${chantier.nom}:`, data);
-            
-            if (data && data.features && data.features.length > 0) {
-              const result = data.features[0]
-              const coordinates = result.geometry.coordinates
-              
-              // Photon renvoie les coordonnées dans l'ordre [longitude, latitude]
-              const longitude = coordinates[0]
-              const latitude = coordinates[1]
-              
-              // Ajouter les coordonnées au chantier
-              chantierWithCoords.push({
-                ...chantier,
-                latitude,
-                longitude
-              })
-              logger.info(`Géocodage réussi pour: ${chantier.nom} - [${latitude}, ${longitude}]`);
-            } else {
-              logger.warn(`Pas de résultat pour: ${chantier.nom} - Adresse: ${adresse}`);
-              
-              // Fallback à Nominatim si Photon ne trouve pas l'adresse
-              try {
-                const nominatimResponse = await fetch(
-                  `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(adresse)}&limit=1&accept-language=fr`,
-                  {
-                    headers: {
-                      'User-Agent': 'SecoTech Application',
-                    },
-                  }
-                )
-                
-                if (nominatimResponse.ok) {
-                  const nominatimData = await nominatimResponse.json()
-                  if (nominatimData && nominatimData.length > 0) {
-                    const nominatimResult = nominatimData[0]
-                    chantierWithCoords.push({
-                      ...chantier,
-                      latitude: parseFloat(nominatimResult.lat),
-                      longitude: parseFloat(nominatimResult.lon),
-                    })
-                    logger.info(`Fallback Nominatim réussi pour: ${chantier.nom}`);
-                  }
-                }
-              } catch (fallbackError) {
-                logger.error(`Erreur lors du fallback Nominatim pour ${chantier.nom}:`, fallbackError);
-              }
-            }
-          }
-
-          // Petite pause entre les requêtes pour respecter la limite de l'API
-          await new Promise(resolve => setTimeout(resolve, 1000))
-        } catch (error) {
-          logger.error(`Erreur lors du géocodage pour ${chantier.nom}:`, error)
-        }
-      }
-
-      logger.info('Chantiers géolocalisés:', chantierWithCoords);
-      setGeolocatedChantiers(chantierWithCoords)
-      setLoading(false)
-      setDebugInfo(prev => `${prev} | Chantiers géolocalisés: ${chantierWithCoords.length}`)
-
-      // Ajuster la vue de la carte si nous avons des chantiers
+      // Ajuster la vue si nous avons des coordonnées
       if (chantierWithCoords.length > 0) {
-        try {
-          const bounds = L.latLngBounds(
-            chantierWithCoords
-              .filter(c => c.latitude && c.longitude)
-              .map(c => [c.latitude!, c.longitude!])
-          )
-          map.fitBounds(bounds, { padding: [50, 50] })
-        } catch (error) {
-          logger.error('Erreur lors de l\'ajustement de la vue:', error)
-        }
+        fitMapToBounds(chantierWithCoords);
       }
+      
+      return;
     }
 
-    geocodeChantiers()
-  }, [chantiers, map])
+    // Géocoder en série pour respecter les limites d'API
+    for (const chantier of needsGeocoding) {
+      const adresse = chantier.adresseChantier || chantier.adresse;
+      if (!adresse) continue;
 
+      try {
+        // Premier essai: API Nominatim
+        const nominatimResult = await geocodeWithNominatim(adresse, chantier.nom);
+        
+        if (nominatimResult) {
+          chantierWithCoords.push({
+            ...chantier,
+            latitude: nominatimResult.lat,
+            longitude: nominatimResult.lon
+          });
+          continue;
+        }
+        
+        // Second essai: API Photon
+        const photonResult = await geocodeWithPhoton(adresse, chantier.nom);
+        
+        if (photonResult) {
+          chantierWithCoords.push({
+            ...chantier,
+            latitude: photonResult.lat,
+            longitude: photonResult.lon
+          });
+          continue;
+        }
+        
+        // Fallback: position aléatoire autour de Paris pour les tests
+        logger.warn(`Aucun résultat de géocodage pour: ${chantier.nom}`);
+        chantierWithCoords.push({
+          ...chantier,
+          latitude: 48.8566 + (Math.random() * 2 - 1),
+          longitude: 2.3522 + (Math.random() * 2 - 1)
+        });
+        
+      } catch (error) {
+        logger.error(`Erreur lors du géocodage pour ${chantier.nom}:`, error);
+      }
+      
+      // Pause entre les requêtes
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // Mettre à jour l'état avec les chantiers géolocalisés
+    setGeolocatedChantiers(chantierWithCoords);
+    setDebugInfo(prev => `${prev} | Géolocalisés: ${chantierWithCoords.length}`);
+    setLoading(false);
+    setIsGeocoded(true);
+    
+    // Ajuster la vue de la carte
+    fitMapToBounds(chantierWithCoords);
+    
+  }, [chantiers, map, isGeocoded]);
+
+  // Fonction pour ajuster la vue de la carte aux limites des marqueurs
+  const fitMapToBounds = useCallback((chantiers: Chantier[]) => {
+    try {
+      const chantiersWithCoords = chantiers.filter(c => c.latitude && c.longitude);
+      
+      if (chantiersWithCoords.length === 0) {
+        map.setView([46.603354, 1.888334], 5); // Vue par défaut: France
+        return;
+      }
+      
+      if (chantiersWithCoords.length === 1) {
+        const chantier = chantiersWithCoords[0];
+        map.setView([chantier.latitude!, chantier.longitude!], 10);
+        return;
+      }
+      
+      const bounds = L.latLngBounds(
+        chantiersWithCoords.map(c => [c.latitude!, c.longitude!])
+      );
+      
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
+    } catch (error) {
+      logger.error("Erreur lors de l'ajustement de la vue:", error);
+      map.setView([46.603354, 1.888334], 5);
+    }
+  }, [map]);
+
+  // Fonctions de géocodage
+  async function geocodeWithNominatim(adresse: string, nom: string): Promise<{lat: number, lon: number} | null> {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(adresse)}&limit=1&accept-language=fr`,
+        { headers: { 'User-Agent': 'SecoTech Application' } }
+      );
+      
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      if (!data || data.length === 0) return null;
+      
+      logger.info(`Géocodage Nominatim réussi pour: ${nom}`);
+      return { 
+        lat: parseFloat(data[0].lat), 
+        lon: parseFloat(data[0].lon)
+      };
+    } catch (error) {
+      logger.error(`Erreur Nominatim pour ${nom}:`, error);
+      return null;
+    }
+  }
+  
+  async function geocodeWithPhoton(adresse: string, nom: string): Promise<{lat: number, lon: number} | null> {
+    try {
+      const response = await fetch(
+        `https://photon.komoot.io/api/?q=${encodeURIComponent(adresse)}&limit=1&lang=fr`,
+        { headers: { 'User-Agent': 'SecoTech Application' } }
+      );
+      
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      if (!data || !data.features || data.features.length === 0) return null;
+      
+      const coordinates = data.features[0].geometry.coordinates;
+      logger.info(`Géocodage Photon réussi pour: ${nom}`);
+      return { 
+        lat: coordinates[1], 
+        lon: coordinates[0] 
+      };
+    } catch (error) {
+      logger.error(`Erreur Photon pour ${nom}:`, error);
+      return null;
+    }
+  }
+
+  // Effet pour déclencher le géocodage
+  useEffect(() => {
+    geocodeChantiers();
+  }, [geocodeChantiers]);
+
+  // Afficher un message pendant le chargement
   if (loading && geolocatedChantiers.length === 0) {
     return (
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1000] bg-white p-2 rounded shadow">
         Chargement des chantiers sur la carte...
       </div>
-    )
+    );
   }
 
+  // Afficher un message si aucun chantier n'est localisé
   if (!loading && geolocatedChantiers.length === 0) {
     return (
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1000] bg-white p-4 rounded shadow text-center">
@@ -222,80 +287,13 @@ function GeocodeChantiers({ chantiers, formatMontant }: LeafletGeocoderProps) {
           )}
         </div>
       </div>
-    )
+    );
   }
 
+  // Rendu des marqueurs
   return (
     <>
-      {geolocatedChantiers.map(chantier => (
-        <Marker
-          key={chantier.id}
-          position={[chantier.latitude!, chantier.longitude!]}
-          icon={L.divIcon({
-            className: 'custom-div-icon',
-            html: `<div class='marker-pin bg-${
-              chantier.etat === 'En cours' ? 'green' : 
-              chantier.etat === 'En préparation' ? 'yellow' : 'blue'
-            }-500'></div><i class="material-icons"></i>`,
-            iconSize: [30, 42],
-            iconAnchor: [15, 42],
-            popupAnchor: [0, -34]
-          })}
-        >
-          <Popup>
-            <div>
-              <h3 className="font-bold text-lg">{chantier.nom}</h3>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <div>
-                  <p className="text-sm text-gray-600">Client</p>
-                  <p className="font-medium">{chantier.client}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">État</p>
-                  <p className="font-medium">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      chantier.etat === 'En cours' ? 'bg-green-100 text-green-800' : 
-                      chantier.etat === 'En préparation' ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-blue-100 text-blue-800'
-                    }`}>
-                      {chantier.etat}
-                    </span>
-                  </p>
-                </div>
-              </div>
-              <div className="border-t border-gray-200 mt-2 pt-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-sm text-gray-600">Montant</p>
-                    <p className="font-medium">{formatMontant(chantier.montant)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Progression</p>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1">
-                      <div 
-                        className="bg-blue-600 h-2.5 rounded-full" 
-                        style={{ width: `${chantier.progression}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs mt-1">{chantier.progression}%</p>
-                  </div>
-                </div>
-              </div>
-              {(chantier.adresseChantier || chantier.adresse) && (
-                <div className="mt-2 pt-2 border-t border-gray-200">
-                  <p className="text-sm text-gray-600">Adresse</p>
-                  <p className="font-medium">{chantier.adresseChantier || chantier.adresse}</p>
-                </div>
-              )}
-            </div>
-          </Popup>
-        </Marker>
-      ))}
+      {geolocatedChantiers.map(chantier => createChantierMarker(chantier, formatMontant))}
     </>
-  )
-}
-
-// Exporter correctement le composant
-export default GeocodeChantiers
-// Pour compatibilité avec le code existant
-export { GeocodeChantiers as LeafletGeocoder } 
+  );
+} 

@@ -10,7 +10,9 @@ const prismaClientSingleton = () => {
       return createMockPrismaClient()
     }
     
-    const client = new PrismaClient()
+    const client = new PrismaClient({
+      log: ['query', 'error', 'warn'],
+    })
     
     // Ajouter des méthodes personnalisées si nécessaire
     return client
@@ -51,18 +53,6 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma = globalForPrisma.prisma ?? prismaClientSingleton()
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
-
-// Test de connexion uniquement si pas en mode build
-if (process.env.NEXT_PHASE !== 'phase-production-build') {
-  try {
-    // Vérifier la connexion à la base de données
-    await prisma.$connect()
-    // Connexion réussie
-    // console.log('✅ Connexion à la base de données réussie')
-  } catch (error) {
-    console.error('❌ Erreur de connexion à la base de données:', error)
-  }
-}
 
 // Types personnalisés pour les commandes sous-traitant
 export interface CommandeSousTraitantWithRelations {

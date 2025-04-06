@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma/client'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-// GET /api/dashboard/chantiers - Récupère les chantiers récents pour le dashboard
+// GET /api/dashboard/chantiers - Récupère les chantiers en cours pour la carte du dashboard
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -16,77 +16,56 @@ export async function GET() {
 
     console.log('Récupération des chantiers pour le dashboard...')
 
-    // Récupérer tous les chantiers avec la relation client, les dépenses et les états d'avancement
+    // Récupérer tous les chantiers en cours
     const chantiers = await prisma.chantier.findMany({
-      include: {
-        client: true,
-        depenses: true,
-        etatsAvancement: {
-          include: {
-            lignes: true
-          }
-        },
-        marche: {
-          include: {
-            lignemarche: true
-          }
-        }
+      where: {
+        // Retirer le filtre pour récupérer tous les chantiers
       }
     })
 
-    console.log('Chantiers récupérés:', JSON.stringify(chantiers, null, 2))
+    console.log(`Chantiers récupérés: ${chantiers.length}`)
+    
+    // Log des chantiers avec coordonnées
+    const chantiersAvecCoords = chantiers.filter(c => c.latitude && c.longitude)
+    console.log(`Chantiers avec coordonnées: ${chantiersAvecCoords.length}`)
+    console.log('Coordonnées des chantiers:', chantiersAvecCoords.map(c => ({
+      nom: c.nomChantier,
+      lat: c.latitude,
+      lon: c.longitude
+    })))
 
-    // Calculer la progression et la marge pour chaque chantier
-    const chantiersAvecProgression = chantiers.map(chantier => {
-      // Calculer la progression basée sur les montants des états d'avancement
-      let progression = 0
+    // Formater les données pour la carte
+    const chantiersFormatted = chantiers.map(chantier => {
+      // Attribuer une progression selon l'état du chantier
+      let progression = 0;
       
-      if (chantier.montantTotal > 0) {
-        // Calculer le montant total des états d'avancement
-        const montantEtatsAvancement = chantier.etatsAvancement.reduce((total, etat) => {
-          // Calculer le montant de cet état d'avancement
-          const montantEtat = etat.lignes.reduce((sum, ligne) => sum + ligne.montantActuel, 0)
-          return total + montantEtat
-        }, 0)
-        
-        // Calculer la progression en pourcentage
-        progression = Math.round((montantEtatsAvancement / chantier.montantTotal) * 100)
-        
-        // Limiter à 100% maximum
-        progression = Math.min(progression, 100)
-      } else if (chantier.etatChantier === 'Terminé') {
-        // Si le chantier est marqué comme terminé mais n'a pas de montant, on met 100%
-        progression = 100
+      if (chantier.etatChantier === "En préparation") {
+        progression = 25;
+      } else if (chantier.etatChantier === "En cours") {
+        progression = 50;
+      } else if (chantier.etatChantier === "Terminé") {
+        progression = 100;
       }
       
-      // Calculer la marge (recettes vs dépenses)
-      const totalDepenses = chantier.depenses.reduce((sum, depense) => sum + depense.montant, 0)
-      const marge = chantier.montantTotal > 0 
-        ? Math.round(((chantier.montantTotal - totalDepenses) / chantier.montantTotal) * 100) 
-        : 0
-      
-      // Déterminer le nom du client (priorité à la relation client, puis au champ clientNom)
-      const nomClient = chantier.client?.nom || chantier.clientNom || 'Client non spécifié';
-      
-      const result = {
+      return {
         id: chantier.chantierId,
         nom: chantier.nomChantier,
-        client: nomClient,
+        client: chantier.clientNom || 'Client non spécifié',
         etat: chantier.etatChantier,
         montant: chantier.montantTotal,
         dateCommencement: chantier.dateCommencement,
         createdAt: chantier.createdAt,
         progression,
-        marge,
         latitude: chantier.latitude,
         longitude: chantier.longitude,
-        adresse: chantier.adresseChantier
+        adresse: chantier.clientAdresse,
+        adresseChantier: chantier.adresseChantier
       }
-      
-      return result
-    })
+    });
 
-    return NextResponse.json(chantiersAvecProgression)
+    console.log(`Données formatées pour ${chantiersFormatted.length} chantiers`);
+    
+    return NextResponse.json(chantiersFormatted)
   } catch (error) {
     console.error('Erreur:', error)
     return NextResponse.json(

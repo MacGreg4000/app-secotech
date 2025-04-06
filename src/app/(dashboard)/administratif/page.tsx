@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { DocumentTextIcon, FolderIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, FolderIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline'
 
 export default function AdministratifPage() {
   return (
@@ -36,6 +36,22 @@ export default function AdministratifPage() {
               <h2 className="text-xl font-semibold dark:text-white">Documents Administratifs</h2>
               <p className="mt-2 text-gray-600 dark:text-gray-300">
                 Accéder aux documents administratifs
+              </p>
+            </div>
+          </div>
+        </Link>
+
+        {/* Carte Bons de Régie */}
+        <Link 
+          href="/bons-regie"
+          className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 hover:shadow-lg transition-shadow duration-200"
+        >
+          <div className="flex items-center">
+            <ClipboardDocumentListIcon className="h-8 w-8 text-green-500" />
+            <div className="ml-4">
+              <h2 className="text-xl font-semibold dark:text-white">Bons de Régie</h2>
+              <p className="mt-2 text-gray-600 dark:text-gray-300">
+                Gérer les bons de régie et les associer aux chantiers
               </p>
             </div>
           </div>

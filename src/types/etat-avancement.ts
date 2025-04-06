@@ -3,7 +3,6 @@ export interface EtatAvancement {
   chantierId: string;
   numero: number;
   date: Date;
-  mois?: string;
   commentaires?: string;
   estFinalise: boolean;
   createdAt: Date;

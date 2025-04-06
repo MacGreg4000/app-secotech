@@ -12,21 +12,11 @@ import {
 // Components
 import UserNotepad from '@/components/dashboard/UserNotepad'
 import KPICard from '@/components/dashboard/KPICard'
+import DynamicChantiersMap from '@/components/dashboard/DynamicChantiersMap'
 import ChantiersStatsChart from '@/components/dashboard/ChantiersStatsChart'
-import ChantiersMap from '@/components/dashboard/ChantiersMap'
-import ChantiersTable from '@/components/dashboard/ChantiersTable'
-import type { ChantierStatus } from '@/components/ChantierStatus'
+import BonsRegieWidget from '@/components/dashboard/BonsRegieWidget'
 
 // Types
-interface Chantier {
-  id: number
-  chantierId: string
-  nomChantier: string
-  dateCommencement: string
-  etatChantier: ChantierStatus
-  montantTotal: number
-}
-
 interface DashboardStats {
   chiffreAffairesTotal: number
   nombreChantiersActifs: number
@@ -42,13 +32,13 @@ interface ChantierMapData {
   montant: number
   progression: number
   adresse?: string
+  adresseChantier?: string
   latitude?: number
   longitude?: number
 }
 
 export default function DashboardPage() {
   const { data: session } = useSession()
-  const [chantiers, setChantiers] = useState<Chantier[]>([])
   const [chantiersMap, setChantiersMap] = useState<ChantierMapData[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [chantiersByCategory, setChantiersByCategory] = useState<{
@@ -74,11 +64,6 @@ export default function DashboardPage() {
       try {
         setLoading(true)
 
-        // Récupérer la liste des chantiers
-        const chantiersResponse = await fetch('/api/chantiers')
-        const chantiersData = await chantiersResponse.json()
-        setChantiers(chantiersData)
-
         // Récupérer les chantiers pour la carte
         const mapDataResponse = await fetch('/api/dashboard/chantiers')
         const mapData = await mapDataResponse.json()
@@ -89,10 +74,14 @@ export default function DashboardPage() {
         const statsData = await statsResponse.json()
         setStats(statsData)
 
-        // Calculer la répartition des chantiers par catégorie
-        const enPreparation = chantiersData.filter((c: Chantier) => c.etatChantier === 'En préparation').length
-        const enCours = chantiersData.filter((c: Chantier) => c.etatChantier === 'En cours').length
-        const termines = chantiersData.filter((c: Chantier) => c.etatChantier === 'Terminé').length
+        // Récupérer les données de chantiers pour le graphique
+        const chantiersResponse = await fetch('/api/chantiers')
+        const chantiersData = await chantiersResponse.json()
+        
+        // Calculer la répartition des chantiers par catégorie pour le graphique
+        const enPreparation = chantiersData.filter((c: any) => c.etatChantier === 'En préparation').length
+        const enCours = chantiersData.filter((c: any) => c.etatChantier === 'En cours').length
+        const termines = chantiersData.filter((c: any) => c.etatChantier === 'Terminé').length
         
         setChantiersByCategory({
           enPreparation,
@@ -109,46 +98,6 @@ export default function DashboardPage() {
 
     fetchData()
   }, [])
-
-  // Gérer le changement de statut d'un chantier
-  const handleStatusChange = async (chantierId: string, newStatus: ChantierStatus) => {
-    try {
-      // Mettre à jour l'interface utilisateur
-      setChantiers(prev => 
-        prev.map(c => c.chantierId === chantierId ? { ...c, etatChantier: newStatus } : c)
-      )
-
-      // Mettre à jour le serveur
-      await fetch(`/api/chantiers/${chantierId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus }),
-      })
-
-      // Mettre à jour les chantiers par catégorie
-      const enPreparation = chantiers.filter(c => 
-        c.chantierId === chantierId ? newStatus === 'En préparation' : c.etatChantier === 'En préparation'
-      ).length
-      
-      const enCours = chantiers.filter(c => 
-        c.chantierId === chantierId ? newStatus === 'En cours' : c.etatChantier === 'En cours'
-      ).length
-      
-      const termines = chantiers.filter(c => 
-        c.chantierId === chantierId ? newStatus === 'Terminé' : c.etatChantier === 'Terminé'
-      ).length
-
-      setChantiersByCategory({
-        enPreparation,
-        enCours,
-        termines
-      })
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour du statut:', error)
-    }
-  }
 
   if (error) {
     return (
@@ -214,16 +163,12 @@ export default function DashboardPage() {
       
       {/* Carte des chantiers */}
       <div className="mb-6">
-        <ChantiersMap chantiers={chantiersMap} loading={loading} />
+        <DynamicChantiersMap chantiers={chantiersMap} loading={loading} />
       </div>
-      
-      {/* Tableau des chantiers */}
-      <div>
-        <ChantiersTable 
-          chantiers={chantiers} 
-          loading={loading} 
-          onStatusChange={handleStatusChange}
-        />
+
+      {/* Bons de régie */}
+      <div className="mb-6">
+        <BonsRegieWidget />
       </div>
     </div>
   )

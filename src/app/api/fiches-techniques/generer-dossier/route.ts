@@ -204,11 +204,14 @@ export async function POST(request: Request) {
 
     const infoStartY = infoY - 40
     const lineHeight = 25
+    // Cast pour accéder aux champs réels de la base de données
+    const chantierData = chantier as any;
+    
     const infoTexts = [
       `Nom du chantier : ${chantier.nomChantier}`,
       `Client : ${chantier.clientNom}`,
       `Adresse : ${chantier.adresseChantier}`,
-      `Date de début : ${new Date(chantier.dateCommencement).toLocaleDateString('fr-FR')}`,
+      `Date de début : ${chantierData.dateDebut ? new Date(chantierData.dateDebut).toLocaleDateString('fr-FR') : 'Non définie'}`,
       `Date de génération : ${new Date().toLocaleDateString('fr-FR')}`
     ]
 

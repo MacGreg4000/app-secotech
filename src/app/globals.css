@@ -1,6 +1,8 @@
+/* stylelint-disable at-rule-no-unknown, property-no-vendor-prefix */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* stylelint-enable */
 
 :root {
   --background: #ffffff;
@@ -35,11 +37,13 @@ body {
 /* Supprimer les flèches des inputs number */
 input[type="number"] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
+  appearance: none;
   margin: 0;
 }
 
@@ -124,6 +128,7 @@ textarea:disabled {
   select,
   textarea {
     -webkit-appearance: none !important;
+    appearance: none !important;
   }
 }
 
@@ -143,4 +148,73 @@ textarea:disabled {
     padding-top: 0.4rem !important;
     padding-bottom: 0.4rem !important;
   }
+}
+
+/* Styles pour les marqueurs de la carte */
+.custom-div-icon {
+  position: relative;
+  width: 30px;
+  height: 42px;
+}
+
+.marker-pin {
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  background: #00cae9;
+  position: absolute;
+  transform: rotate(-45deg);
+  left: 50%;
+  top: 50%;
+  margin: -15px 0 0 -15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.25);
+}
+
+.bg-green-500 {
+  background: #10b981 !important;
+}
+
+.bg-yellow-500 {
+  background: #f59e0b !important;
+}
+
+.bg-blue-500 {
+  background: #3b82f6 !important;
+}
+
+.chantier-popup .leaflet-popup-content {
+  min-width: 200px;
+}
+
+/* Styles pour les popups de la carte */
+.custom-popup .leaflet-popup-content-wrapper {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  padding: 0;
+}
+
+.custom-popup .leaflet-popup-content {
+  margin: 0;
+  padding: 0;
+  min-width: 280px;
+}
+
+.custom-popup .leaflet-popup-tip {
+  background-color: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.custom-popup .leaflet-popup-close-button {
+  color: #4b5563;
+  top: 8px;
+  right: 8px;
+}
+
+.custom-popup .leaflet-popup-close-button:hover {
+  color: #111827;
 }

@@ -2,7 +2,14 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma/client'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { LigneEtatAvancement, AvenantEtatAvancement } from '@prisma/client'
+import { LigneEtatAvancement, AvenantEtatAvancement, EtatAvancement } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+
+// Définition des types avec les relations
+type EtatAvancementWithRelations = EtatAvancement & {
+  lignes: LigneEtatAvancement[];
+  avenants: AvenantEtatAvancement[];
+}
 
 // GET /api/chantiers/[chantierId]/etats-avancement/[etatId]
 export async function GET(
@@ -25,11 +32,10 @@ export async function GET(
         numero: parseInt(params.etatId)
       },
       include: {
-        chantier: true,
         lignes: true,
         avenants: true
       }
-    })
+    }) as EtatAvancementWithRelations | null
 
     if (!etatAvancement) {
       return NextResponse.json(
@@ -85,14 +91,13 @@ export async function PUT(
       },
       data: {
         commentaires: body.commentaires,
-        mois: body.mois,
         estFinalise: body.estFinalise
       },
       include: {
         lignes: true,
         avenants: true
       }
-    })
+    }) as EtatAvancementWithRelations
 
     return NextResponse.json(etatAvancement)
   } catch (error) {

@@ -86,8 +86,10 @@ export default function DocumentsPage(props: { params: Promise<{ chantierId: str
         </div>
         
         {/* Contenu principal */}
-        <div className="p-6">
+        <div className="p-6 space-y-8">
           <DocumentsContent chantierId={chantierId} />
+          
+          {/* Nous ajouterons les composants FileUpload, DocumentsList et BonsRegieSection une fois qu'ils seront créés */}
         </div>
       </div>
     </div>

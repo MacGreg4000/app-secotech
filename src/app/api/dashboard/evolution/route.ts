@@ -35,46 +35,56 @@ export async function GET() {
     // Récupérer les données de CA par mois basé sur les états d'avancement validés
     const donneesCA = await Promise.all(
       derniersMois.map(async (mois) => {
-        // Rechercher les états d'avancement validés dans le mois
-        const etatsAvancement = await prisma.etatAvancement.findMany({
-          where: {
-            date: {
-              gte: mois.debut,
-              lte: mois.fin
+        try {
+          // Rechercher les états d'avancement validés dans le mois
+          const etatsAvancement = await prisma.etatAvancement.findMany({
+            where: {
+              date: {
+                gte: mois.debut,
+                lte: mois.fin
+              },
+              estFinalise: true
             },
-            estFinalise: true
-          },
-          include: {
-            lignes: true
-          }
-        })
-        
-        // Calculer le montant total des états d'avancement
-        const montantTotal = etatsAvancement.reduce((total, etat) => {
-          const montantEtat = etat.lignes.reduce((sum, ligne) => sum + ligne.montantActuel, 0)
-          return total + montantEtat
-        }, 0)
-        
-        return montantTotal
+            include: {
+              lignes: true
+            }
+          })
+          
+          // Calculer le montant total des états d'avancement
+          const montantTotal = etatsAvancement.reduce((total, etat) => {
+            const montantEtat = etat.lignes.reduce((sum, ligne) => sum + ligne.montantActuel, 0)
+            return total + montantEtat
+          }, 0)
+          
+          return montantTotal
+        } catch (error) {
+          console.error(`Erreur lors de la récupération des données pour ${mois.label}:`, error)
+          return 0
+        }
       })
     )
 
     // Récupérer les données de dépenses par mois
     const donneesDépenses = await Promise.all(
       derniersMois.map(async (mois) => {
-        const depensesMois = await prisma.depense.aggregate({
-          where: {
-            date: {
-              gte: mois.debut,
-              lte: mois.fin
+        try {
+          const depensesMois = await prisma.depense.aggregate({
+            where: {
+              date: {
+                gte: mois.debut,
+                lte: mois.fin
+              }
+            },
+            _sum: {
+              montant: true
             }
-          },
-          _sum: {
-            montant: true
-          }
-        })
-        
-        return depensesMois._sum.montant || 0
+          })
+          
+          return depensesMois._sum.montant || 0
+        } catch (error) {
+          console.error(`Erreur lors de la récupération des dépenses pour ${mois.label}:`, error)
+          return 0
+        }
       })
     )
 

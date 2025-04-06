@@ -16,7 +16,10 @@ export async function GET() {
     const sousTraitants = await prisma.soustraitant.findMany({
       include: {
         _count: {
-          select: { ouvrier: true }
+          select: { 
+            commandes: true,
+            contrats: true
+          }
         }
       },
       orderBy: {
@@ -27,7 +30,7 @@ export async function GET() {
     // Récupérer les contrats pour chaque sous-traitant
     const sousTraitantsWithContrats = await Promise.all(
       sousTraitants.map(async (st) => {
-        const contrats = await (prisma as any).contrat.findMany({
+        const contrats = await prisma.contrat.findMany({
           where: { soustraitantId: st.id },
           select: {
             id: true,

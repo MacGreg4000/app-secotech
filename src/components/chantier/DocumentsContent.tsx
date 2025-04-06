@@ -26,10 +26,12 @@ export default function DocumentsContent({ chantierId }: DocumentsContentProps) 
   const { data: session, status } = useSession()
   const router = useRouter()
   const [documents, setDocuments] = useState<Document[]>([])
+  const [photos, setPhotos] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [activeTab, setActiveTab] = useState<'documents' | 'photos'>('documents')
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -58,12 +60,16 @@ export default function DocumentsContent({ chantierId }: DocumentsContentProps) 
       const data = await res.json()
       console.log('Documents received:', data)
       
-      // Filtrer pour exclure les documents de type "rapport-visite" et "justificatif-depense"
-      const filteredDocuments = data.filter((doc: Document) => 
-        doc.type !== 'rapport-visite' && doc.type !== 'justificatif-depense'
+      // Séparer les photos des autres documents
+      const photosArray = data.filter((doc: Document) => doc.type === 'photo-chantier')
+      const documentsArray = data.filter((doc: Document) => 
+        doc.type !== 'rapport-visite' && 
+        doc.type !== 'justificatif-depense' && 
+        doc.type !== 'photo-chantier'
       )
-      setDocuments(filteredDocuments)
       
+      setPhotos(photosArray)
+      setDocuments(documentsArray)
       setError(null)
     } catch (error) {
       console.error('Erreur complète dans fetchDocuments:', {
@@ -77,13 +83,18 @@ export default function DocumentsContent({ chantierId }: DocumentsContentProps) 
     }
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fileType?: string) => {
     if (!e.target.files?.length) return
 
     setUploading(true)
     const file = e.target.files[0]
     const formData = new FormData()
     formData.append('file', file)
+    
+    // Ajouter le type de fichier si spécifié (photo-chantier)
+    if (fileType) {
+      formData.append('type', fileType)
+    }
 
     try {
       const res = await fetch(`/api/chantiers/${chantierId}/documents`, {
@@ -95,8 +106,10 @@ export default function DocumentsContent({ chantierId }: DocumentsContentProps) 
 
       const newDocument = await res.json()
       
-      // Vérifier que le document n'est pas un rapport de visite ou un justificatif de dépense
-      if (newDocument.type !== 'rapport-visite' && newDocument.type !== 'justificatif-depense') {
+      // Ajouter le document à la liste appropriée
+      if (newDocument.type === 'photo-chantier') {
+        setPhotos(prev => [newDocument, ...prev])
+      } else if (newDocument.type !== 'rapport-visite' && newDocument.type !== 'justificatif-depense') {
         setDocuments(prev => [newDocument, ...prev])
       }
     } catch (error) {
@@ -149,6 +162,11 @@ export default function DocumentsContent({ chantierId }: DocumentsContentProps) 
       for (const file of files) {
         const formData = new FormData()
         formData.append('file', file)
+        
+        // Définir le type en fonction de l'onglet actif
+        if (activeTab === 'photos') {
+          formData.append('type', 'photo-chantier')
+        }
 
         const res = await fetch(`/api/chantiers/${chantierId}/documents`, {
           method: 'POST',
@@ -159,8 +177,10 @@ export default function DocumentsContent({ chantierId }: DocumentsContentProps) 
 
         const newDocument = await res.json()
         
-        // Vérifier que le document n'est pas un rapport de visite ou un justificatif de dépense
-        if (newDocument.type !== 'rapport-visite' && newDocument.type !== 'justificatif-depense') {
+        // Ajouter le document à la liste appropriée
+        if (newDocument.type === 'photo-chantier') {
+          setPhotos(prev => [newDocument, ...prev])
+        } else if (newDocument.type !== 'rapport-visite' && newDocument.type !== 'justificatif-depense') {
           setDocuments(prev => [newDocument, ...prev])
         }
       }
@@ -170,7 +190,7 @@ export default function DocumentsContent({ chantierId }: DocumentsContentProps) 
     } finally {
       setUploading(false)
     }
-  }, [chantierId])
+  }, [chantierId, activeTab])
 
   if (loading) return (
     <div className="flex justify-center items-center h-64">
@@ -186,6 +206,32 @@ export default function DocumentsContent({ chantierId }: DocumentsContentProps) 
 
   return (
     <div className="space-y-6">
+      {/* Onglets */}
+      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('documents')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'documents'
+                ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Documents
+          </button>
+          <button
+            onClick={() => setActiveTab('photos')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'photos'
+                ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Photos de chantier
+          </button>
+        </nav>
+      </div>
+
       {/* Zone de drag & drop */}
       <div
         onDragOver={handleDragOver}
@@ -207,23 +253,24 @@ export default function DocumentsContent({ chantierId }: DocumentsContentProps) 
               ? 'Téléchargement en cours...'
               : isDragging
                 ? 'Déposez les fichiers ici'
-                : 'Glissez et déposez vos fichiers ici ou'
+                : `Glissez et déposez vos ${activeTab === 'photos' ? 'photos' : 'fichiers'} ici ou`
             }
           </p>
           {!uploading && !isDragging && (
             <div className="relative">
               <input
                 type="file"
-                onChange={handleFileUpload}
+                onChange={(e) => handleFileUpload(e, activeTab === 'photos' ? 'photo-chantier' : undefined)}
                 className="hidden"
                 id="file-upload"
                 multiple
+                accept={activeTab === 'photos' ? 'image/*' : undefined}
               />
               <label
                 htmlFor="file-upload"
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-500 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm transition-colors cursor-pointer"
               >
-                Sélectionner des fichiers
+                {activeTab === 'photos' ? 'Sélectionner des photos' : 'Sélectionner des fichiers'}
               </label>
             </div>
           )}
@@ -239,55 +286,136 @@ export default function DocumentsContent({ chantierId }: DocumentsContentProps) 
         </div>
       </div>
 
-      {/* Liste des documents */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-        <h2 className="text-lg font-semibold mb-4 border-b pb-2 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
-          Documents partagés
-        </h2>
-        
-        {documents.length === 0 ? (
-          <div className="text-center py-8">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 dark:text-gray-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p className="text-gray-500 dark:text-gray-400">Aucun document partagé pour ce chantier</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {documents.map((doc) => (
-              <div 
-                key={doc.id} 
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-750 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-700 transition-colors"
-              >
-                <div className="flex-1">
-                  <a 
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium flex items-center"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    {doc.nom}
+      {/* Contenu spécifique à l'onglet */}
+      {activeTab === 'documents' ? (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold mb-4 border-b pb-2 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
+            Documents partagés
+          </h2>
+          
+          {documents.length === 0 ? (
+            <div className="text-center py-8">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 dark:text-gray-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-gray-500 dark:text-gray-400">Aucun document partagé pour ce chantier</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Nom
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Date d'ajout
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Ajouté par
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Taille
+                    </th>
+                    <th scope="col" className="relative px-6 py-3">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                  {documents.map((doc) => (
+                    <tr key={doc.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <a 
+                          href={doc.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          {doc.nom}
+                        </a>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(doc.createdAt).toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {doc.user?.nom} {doc.user?.prenom}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {formatFileSize(doc.taille)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleDelete(doc.id)}
+                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold mb-4 border-b pb-2 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
+            Photos de chantier
+          </h2>
+          
+          {photos.length === 0 ? (
+            <div className="text-center py-8">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 dark:text-gray-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <p className="text-gray-500 dark:text-gray-400">Aucune photo pour ce chantier</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {photos.map((photo) => (
+                <div key={photo.id} className="group relative rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow">
+                  <a href={photo.url} target="_blank" rel="noopener noreferrer">
+                    <img 
+                      src={photo.url} 
+                      alt={photo.nom} 
+                      className="w-full h-48 object-cover"
+                    />
                   </a>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Ajouté par {doc.user.prenom} {doc.user.nom} le{' '}
-                    {new Date(doc.createdAt).toLocaleDateString('fr-FR')}
-                  </p>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                    <p className="text-white text-sm truncate">{photo.nom}</p>
+                    <p className="text-gray-300 text-xs">
+                      {new Date(photo.createdAt).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(photo.id)}
+                    className="absolute top-2 right-2 p-1 bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <TrashIcon className="h-4 w-4 text-white" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleDelete(doc.id)}
-                  className="p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  title="Supprimer"
-                >
-                  <TrashIcon className="h-5 w-5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
+}
+
+// Fonction utilitaire pour formater la taille des fichiers
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 } 

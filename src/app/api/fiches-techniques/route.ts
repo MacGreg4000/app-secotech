@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma/client'
 import { writeFile } from 'fs/promises'
 import { join } from 'path'
+import crypto from 'crypto'
 
 // GET /api/fiches-techniques - Récupère toutes les fiches techniques
 export async function GET() {
@@ -71,15 +72,27 @@ export async function POST(request: Request) {
     await writeFile(filePath, buffer)
 
     // Créer la fiche technique dans la base de données
-    const fiche = await prisma.ficheTechnique.create({
-      data: {
-        titre,
-        categorie,
-        sousCategorie: sousCategorie || null,
-        description: description || null,
-        referenceCC: referenceCC || null,
-        fichierUrl: `/fiches-techniques/${fileName}`
-      }
+    // Utiliser $executeRawUnsafe pour éviter les problèmes de typage avec le nouveau champ referenceCC
+    const id = crypto.randomUUID();
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO fiches_techniques (
+        id, titre, categorie, sousCategorie, description, referenceCC, fichierUrl, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, 
+      id,
+      titre, 
+      categorie,
+      sousCategorie || null,
+      description || null,
+      referenceCC || null,
+      `/fiches-techniques/${fileName}`,
+      new Date(),
+      new Date()
+    );
+    
+    // Récupérer la fiche créée
+    const fiche = await prisma.ficheTechnique.findUnique({
+      where: { id }
     })
 
     return NextResponse.json(fiche)

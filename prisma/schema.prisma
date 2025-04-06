@@ -87,9 +87,9 @@ model FicheTechnique {
   sousCategorie String?
   fichierUrl    String
   description   String?  @db.Text
-  referenceCC   String?  // Référence au cahier des charges
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  referenceCC   String?
 
   @@map("fiches_techniques")
 }
@@ -436,33 +436,33 @@ model Avenant {
 }
 
 model Chantier {
-  id                  Int       @id @default(autoincrement())
-  chantierId          String    @unique
-  nomChantier         String
-  villeChantier       String?
-  adresseChantier     String?
-  dateDebut           DateTime?
-  dateFinPrevue       DateTime?
-  dateFinReelle       DateTime?
-  statut              String    @default("A_VENIR")
-  budget              Float?
-  description         String?
-  typeDuree           String    @default("CALENDRIER") // "CALENDRIER" ou "OUVRABLE"
-  dureeEnJours        Int?      // Nombre de jours prévus pour le chantier
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime
-  clientId            String?
-  client              Client?   @relation(fields: [clientId], references: [id], map: "Chantier_clientId_fkey")
-  taches              Tache[]
-  marches             Marche[]
-  notes               Note[]
-  admintasks          admintask[]
-  etats               Etat[]
-  avenants            Avenant[]
-  documents           Document[]
-  bonsRegie           BonRegie[]
+  id              Int         @id @default(autoincrement())
+  chantierId      String      @unique
+  nomChantier     String
+  adresseChantier String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime
+  clientId        String?
+  budget          Float?
+  dateDebut       DateTime?
+  dateFinPrevue   DateTime?
+  dateFinReelle   DateTime?
+  description     String?
+  statut          String      @default("A_VENIR")
+  villeChantier   String?
+  dureeEnJours    Int?
+  typeDuree       String      @default("CALENDRIER")
+  avenants        Avenant[]
+  client          Client?     @relation(fields: [clientId], references: [id], map: "Chantier_clientId_fkey")
+  documents       Document[]
+  etats           Etat[]
+  marches         Marche?
+  notes           Note[]
+  taches          Tache[]
+  admintasks      admintask[]
+  bonsRegie       BonRegie[]
 
-  @@index([clientId], map: "Chantier_clientId_idx")
+  @@index([clientId])
 }
 
 model Client {
@@ -477,19 +477,19 @@ model Client {
 }
 
 model Document {
-  id          Int      @id @default(autoincrement())
-  nom         String
-  type        String   // Types: 'rapport-visite', 'document-administratif', 'justificatif-depense', 'photo-chantier'
-  url         String
-  taille      Int
-  mimeType    String
-  chantierId  String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime
-  createdBy   String
-  metadata    Json?    // Pour stocker les métadonnées supplémentaires comme les personnes présentes, les annotations, etc.
-  chantier    Chantier @relation(fields: [chantierId], references: [chantierId], onDelete: Cascade)
-  User        User     @relation(fields: [createdBy], references: [id])
+  id         Int      @id @default(autoincrement())
+  nom        String
+  type       String
+  url        String
+  taille     Int
+  mimeType   String
+  chantierId String
+  createdBy  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+  metadata   Json?
+  chantier   Chantier @relation(fields: [chantierId], references: [chantierId], onDelete: Cascade)
+  User       User     @relation(fields: [createdBy], references: [id])
 
   @@index([chantierId])
   @@index([createdBy])
@@ -634,6 +634,29 @@ model User {
   pret      pret[]
 }
 
+model BonRegie {
+  id                Int       @id @default(autoincrement())
+  dates             String
+  client            String
+  nomChantier       String
+  description       String
+  tempsPreparation  Float?
+  tempsTrajets      Float?
+  tempsChantier     Float?
+  nombreTechniciens Int?
+  materiaux         String
+  nomSignataire     String
+  signature         String    @db.Text
+  dateSignature     DateTime
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  chantierId        String?
+  chantier          Chantier? @relation(fields: [chantierId], references: [chantierId])
+
+  @@index([chantierId])
+  @@map("bonRegie")
+}
+
 enum pret_statut {
   EN_COURS
   TERMINE
@@ -651,29 +674,4 @@ enum Machine_statut {
   EN_PANNE
   EN_REPARATION
   MANQUE_CONSOMMABLE
-}
-
-model BonRegie {
-  id                 Int       @id @default(autoincrement())
-  dates              String    // Dates d'intervention (24/25/26/27/28/03/2023)
-  client             String    // Nom du client
-  nomChantier        String    // Nom du chantier
-  description        String    // Description des travaux
-  tempsPreparation   Float?    // Temps de préparation en atelier (heures)
-  tempsTrajets       Float?    // Durée du trajet (heures)
-  tempsChantier      Float?    // Temps passé sur chantier (heures)
-  nombreTechniciens  Int?      // Nombre de techniciens
-  materiaux          String    // Liste des matériaux utilisés
-  nomSignataire      String    // Nom du responsable sur site
-  signature          String    @db.Text // URL ou data de la signature
-  dateSignature      DateTime  // Date de la signature
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  
-  // Relation optionnelle avec un chantier (peut être null initialement)
-  chantierId         String?
-  chantier           Chantier? @relation(fields: [chantierId], references: [chantierId])
-
-  @@index([chantierId])
-  @@map("bonRegie")
 }

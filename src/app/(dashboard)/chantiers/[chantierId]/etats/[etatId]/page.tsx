@@ -130,7 +130,7 @@ export default function EtatAvancementPage(props: PageProps) {
     }
   }
 
-  const handleValidateEtat = async () => {
+  const handleValidation = async () => {
     if (!etatAvancement) return;
     
     try {
@@ -147,14 +147,21 @@ export default function EtatAvancementPage(props: PageProps) {
       const currentEtat = await getResponse.json();
       console.log('Commentaires actuels avant validation:', currentEtat.commentaires);
       
+      // Si une période est sélectionnée mais pas dans les commentaires, l'ajouter
+      let commentairesFinaux = currentEtat.commentaires || '';
+      if (mois && !commentairesFinaux.includes(`Période de travaux: ${mois}`)) {
+        commentairesFinaux = commentairesFinaux 
+          ? `${commentairesFinaux}\nPériode de travaux: ${mois}`
+          : `Période de travaux: ${mois}`;
+      }
+      
       const response = await fetch(`/api/chantiers/${params.chantierId}/etats-avancement/${params.etatId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          commentaires: currentEtat.commentaires || etatAvancement.commentaires || '',
-          mois: mois,
+          commentaires: commentairesFinaux,
           estFinalise: true
         }),
       });
@@ -228,8 +235,9 @@ export default function EtatAvancementPage(props: PageProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          commentaires: etatAvancement.commentaires,
-          mois: newMois,
+          commentaires: etatAvancement.commentaires 
+            ? `${etatAvancement.commentaires}\nPériode de travaux: ${newMois}`
+            : `Période de travaux: ${newMois}`,
           estFinalise: etatAvancement.estFinalise
         }),
       });
@@ -337,7 +345,7 @@ export default function EtatAvancementPage(props: PageProps) {
               
               {!etatAvancement.estFinalise ? (
                 <button
-                  onClick={handleValidateEtat}
+                  onClick={handleValidation}
                   disabled={validating}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-500 dark:bg-blue-700 dark:hover:bg-blue-600 flex items-center disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all hover:shadow-lg border border-blue-700 hover:border-blue-500 dark:border-blue-600 dark:hover:border-blue-500"
                 >

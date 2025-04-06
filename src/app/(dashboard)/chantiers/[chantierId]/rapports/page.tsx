@@ -3,7 +3,7 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { PlusIcon, DocumentTextIcon, TrashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, DocumentTextIcon, TrashIcon, ArrowLeftIcon, PencilIcon } from '@heroicons/react/24/outline'
 import { DocumentExpirationAlert } from '@/components/DocumentExpirationAlert'
 
 interface RapportVisite {
@@ -173,13 +173,22 @@ export default function RapportsVisitePage(props: { params: Promise<{ chantierId
                           </p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDeleteRapport(rapport.id)}
-                        className="p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title="Supprimer ce rapport"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        <Link
+                          href={`/chantiers/${params.chantierId}/rapports/edit/${rapport.id}`}
+                          className="p-2 text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          title="Modifier ce rapport"
+                        >
+                          <PencilIcon className="h-5 w-5" />
+                        </Link>
+                        <button
+                          onClick={() => handleDeleteRapport(rapport.id)}
+                          className="p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          title="Supprimer ce rapport"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </div>
                     </div>
                   </li>
                 ))}
