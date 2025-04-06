@@ -114,6 +114,9 @@ export async function POST(request: Request) {
     console.log('Fiches techniques sélectionnées:', ficheIds)
     console.log('Références des fiches:', ficheReferences)
 
+    // Tableau pour stocker les erreurs éventuelles
+    const errors: string[] = [];
+
     // Récupérer les informations du chantier
     const chantier = await prisma.chantier.findUnique({
       where: { chantierId }
@@ -251,57 +254,83 @@ export async function POST(request: Request) {
       let pageNumber = 3
       
       for (const ficheId of ficheIds) {
-        const fichePath = await findPdfFile(path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique'), ficheId)
-        if (fichePath) {
-          const ficheName = path.basename(fichePath, '.pdf')
-            .replace(/_/g, ' ')
-            .replace(/-/g, ' ')
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ')
-
-          // Afficher la référence au cahier des charges si disponible
-          let displayName = ficheName;
-          if (ficheReferences && ficheReferences[ficheId]) {
-            displayName = `${ficheName} - Réf: ${ficheReferences[ficheId]}`;
-          }
-
-          // Dessiner le titre
-          tableDesMatieres.drawText(displayName, {
-            x: 70,
-            y: currentY,
-            size: 12,
-            font: helveticaFont,
-            color: rgb(0.4, 0.4, 0.4)
-          })
-
-          // Dessiner les points de suite
-          const titleWidth = helveticaFont.widthOfTextAtSize(displayName, 12)
-          const dotsStartX = 70 + titleWidth + 10
-          const dotsEndX = pageNumberX - 30
-          const dotsCount = Math.floor((dotsEndX - dotsStartX) / 5)
+        try {
+          // Cartographie directe des IDs aux fichiers connus (hardcoded pour les fichiers connus)
+          let fichePath = null;
           
-          for (let i = 0; i < dotsCount; i++) {
-            tableDesMatieres.drawText('.', {
-              x: dotsStartX + (i * 5),
+          // Correspondances directes connues
+          const knownFiles: Record<string, string> = {
+            'sikaceram_-250_starfix': path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique', 'Colle', 'sikaceram_-250_starfix.pdf'),
+            'sikalastic-260-stopaqua': path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique', 'Etanchéité', 'sikalastic-260-stopaqua.pdf'),
+            'sikaceram-660-fineflex': path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique', 'Joint', 'sikaceram-660-fineflex.pdf'),
+            'sikaseal-175': path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique', 'Silicone', 'sikaseal-175.pdf')
+          };
+          
+          // Vérifier si c'est un fichier connu
+          if (knownFiles[ficheId] && fs.existsSync(knownFiles[ficheId])) {
+            fichePath = knownFiles[ficheId];
+            console.log(`Fichier connu trouvé directement: ${fichePath}`);
+          } else {
+            // Sinon, utiliser la fonction de recherche
+            fichePath = await findPdfFile(path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique'), ficheId);
+          }
+          
+          if (fichePath) {
+            const ficheName = path.basename(fichePath, '.pdf')
+              .replace(/_/g, ' ')
+              .replace(/-/g, ' ')
+              .split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ')
+
+            // Afficher la référence au cahier des charges si disponible
+            let displayName = ficheName;
+            if (ficheReferences && ficheReferences[ficheId]) {
+              displayName = `${ficheName} - Réf: ${ficheReferences[ficheId]}`;
+            }
+
+            // Dessiner le titre
+            tableDesMatieres.drawText(displayName, {
+              x: 70,
               y: currentY,
               size: 12,
               font: helveticaFont,
               color: rgb(0.4, 0.4, 0.4)
             })
+
+            // Dessiner les points de suite
+            const titleWidth = helveticaFont.widthOfTextAtSize(displayName, 12)
+            const dotsStartX = 70 + titleWidth + 10
+            const dotsEndX = pageNumberX - 30
+            const dotsCount = Math.floor((dotsEndX - dotsStartX) / 5)
+            
+            for (let i = 0; i < dotsCount; i++) {
+              tableDesMatieres.drawText('.', {
+                x: dotsStartX + (i * 5),
+                y: currentY,
+                size: 12,
+                font: helveticaFont,
+                color: rgb(0.4, 0.4, 0.4)
+              })
+            }
+
+            // Dessiner le numéro de page
+            tableDesMatieres.drawText(pageNumber.toString(), {
+              x: pageNumberX,
+              y: currentY,
+              size: 12,
+              font: helveticaFont,
+              color: rgb(0.4, 0.4, 0.4)
+            })
+
+            currentY -= lineHeight
+            pageNumber++
+          } else {
+            errors.push(`Fichier non trouvé pour la table des matières: ${ficheId}`);
           }
-
-          // Dessiner le numéro de page
-          tableDesMatieres.drawText(pageNumber.toString(), {
-            x: pageNumberX,
-            y: currentY,
-            size: 12,
-            font: helveticaFont,
-            color: rgb(0.4, 0.4, 0.4)
-          })
-
-          currentY -= lineHeight
-          pageNumber++
+        } catch (error) {
+          console.error(`Erreur lors du traitement de la fiche ${ficheId} pour la table des matières:`, error);
+          errors.push(`Erreur lors du traitement de la fiche ${ficheId} pour la table des matières: ${error}`);
         }
       }
 
@@ -313,63 +342,100 @@ export async function POST(request: Request) {
     const baseDir = path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique')
     console.log('Dossier de base pour la recherche:', baseDir)
 
+    // Cartographie directe des IDs aux fichiers connus (hardcoded pour les fichiers connus)
+    const knownFiles: Record<string, string> = {
+      'sikaceram_-250_starfix': path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique', 'Colle', 'sikaceram_-250_starfix.pdf'),
+      'sikalastic-260-stopaqua': path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique', 'Etanchéité', 'sikalastic-260-stopaqua.pdf'),
+      'sikaceram-660-fineflex': path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique', 'Joint', 'sikaceram-660-fineflex.pdf'),
+      'sikaseal-175': path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique', 'Silicone', 'sikaseal-175.pdf')
+    };
+
     for (const ficheId of ficheIds) {
-      console.log('Recherche du fichier:', ficheId)
-      const fichePath = await findPdfFile(baseDir, ficheId)
-      
-      if (fichePath) {
-        console.log('Fichier trouvé:', fichePath)
-        const ficheBytes = await fs.promises.readFile(fichePath)
-        console.log('Taille du fichier lu:', ficheBytes.length)
-        const fichePdf = await PDFDocument.load(ficheBytes)
-        console.log('Nombre de pages dans le PDF:', fichePdf.getPageCount())
+      try {
+        console.log('Recherche du fichier:', ficheId);
+        let fichePath = null;
         
-        // Ajouter une page d'en-tête pour la fiche technique
-        const headerPage = pdfDoc.addPage()
-        const { width, height } = headerPage.getSize()
-        
-        // Titre de la fiche technique
-        const ficheName = path.basename(fichePath, '.pdf')
-          .replace(/_/g, ' ')
-          .replace(/-/g, ' ')
-          .split(' ')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ')
-
-        // Afficher la référence au cahier des charges si disponible
-        let displayName = ficheName;
-        if (ficheReferences && ficheReferences[ficheId]) {
-          displayName = `${ficheName} - Réf: ${ficheReferences[ficheId]}`;
+        // Vérifier si c'est un fichier connu
+        if (knownFiles[ficheId] && fs.existsSync(knownFiles[ficheId])) {
+          fichePath = knownFiles[ficheId];
+          console.log(`Fichier connu trouvé directement: ${fichePath}`);
+        } else {
+          // Sinon, utiliser la fonction de recherche
+          fichePath = await findPdfFile(baseDir, ficheId);
         }
-
-        headerPage.drawText(displayName, {
-          x: 50,
-          y: height - 100,
-          size: 24,
-          font: helveticaBoldFont,
-          color: rgb(0.2, 0.2, 0.2)
-        })
-
-        // Ajouter l'en-tête et le pied de page
-        addHeader(headerPage, helveticaFont, width, height, displayName)
-        addFooter(headerPage, helveticaFont, width, height, settings)
-
-        // Copier les pages de la fiche technique
-        const pages = await pdfDoc.copyPages(fichePdf, fichePdf.getPageIndices())
-        pages.forEach(page => {
-          const { width, height } = page.getSize()
-          // Ajouter l'en-tête et le pied de page à chaque page
-          addHeader(page, helveticaFont, width, height, displayName)
-          addFooter(page, helveticaFont, width, height, settings)
-          pdfDoc.addPage(page)
-        })
         
-        console.log('Fichier ajouté avec succès')
-      } else {
-        console.error('Fichier non trouvé:', ficheId)
-        const baseDirContent = await fs.promises.readdir(baseDir)
-        console.log('Contenu du dossier de base:', baseDirContent)
+        if (fichePath) {
+          console.log('Fichier trouvé:', fichePath)
+          const ficheBytes = await fs.promises.readFile(fichePath)
+          console.log('Taille du fichier lu:', ficheBytes.length)
+          
+          try {
+            const fichePdf = await PDFDocument.load(ficheBytes)
+            console.log('Nombre de pages dans le PDF:', fichePdf.getPageCount())
+            
+            // Ajouter une page d'en-tête pour la fiche technique
+            const headerPage = pdfDoc.addPage()
+            const { width, height } = headerPage.getSize()
+            
+            // Titre de la fiche technique
+            const ficheName = path.basename(fichePath as string, '.pdf')
+              .replace(/_/g, ' ')
+              .replace(/-/g, ' ')
+              .split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ')
+
+            // Afficher la référence au cahier des charges si disponible
+            let displayName = ficheName;
+            if (ficheReferences && ficheReferences[ficheId]) {
+              displayName = `${ficheName} - Réf: ${ficheReferences[ficheId]}`;
+            }
+
+            headerPage.drawText(displayName, {
+              x: 50,
+              y: height - 100,
+              size: 24,
+              font: helveticaBoldFont,
+              color: rgb(0.2, 0.2, 0.2)
+            })
+
+            // Ajouter l'en-tête et le pied de page
+            addHeader(headerPage, helveticaFont, width, height, displayName)
+            addFooter(headerPage, helveticaFont, width, height, settings)
+
+            // Copier les pages de la fiche technique
+            const pages = await pdfDoc.copyPages(fichePdf, fichePdf.getPageIndices())
+            pages.forEach(page => {
+              const { width, height } = page.getSize()
+              // Ajouter l'en-tête et le pied de page à chaque page
+              addHeader(page, helveticaFont, width, height, displayName)
+              addFooter(page, helveticaFont, width, height, settings)
+              pdfDoc.addPage(page)
+            })
+            
+            console.log('Fichier ajouté avec succès')
+          } catch (pdfError) {
+            console.error(`Erreur lors du chargement du PDF ${fichePath}:`, pdfError)
+            errors.push(`Erreur lors du chargement du PDF ${fichePath}: ${pdfError}`);
+          }
+        } else {
+          console.error('Fichier non trouvé:', ficheId)
+          errors.push(`Fichier non trouvé: ${ficheId}`);
+          const baseDirContent = await fs.promises.readdir(baseDir)
+          console.log('Contenu du dossier de base:', baseDirContent)
+        }
+      } catch (error) {
+        console.error(`Erreur lors du traitement de la fiche ${ficheId}:`, error);
+        errors.push(`Erreur lors du traitement de la fiche ${ficheId}: ${error}`);
       }
+    }
+
+    // Si des erreurs sont survenues, les retourner
+    if (errors.length > 0) {
+      return NextResponse.json({ 
+        error: 'Erreurs lors de la génération du dossier',
+        details: errors
+      }, { status: 400 });
     }
 
     // Sauvegarder le PDF
@@ -418,7 +484,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Erreur lors de la génération du dossier:', error)
     return NextResponse.json(
-      { error: 'Erreur lors de la génération du dossier' },
+      { error: 'Erreur lors de la génération du dossier', details: String(error) },
       { status: 500 }
     )
   }
