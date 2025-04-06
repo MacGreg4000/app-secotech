@@ -18,6 +18,7 @@ interface FormData {
   etatChantier: string
   adresseChantier: string
   dureeEnJours: string
+  typeDuree: string
   clientId: string
 }
 
@@ -36,6 +37,7 @@ export default function EditChantierPage(props: { params: Promise<{ chantierId: 
     etatChantier: '',
     adresseChantier: '',
     dureeEnJours: '',
+    typeDuree: 'CALENDRIER',
     clientId: ''
   })
   const [saving, setSaving] = useState(false)
@@ -66,6 +68,7 @@ export default function EditChantierPage(props: { params: Promise<{ chantierId: 
           etatChantier: data.etatChantier || '',
           adresseChantier: data.adresseChantier || '',
           dureeEnJours: data.dureeEnJours?.toString() || '',
+          typeDuree: data.typeDuree || 'CALENDRIER',
           clientId: data.clientId || ''
         })
       } catch (error) {
@@ -288,8 +291,6 @@ export default function EditChantierPage(props: { params: Promise<{ chantierId: 
                       <input
                         type="number"
                         name="dureeEnJours"
-                        id="dureeEnJours"
-                        min="1"
                         value={formData.dureeEnJours}
                         onChange={(e) => setFormData(prev => ({
                           ...prev,
@@ -297,6 +298,34 @@ export default function EditChantierPage(props: { params: Promise<{ chantierId: 
                         }))}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Type de durée
+                      </label>
+                      <div className="relative">
+                        <select
+                          name="typeDuree"
+                          value={formData.typeDuree}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            typeDuree: e.target.value
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white appearance-none"
+                        >
+                          <option value="CALENDRIER">Jours calendrier (tous les jours)</option>
+                          <option value="OUVRABLE">Jours ouvrables (lun-ven)</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
+                          <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Ce choix affecte le calcul de la date de fin dans le planning.
+                      </p>
                     </div>
                   </div>
                 </div>

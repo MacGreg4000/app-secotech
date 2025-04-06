@@ -446,6 +446,8 @@ model Chantier {
   statut              String    @default("A_VENIR")
   budget              Float?
   description         String?
+  typeDuree           String    @default("CALENDRIER") // "CALENDRIER" ou "OUVRABLE"
+  dureeEnJours        Int?      // Nombre de jours prévus pour le chantier
   createdAt           DateTime  @default(now())
   updatedAt           DateTime
   clientId            String?

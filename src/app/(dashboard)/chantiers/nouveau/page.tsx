@@ -18,6 +18,7 @@ interface FormData {
   etatChantier: string
   adresseChantier: string
   dureeEnJours: string
+  typeDuree: string
   clientId: string
 }
 
@@ -34,6 +35,7 @@ export default function NouveauChantierPage() {
     etatChantier: 'En préparation',
     adresseChantier: '',
     dureeEnJours: '',
+    typeDuree: 'CALENDRIER',
     clientId: ''
   })
   const [saving, setSaving] = useState(false)
@@ -99,6 +101,7 @@ export default function NouveauChantierPage() {
           etatChantier: formData.etatChantier,
           adresseChantier: formData.adresseChantier,
           dureeEnJours: formData.dureeEnJours,
+          typeDuree: formData.typeDuree,
           clientId: selectedClientId,
           clientNom: selectedClient?.nom || null,
           clientEmail: selectedClient?.email || null,
@@ -204,6 +207,27 @@ export default function NouveauChantierPage() {
                 }))}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Type de durée
+              </label>
+              <select
+                name="typeDuree"
+                value={formData.typeDuree}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  typeDuree: e.target.value
+                }))}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              >
+                <option value="CALENDRIER">Jours calendrier (tous les jours)</option>
+                <option value="OUVRABLE">Jours ouvrables (lun-ven)</option>
+              </select>
+              <p className="mt-1 text-sm text-gray-500">
+                Ce choix affectera le calcul de la date de fin dans le planning.
+              </p>
             </div>
 
           </div>
