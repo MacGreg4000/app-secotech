@@ -10,7 +10,22 @@ import { prisma } from '@/lib/prisma/client'
 async function findPdfFile(baseDir: string, fileName: string): Promise<string | null> {
   console.log(`Recherche de fichier: ${fileName} dans ${baseDir}`)
   
+  // Liste de sous-dossiers connus où chercher
+  const knownSubdirs = ['Colle', 'Etanchéité', 'Joint', 'Silicone'];
+  
   try {
+    // Essayer d'abord une recherche directe dans les sous-dossiers connus
+    for (const subdir of knownSubdirs) {
+      const directPath = path.join(baseDir, subdir, `${fileName}.pdf`);
+      console.log(`Vérification directe: ${directPath}`);
+      
+      if (fs.existsSync(directPath)) {
+        console.log(`Fichier trouvé directement: ${directPath}`);
+        return directPath;
+      }
+    }
+    
+    // Ensuite, parcourir récursivement les dossiers si la recherche directe échoue
     const files = await fs.promises.readdir(baseDir)
     
     for (const file of files) {
@@ -36,6 +51,23 @@ async function findPdfFile(baseDir: string, fileName: string): Promise<string | 
     }
     
     console.log(`Aucun fichier correspondant à ${fileName} trouvé dans ${baseDir}`)
+    
+    // Si aucun fichier n'est trouvé, tenter une dernière recherche par nom partiel
+    for (const subdir of knownSubdirs) {
+      const subdirPath = path.join(baseDir, subdir);
+      if (fs.existsSync(subdirPath)) {
+        const subdirFiles = await fs.promises.readdir(subdirPath);
+        
+        for (const file of subdirFiles) {
+          if (file.toLowerCase().includes(fileName.toLowerCase()) && file.endsWith('.pdf')) {
+            const matchPath = path.join(subdirPath, file);
+            console.log(`Correspondance partielle trouvée: ${matchPath}`);
+            return matchPath;
+          }
+        }
+      }
+    }
+    
     return null
   } catch (error) {
     console.error(`Erreur lors de la recherche de fichier dans ${baseDir}:`, error)
@@ -78,8 +110,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
-    const { chantierId, ficheIds, options } = await request.json()
+    const { chantierId, ficheIds, ficheReferences, options } = await request.json()
     console.log('Fiches techniques sélectionnées:', ficheIds)
+    console.log('Références des fiches:', ficheReferences)
 
     // Récupérer les informations du chantier
     const chantier = await prisma.chantier.findUnique({
@@ -227,8 +260,14 @@ export async function POST(request: Request) {
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ')
 
+          // Afficher la référence au cahier des charges si disponible
+          let displayName = ficheName;
+          if (ficheReferences && ficheReferences[ficheId]) {
+            displayName = `${ficheName} - Réf: ${ficheReferences[ficheId]}`;
+          }
+
           // Dessiner le titre
-          tableDesMatieres.drawText(ficheName, {
+          tableDesMatieres.drawText(displayName, {
             x: 70,
             y: currentY,
             size: 12,
@@ -237,7 +276,7 @@ export async function POST(request: Request) {
           })
 
           // Dessiner les points de suite
-          const titleWidth = helveticaFont.widthOfTextAtSize(ficheName, 12)
+          const titleWidth = helveticaFont.widthOfTextAtSize(displayName, 12)
           const dotsStartX = 70 + titleWidth + 10
           const dotsEndX = pageNumberX - 30
           const dotsCount = Math.floor((dotsEndX - dotsStartX) / 5)
@@ -297,7 +336,13 @@ export async function POST(request: Request) {
           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
           .join(' ')
 
-        headerPage.drawText(ficheName, {
+        // Afficher la référence au cahier des charges si disponible
+        let displayName = ficheName;
+        if (ficheReferences && ficheReferences[ficheId]) {
+          displayName = `${ficheName} - Réf: ${ficheReferences[ficheId]}`;
+        }
+
+        headerPage.drawText(displayName, {
           x: 50,
           y: height - 100,
           size: 24,
@@ -306,7 +351,7 @@ export async function POST(request: Request) {
         })
 
         // Ajouter l'en-tête et le pied de page
-        addHeader(headerPage, helveticaFont, width, height, ficheName)
+        addHeader(headerPage, helveticaFont, width, height, displayName)
         addFooter(headerPage, helveticaFont, width, height, settings)
 
         // Copier les pages de la fiche technique
@@ -314,7 +359,7 @@ export async function POST(request: Request) {
         pages.forEach(page => {
           const { width, height } = page.getSize()
           // Ajouter l'en-tête et le pied de page à chaque page
-          addHeader(page, helveticaFont, width, height, ficheName)
+          addHeader(page, helveticaFont, width, height, displayName)
           addFooter(page, helveticaFont, width, height, settings)
           pdfDoc.addPage(page)
         })
@@ -358,16 +403,8 @@ export async function POST(request: Request) {
         taille: pdfBytes.length,
         mimeType: 'application/pdf',
         updatedAt: new Date(),
-        chantier: {
-          connect: {
-            chantierId: chantierId
-          }
-        },
-        user: {
-          connect: {
-            id: user.id
-          }
-        }
+        chantierId: chantierId,
+        createdBy: user.id
       }
     })
 
