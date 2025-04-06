@@ -12,6 +12,7 @@ interface FicheTechnique {
   sousCategorie?: string | null
   fichierUrl: string
   description?: string | null
+  referenceCC?: string | null
 }
 
 interface Dossier {
@@ -32,6 +33,7 @@ export default function NouveauDossierTechniquePage() {
   const [includeTableOfContents, setIncludeTableOfContents] = useState(true)
   const [includePageNumbers, setIncludePageNumbers] = useState(true)
   const [structureDossiers, setStructureDossiers] = useState<Dossier[]>([])
+  const [ficheReferences, setFicheReferences] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const fetchData = async () => {
@@ -71,6 +73,13 @@ export default function NouveauDossierTechniquePage() {
     })
   }
 
+  const handleReferenceChange = (ficheId: string, reference: string) => {
+    setFicheReferences(prev => ({
+      ...prev,
+      [ficheId]: reference
+    }))
+  }
+
   const handleGenererDossier = async () => {
     if (!selectedChantier || selectedFiches.length === 0) {
       alert('Veuillez sélectionner un chantier et au moins une fiche technique')
@@ -87,6 +96,7 @@ export default function NouveauDossierTechniquePage() {
         body: JSON.stringify({
           chantierId: selectedChantier.chantierId,
           ficheIds: selectedFiches,
+          ficheReferences: ficheReferences,
           options: {
             includeTableOfContents,
             includePageNumbers
@@ -133,7 +143,7 @@ export default function NouveauDossierTechniquePage() {
         {dossier.fiches.map(fiche => (
           <div key={fiche.id} className="ml-7 flex items-center space-x-2">
             <DocumentIcon className="h-4 w-4 text-gray-500" />
-            <label className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 w-full">
               <input
                 type="checkbox"
                 checked={selectedFiches.includes(fiche.id)}
@@ -141,7 +151,16 @@ export default function NouveauDossierTechniquePage() {
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="text-sm dark:text-gray-300">{fiche.titre}</span>
-            </label>
+              {selectedFiches.includes(fiche.id) && (
+                <input
+                  type="text"
+                  placeholder="Référence CC"
+                  value={ficheReferences[fiche.id] || ''}
+                  onChange={(e) => handleReferenceChange(fiche.id, e.target.value)}
+                  className="ml-2 text-sm dark:text-gray-300 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md w-32"
+                />
+              )}
+            </div>
           </div>
         ))}
       </div>

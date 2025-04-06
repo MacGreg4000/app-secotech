@@ -87,6 +87,7 @@ model FicheTechnique {
   sousCategorie String?
   fichierUrl    String
   description   String?  @db.Text
+  referenceCC   String?  // Référence au cahier des charges
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

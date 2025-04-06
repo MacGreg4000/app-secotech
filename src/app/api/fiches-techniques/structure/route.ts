@@ -11,6 +11,7 @@ interface FicheTechnique {
   sousCategorie?: string | null
   fichierUrl: string
   description?: string | null
+  referenceCC?: string | null
 }
 
 interface Dossier {

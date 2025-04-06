@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     const categorie = formData.get('categorie') as string
     const sousCategorie = formData.get('sousCategorie') as string
     const description = formData.get('description') as string
+    const referenceCC = formData.get('referenceCC') as string
     const fichier = formData.get('fichier') as File
 
     if (!titre || !categorie || !fichier) {
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
         categorie,
         sousCategorie: sousCategorie || null,
         description: description || null,
+        referenceCC: referenceCC || null,
         fichierUrl: `/fiches-techniques/${fileName}`
       }
     })
