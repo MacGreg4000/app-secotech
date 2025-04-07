@@ -102,10 +102,10 @@ export async function POST(req: Request) {
     const chantierId = `CH-${year}-${randomId}`
 
     // Conversion des états pour correspondre au schéma prisma
-    let statut = 'A_VENIR'
+    let statut = 'EN_PREPARATION' // Valeur par défaut correspondant à "En préparation"
     if (etatChantier === 'En cours') statut = 'EN_COURS'
     else if (etatChantier === 'Terminé') statut = 'TERMINE'
-    else if (etatChantier === 'En préparation') statut = 'EN_PREPARATION'
+    else if (etatChantier === 'À venir') statut = 'A_VENIR'
 
     // Création du chantier en utilisant une approche non typée
     const chantierData = {
