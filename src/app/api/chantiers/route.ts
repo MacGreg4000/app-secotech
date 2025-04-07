@@ -15,24 +15,28 @@ export async function GET() {
       )
     }
 
-    // Utiliser $queryRaw pour éviter les erreurs TypeScript
-    const chantiers = await prisma.$queryRaw`
-      SELECT c.*, 
-             cl.nom as clientNom, 
-             cl.email as clientEmail, 
-             cl.adresse as clientAdresse
-      FROM Chantier c
-      LEFT JOIN Client cl ON c.clientId = cl.id
-      ORDER BY c.createdAt DESC
-    `;
+    const chantiers = await prisma.chantier.findMany({
+      include: {
+        client: {
+          select: {
+            nom: true,
+            email: true,
+            adresse: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
 
-    if (!Array.isArray(chantiers)) {
+    if (!chantiers || !Array.isArray(chantiers)) {
       console.error('Prisma n\'a pas retourné un tableau:', chantiers)
       return NextResponse.json([])
     }
 
     // Transformer les données pour compatibilité avec l'interface existante
-    const formattedChantiers = chantiers.map((chantier: any) => {
+    const formattedChantiers = chantiers.map((chantier) => {
       // Conversion des états pour l'interface utilisateur
       let etatChantier = 'En préparation'
       if (chantier.statut === 'EN_COURS') etatChantier = 'En cours'
@@ -45,9 +49,9 @@ export async function GET() {
         nomChantier: chantier.nomChantier,
         dateCommencement: chantier.dateDebut,
         etatChantier,
-        clientNom: chantier.clientNom || '',
-        clientEmail: chantier.clientEmail || '',
-        clientAdresse: chantier.clientAdresse || '',
+        clientNom: chantier.client?.nom || '',
+        clientEmail: chantier.client?.email || '',
+        clientAdresse: chantier.client?.adresse || '',
         adresseChantier: chantier.adresseChantier || '',
         villeChantier: chantier.villeChantier || '',
         montantTotal: chantier.budget || 0,
@@ -107,47 +111,29 @@ export async function POST(req: Request) {
     else if (etatChantier === 'Terminé') statut = 'TERMINE'
     else if (etatChantier === 'À venir') statut = 'A_VENIR'
 
-    // Création du chantier en utilisant une approche non typée
-    const chantierData = {
-      chantierId,
-      nomChantier,
-      dateDebut: dateCommencement ? new Date(dateCommencement) : null,
-      statut,
-      adresseChantier,
-      dureeEnJours: dureeEnJours ? parseInt(dureeEnJours) : null,
-      typeDuree: typeDuree || 'CALENDRIER',
-      clientId,
-      updatedAt: new Date(),
-      createdAt: new Date()
-    };
-
-    // Utiliser $executeRaw ou $queryRaw pour éviter les problèmes de typage
-    const insertResult = await prisma.$executeRawUnsafe(`
-      INSERT INTO Chantier (
-        chantierId, nomChantier, dateDebut, statut, adresseChantier, 
-        dureeEnJours, typeDuree, clientId, updatedAt, createdAt
-      ) VALUES (
-        ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?
-      )
-    `, 
-      chantierId, 
-      nomChantier, 
-      dateCommencement ? new Date(dateCommencement) : null, 
-      statut, 
-      adresseChantier,
-      dureeEnJours ? parseInt(dureeEnJours) : null,
-
-      typeDuree || 'CALENDRIER', 
-      clientId, 
-      new Date(), 
-      new Date()
-    );
-    
-    // Récupérer le chantier créé
-    const chantier = await prisma.chantier.findUnique({
-      where: { chantierId }
-    });
+    const chantier = await prisma.chantier.create({
+      data: {
+        chantierId,
+        nomChantier,
+        dateDebut: dateCommencement ? new Date(dateCommencement) : null,
+        statut,
+        adresseChantier,
+        dureeEnJours: dureeEnJours ? parseInt(dureeEnJours) : null,
+        typeDuree: typeDuree || 'CALENDRIER',
+        clientId,
+        updatedAt: new Date(),
+        createdAt: new Date()
+      },
+      include: {
+        client: {
+          select: {
+            nom: true,
+            email: true,
+            adresse: true
+          }
+        }
+      }
+    })
 
     return NextResponse.json(chantier)
   } catch (error) {
