@@ -47,10 +47,17 @@ export default function EditChantierPage(props: { params: Promise<{ chantierId: 
         const res = await fetch(`/api/chantiers/${params.chantierId}`)
         const data = await res.json()
         setChantier(data)
+
+        // Conversion du statut pour l'affichage
+        let etatChantier = 'En préparation'
+        if (data.statut === 'EN_COURS') etatChantier = 'En cours'
+        else if (data.statut === 'TERMINE') etatChantier = 'Terminé'
+        else if (data.statut === 'A_VENIR') etatChantier = 'À venir'
+
         setFormData({
           nomChantier: data.nomChantier,
-          dateCommencement: new Date(data.dateCommencement).toISOString().split('T')[0],
-          etatChantier: data.etatChantier,
+          dateCommencement: data.dateDebut ? new Date(data.dateDebut).toISOString().split('T')[0] : '',
+          etatChantier: etatChantier,
           adresseChantier: data.adresseChantier || '',
           dureeEnJours: data.dureeEnJours?.toString() || ''
         })

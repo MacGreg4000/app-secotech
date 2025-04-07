@@ -58,21 +58,23 @@ export async function PUT(
 
     const body = await request.json()
 
+    // Conversion des états pour correspondre au schéma prisma
+    let statut = 'EN_PREPARATION' // Valeur par défaut
+    if (body.etatChantier === 'En cours') statut = 'EN_COURS'
+    else if (body.etatChantier === 'Terminé') statut = 'TERMINE'
+    else if (body.etatChantier === 'À venir') statut = 'A_VENIR'
+
     const chantier = await prisma.chantier.update({
       where: { chantierId: chantierId },
       data: {
         nomChantier: body.nomChantier,
-        dateCommencement: new Date(body.dateCommencement),
-        etatChantier: body.etatChantier,
-        clientNom: body.clientNom,
-        clientEmail: body.clientEmail,
-        clientAdresse: body.clientAdresse,
+        dateDebut: body.dateCommencement ? new Date(body.dateCommencement) : null,
+        statut: statut,
         adresseChantier: body.adresseChantier,
-        latitude: body.latitude ? parseFloat(body.latitude) : null,
-        longitude: body.longitude ? parseFloat(body.longitude) : null,
+        villeChantier: body.villeChantier,
         dureeEnJours: body.dureeEnJours ? parseInt(body.dureeEnJours) : null,
         clientId: body.clientId || null,
-        montantTotal: body.montantTotal ? parseFloat(body.montantTotal) : 0
+        budget: body.montantTotal ? parseFloat(body.montantTotal) : 0
       }
     })
 

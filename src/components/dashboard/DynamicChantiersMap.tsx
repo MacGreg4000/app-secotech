@@ -2,8 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
-import 'leaflet/dist/leaflet.css'
-import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css'
+
+// Importer les styles CSS de Leaflet
+if (typeof window !== 'undefined') {
+  require('leaflet/dist/leaflet.css')
+  require('leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css')
+}
 
 // Définir les types
 interface Chantier {
