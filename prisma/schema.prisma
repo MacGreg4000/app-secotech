@@ -89,7 +89,7 @@ model FicheTechnique {
   description   String?  @db.Text
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  referenceCC   String?
+  referenceCSC  String?
 
   @@map("fiches_techniques")
 }

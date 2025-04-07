@@ -209,7 +209,7 @@ export async function POST(request: Request) {
     
     const infoTexts = [
       `Nom du chantier : ${chantier.nomChantier}`,
-      `Client : ${chantier.clientNom}`,
+      `Client : ${chantierData.clientNom || ''}`,
       `Adresse : ${chantier.adresseChantier}`,
       `Date de début : ${chantierData.dateDebut ? new Date(chantierData.dateDebut).toLocaleDateString('fr-FR') : 'Non définie'}`,
       `Date de génération : ${new Date().toLocaleDateString('fr-FR')}`
@@ -289,7 +289,7 @@ export async function POST(request: Request) {
             // Afficher la référence au cahier des charges si disponible
             let displayName = ficheName;
             if (ficheReferences && ficheReferences[ficheId]) {
-              displayName = `${ficheName} - Réf: ${ficheReferences[ficheId]}`;
+              displayName = `${ficheName} - Réf CSC: ${ficheReferences[ficheId]}`;
             }
 
             // Dessiner le titre
@@ -391,7 +391,7 @@ export async function POST(request: Request) {
             // Afficher la référence au cahier des charges si disponible
             let displayName = ficheName;
             if (ficheReferences && ficheReferences[ficheId]) {
-              displayName = `${ficheName} - Réf: ${ficheReferences[ficheId]}`;
+              displayName = `${ficheName} - Réf CSC: ${ficheReferences[ficheId]}`;
             }
 
             headerPage.drawText(displayName, {

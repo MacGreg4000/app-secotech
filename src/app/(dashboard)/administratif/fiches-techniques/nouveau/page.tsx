@@ -12,7 +12,7 @@ interface FicheTechnique {
   sousCategorie?: string | null
   fichierUrl: string
   description?: string | null
-  referenceCC?: string | null
+  referenceCSC?: string | null
 }
 
 interface Dossier {
@@ -154,7 +154,7 @@ export default function NouveauDossierTechniquePage() {
               {selectedFiches.includes(fiche.id) && (
                 <input
                   type="text"
-                  placeholder="Référence CC"
+                  placeholder="Référence CSC"
                   value={ficheReferences[fiche.id] || ''}
                   onChange={(e) => handleReferenceChange(fiche.id, e.target.value)}
                   className="ml-2 text-sm dark:text-gray-300 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md w-32"

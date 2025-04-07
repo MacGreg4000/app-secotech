@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const categorie = formData.get('categorie') as string
     const sousCategorie = formData.get('sousCategorie') as string
     const description = formData.get('description') as string
-    const referenceCC = formData.get('referenceCC') as string
+    const referenceCSC = formData.get('referenceCSC') as string
     const fichier = formData.get('fichier') as File
 
     if (!titre || !categorie || !fichier) {
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     const id = crypto.randomUUID();
     await prisma.$executeRawUnsafe(`
       INSERT INTO fiches_techniques (
-        id, titre, categorie, sousCategorie, description, referenceCC, fichierUrl, createdAt, updatedAt
+        id, titre, categorie, sousCategorie, description, referenceCSC, fichierUrl, createdAt, updatedAt
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, 
       id,
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       categorie,
       sousCategorie || null,
       description || null,
-      referenceCC || null,
+      referenceCSC || null,
       `/fiches-techniques/${fileName}`,
       new Date(),
       new Date()
