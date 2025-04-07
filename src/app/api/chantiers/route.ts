@@ -32,24 +32,32 @@ export async function GET() {
     }
 
     // Transformer les données pour compatibilité avec l'interface existante
-    const formattedChantiers = chantiers.map((chantier: any) => ({
-      id: chantier.id,
-      chantierId: chantier.chantierId,
-      nomChantier: chantier.nomChantier,
-      dateCommencement: chantier.dateDebut,
-      etatChantier: chantier.statut,
-      clientNom: chantier.clientNom || '',
-      clientEmail: chantier.clientEmail || '',
-      clientAdresse: chantier.clientAdresse || '',
-      adresseChantier: chantier.adresseChantier || '',
-      villeChantier: chantier.villeChantier || '',
-      montantTotal: chantier.budget || 0,
-      dureeEnJours: chantier.dateFinPrevue && chantier.dateDebut 
-        ? Math.ceil((new Date(chantier.dateFinPrevue).getTime() - new Date(chantier.dateDebut).getTime()) / (1000 * 3600 * 24)) 
-        : null,
-      createdAt: chantier.createdAt,
-      updatedAt: chantier.updatedAt
-    }))
+    const formattedChantiers = chantiers.map((chantier: any) => {
+      // Conversion des états pour l'interface utilisateur
+      let etatChantier = 'En préparation'
+      if (chantier.statut === 'EN_COURS') etatChantier = 'En cours'
+      else if (chantier.statut === 'TERMINE') etatChantier = 'Terminé'
+      else if (chantier.statut === 'A_VENIR') etatChantier = 'À venir'
+
+      return {
+        id: chantier.id,
+        chantierId: chantier.chantierId,
+        nomChantier: chantier.nomChantier,
+        dateCommencement: chantier.dateDebut,
+        etatChantier,
+        clientNom: chantier.clientNom || '',
+        clientEmail: chantier.clientEmail || '',
+        clientAdresse: chantier.clientAdresse || '',
+        adresseChantier: chantier.adresseChantier || '',
+        villeChantier: chantier.villeChantier || '',
+        montantTotal: chantier.budget || 0,
+        dureeEnJours: chantier.dateFinPrevue && chantier.dateDebut 
+          ? Math.ceil((new Date(chantier.dateFinPrevue).getTime() - new Date(chantier.dateDebut).getTime()) / (1000 * 3600 * 24)) 
+          : null,
+        createdAt: chantier.createdAt,
+        updatedAt: chantier.updatedAt
+      }
+    })
 
     return NextResponse.json(formattedChantiers)
   } catch (error) {
@@ -97,6 +105,7 @@ export async function POST(req: Request) {
     let statut = 'A_VENIR'
     if (etatChantier === 'En cours') statut = 'EN_COURS'
     else if (etatChantier === 'Terminé') statut = 'TERMINE'
+    else if (etatChantier === 'En préparation') statut = 'EN_PREPARATION'
 
     // Création du chantier en utilisant une approche non typée
     const chantierData = {
