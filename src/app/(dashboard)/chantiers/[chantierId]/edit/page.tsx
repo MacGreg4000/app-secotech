@@ -14,8 +14,8 @@ interface Client {
 
 interface FormData {
   nomChantier: string
-  dateCommencement: string
-  etatChantier: string
+  dateDebut: string
+  statut: string
   adresseChantier: string
   dureeEnJours: string
   typeDuree: string
@@ -33,8 +33,8 @@ export default function EditChantierPage(props: { params: Promise<{ chantierId: 
   const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [formData, setFormData] = useState<FormData>({
     nomChantier: '',
-    dateCommencement: '',
-    etatChantier: '',
+    dateDebut: '',
+    statut: '',
     adresseChantier: '',
     dureeEnJours: '',
     typeDuree: 'CALENDRIER',
@@ -60,12 +60,23 @@ export default function EditChantierPage(props: { params: Promise<{ chantierId: 
       try {
         const response = await fetch(`/api/chantiers/${params.chantierId}`)
         const data = await response.json()
+        console.log("Données du chantier chargées:", data)
         setChantier(data)
         setSelectedClientId(data.clientId || '')
+        
+        // Convertir le statut du format API au format d'affichage
+        // IMPORTANT: L'API stocke les statuts sous forme de constantes (EN_COURS, TERMINE, etc.)
+        // mais l'interface utilisateur les affiche sous forme lisible (En cours, Terminé, etc.)
+        // Cette conversion est essentielle pour que le formulaire conserve l'état sélectionné.
+        let statusForDisplay = 'En préparation';
+        if (data.statut === 'EN_COURS') statusForDisplay = 'En cours';
+        else if (data.statut === 'TERMINE') statusForDisplay = 'Terminé';
+        else if (data.statut === 'A_VENIR') statusForDisplay = 'À venir';
+        
         setFormData({
           nomChantier: data.nomChantier,
-          dateCommencement: data.dateCommencement ? new Date(data.dateCommencement).toISOString().split('T')[0] : '',
-          etatChantier: data.etatChantier || '',
+          dateDebut: data.dateDebut ? new Date(data.dateDebut).toISOString().split('T')[0] : '',
+          statut: statusForDisplay,
           adresseChantier: data.adresseChantier || '',
           dureeEnJours: data.dureeEnJours?.toString() || '',
           typeDuree: data.typeDuree || 'CALENDRIER',
@@ -88,19 +99,33 @@ export default function EditChantierPage(props: { params: Promise<{ chantierId: 
     setSaving(true)
 
     try {
-      // Récupérer le montant total actuel du chantier
+      // Récupérer le chantier actuel pour préserver toutes les données
       const chantierResponse = await fetch(`/api/chantiers/${params.chantierId}`);
       const chantierData = await chantierResponse.json();
+      
+      // Créer un objet qui préserve toutes les données existantes
+      // mais remplace celles modifiées dans le formulaire
+      const updatedChantierData = {
+        ...chantierData,
+        nomChantier: formData.nomChantier,
+        dateDebut: formData.dateDebut ? new Date(formData.dateDebut).toISOString() : chantierData.dateDebut,
+        statut: formData.statut,
+        adresseChantier: formData.adresseChantier,
+        dureeEnJours: formData.dureeEnJours ? parseInt(formData.dureeEnJours) : chantierData.dureeEnJours,
+        typeDuree: formData.typeDuree,
+        clientId: formData.clientId,
+        // S'assurer que ces champs sont préservés explicitement
+        budget: chantierData.budget,
+      };
+      
+      console.log("Données envoyées pour mise à jour:", updatedChantierData);
       
       const response = await fetch(`/api/chantiers/${params.chantierId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...formData,
-          montantTotal: chantierData.montantTotal || 0, // Préserver le montant total existant
-        }),
+        body: JSON.stringify(updatedChantierData),
       })
 
       if (!response.ok) throw new Error('Erreur lors de la mise à jour')
@@ -224,11 +249,11 @@ export default function EditChantierPage(props: { params: Promise<{ chantierId: 
                       </label>
                       <input
                         type="date"
-                        name="dateCommencement"
-                        value={formData.dateCommencement}
+                        name="dateDebut"
+                        value={formData.dateDebut}
                         onChange={(e) => setFormData(prev => ({
                           ...prev,
-                          dateCommencement: e.target.value
+                          dateDebut: e.target.value
                         }))}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                         required
@@ -241,11 +266,11 @@ export default function EditChantierPage(props: { params: Promise<{ chantierId: 
                       </label>
                       <div className="relative">
                         <select
-                          name="etatChantier"
-                          value={formData.etatChantier}
+                          name="statut"
+                          value={formData.statut}
                           onChange={(e) => setFormData(prev => ({
                             ...prev,
-                            etatChantier: e.target.value
+                            statut: e.target.value
                           }))}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white appearance-none"
                         >

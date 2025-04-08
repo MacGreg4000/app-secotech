@@ -15,6 +15,7 @@ import KPICard from '@/components/dashboard/KPICard'
 import DynamicChantiersMap from '@/components/dashboard/DynamicChantiersMap'
 import ChantiersStatsChart from '@/components/dashboard/ChantiersStatsChart'
 import BonsRegieWidget from '@/components/dashboard/BonsRegieWidget'
+import DocumentsExpiresWidget from '@/components/dashboard/DocumentsExpiresWidget'
 
 // Types
 interface DashboardStats {
@@ -164,6 +165,11 @@ export default function DashboardPage() {
       {/* Carte des chantiers */}
       <div className="mb-6">
         <DynamicChantiersMap chantiers={chantiersMap} loading={loading} />
+      </div>
+
+      {/* Documents à surveiller */}
+      <div className="mb-6">
+        <DocumentsExpiresWidget />
       </div>
 
       {/* Bons de régie */}

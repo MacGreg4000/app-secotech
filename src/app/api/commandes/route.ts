@@ -163,9 +163,10 @@ export async function POST(request: Request) {
       console.log('Montant total calculé:', montantTotal, 'à partir de', commandes.length, 'commandes');
       console.log('Commandes prises en compte:', commandes.filter((cmd: any) => cmd.statut === 'VALIDEE' || cmd.statut === 'VERROUILLEE').length);
       
+      // Mise à jour du budget du chantier avec le montant total des commandes
       await prisma.chantier.update({
         where: { chantierId: commandeData.chantierId },
-        data: { montantTotal }
+        data: { budget: montantTotal }
       });
 
       // Récupérer la commande avec ses lignes

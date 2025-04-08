@@ -17,7 +17,7 @@ interface Chantier {
   nomChantier: string
   dateCommencement: string
   etatChantier: ChantierStatusType
-  montantTotal: number
+  budget: number
 }
 
 interface ChantiersTableProps {

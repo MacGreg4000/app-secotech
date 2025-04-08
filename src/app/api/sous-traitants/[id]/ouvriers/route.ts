@@ -18,7 +18,22 @@ export async function GET(
     
     const { id } = (await context.params)
 
-    console.log('Récupération des ouvriers pour le sous-traitant ID:', id);
+    console.log('DEBUG - Récupération des ouvriers pour le sous-traitant ID:', id);
+
+    // Vérifier d'abord si le sous-traitant existe
+    const sousTraitant = await prisma.soustraitant.findUnique({
+      where: { id }
+    });
+
+    if (!sousTraitant) {
+      console.log('DEBUG - Sous-traitant non trouvé avec ID:', id);
+      return NextResponse.json(
+        { error: 'Sous-traitant non trouvé' },
+        { status: 404 }
+      );
+    }
+
+    console.log('DEBUG - Sous-traitant trouvé:', sousTraitant.nom);
 
     const ouvriers = await prisma.ouvrier.findMany({
       where: { 
@@ -26,7 +41,7 @@ export async function GET(
       },
       include: {
         _count: {
-          select: { documentouvrier: true }
+          select: { DocumentOuvrier: true }
         }
       },
       orderBy: {
@@ -34,7 +49,20 @@ export async function GET(
       }
     })
 
-    console.log(`${ouvriers.length} ouvriers trouvés pour le sous-traitant ID: ${id}`);
+    console.log(`DEBUG - Requête ouvriers exécutée. Nombre trouvés: ${ouvriers.length}`);
+    if (ouvriers.length > 0) {
+      console.log('DEBUG - Premier ouvrier trouvé:', JSON.stringify(ouvriers[0], null, 2));
+    } else {
+      console.log('DEBUG - Aucun ouvrier trouvé pour ce sous-traitant');
+      
+      // Vérification supplémentaire dans la base sans filtrer
+      const tousOuvriers = await prisma.ouvrier.findMany();
+      console.log(`DEBUG - Nombre total d'ouvriers dans la base: ${tousOuvriers.length}`);
+      if (tousOuvriers.length > 0) {
+        console.log('DEBUG - IDs des sous-traitants associés:', tousOuvriers.map(o => o.sousTraitantId).join(', '));
+      }
+    }
+
     return NextResponse.json(ouvriers)
   } catch (error) {
     console.error('Erreur lors de la récupération des ouvriers:', error)
@@ -60,11 +88,12 @@ export async function POST(
     
     const { id } = (await context.params)
     const body = await request.json()
-    console.log('Données reçues pour la création de l\'ouvrier:', body);
-    console.log('ID du sous-traitant:', id);
+    console.log('DEBUG - Données reçues pour la création de l\'ouvrier:', JSON.stringify(body, null, 2));
+    console.log('DEBUG - ID du sous-traitant:', id);
 
     // Validation basique
     if (!body.nom || !body.prenom || !body.dateEntree || !body.poste) {
+      console.log('DEBUG - Validation échouée, champs manquants');
       return NextResponse.json(
         { error: 'Tous les champs obligatoires doivent être remplis' },
         { status: 400 }
@@ -77,32 +106,49 @@ export async function POST(
     })
 
     if (!sousTraitant) {
-      console.log('Sous-traitant non trouvé avec ID:', id);
+      console.log('DEBUG - Sous-traitant non trouvé avec ID:', id);
       return NextResponse.json(
         { error: 'Sous-traitant non trouvé' },
         { status: 404 }
       )
     }
 
+    console.log('DEBUG - Sous-traitant trouvé:', sousTraitant.nom);
+
     // Générer un ID unique pour l'ouvrier
     const uniqueId = `OUV-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-    console.log('ID généré pour l\'ouvrier:', uniqueId);
+    console.log('DEBUG - ID généré pour l\'ouvrier:', uniqueId);
+
+    const ouvrierData = {
+      id: uniqueId,
+      nom: body.nom,
+      prenom: body.prenom,
+      email: body.email || null,
+      telephone: body.telephone || null,
+      dateEntree: new Date(body.dateEntree),
+      poste: body.poste,
+      sousTraitantId: id,
+      updatedAt: new Date()
+    };
+    
+    console.log('DEBUG - Données formatées pour création:', JSON.stringify(ouvrierData, null, 2));
 
     const ouvrier = await prisma.ouvrier.create({
-      data: {
-        id: uniqueId,
-        nom: body.nom,
-        prenom: body.prenom,
-        email: body.email || null,
-        telephone: body.telephone || null,
-        dateEntree: new Date(body.dateEntree),
-        poste: body.poste,
-        sousTraitantId: id,
-        updatedAt: new Date()
-      }
-    })
+      data: ouvrierData
+    });
 
-    console.log('Ouvrier créé avec succès:', ouvrier);
+    console.log('DEBUG - Ouvrier créé avec succès:', JSON.stringify(ouvrier, null, 2));
+    
+    // Vérification supplémentaire
+    const ouvrierVerif = await prisma.ouvrier.findUnique({
+      where: { id: uniqueId }
+    });
+    
+    console.log('DEBUG - Vérification de l\'existence de l\'ouvrier après création:', ouvrierVerif ? 'Trouvé' : 'Non trouvé');
+    if (ouvrierVerif) {
+      console.log('DEBUG - Données de l\'ouvrier en DB:', JSON.stringify(ouvrierVerif, null, 2));
+    }
+    
     return NextResponse.json(ouvrier)
   } catch (error) {
     console.error('Erreur lors de la création de l\'ouvrier:', error)

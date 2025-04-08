@@ -85,7 +85,7 @@ function BonsRegieWidgetClient() {
           Derniers bons de régie
         </h2>
         <Link 
-          href="/(dashboard)/bons-regie" 
+          href="/bons-regie" 
           className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center"
         >
           Voir tous

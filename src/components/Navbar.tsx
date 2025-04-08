@@ -139,7 +139,7 @@ export function Navbar() {
                 {/* Menu utilisateur simplifié */}
                 <div className="ml-3 relative flex items-center gap-4">
                   <button
-                    onClick={() => signOut()}
+                    onClick={() => signOut({ callbackUrl: '/' })}
                     className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 px-3 py-2 rounded-md text-sm font-medium"
                   >
                     <ArrowRightOnRectangleIcon className="h-5 w-5" />

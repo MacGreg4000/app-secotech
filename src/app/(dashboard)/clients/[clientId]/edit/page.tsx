@@ -12,12 +12,12 @@ interface Client {
   email: string | null
   adresse: string | null
   telephone: string | null
-  chantier: Array<{
+  Chantier: Array<{
     chantierId: string
     nomChantier: string
-    dateCommencement: string
-    etatChantier: string
-    montantTotal: number
+    dateDebut: string
+    statut: string
+    budget: number
   }>
 }
 
@@ -51,12 +51,27 @@ export default function EditClientPage(props: { params: Promise<{ clientId: stri
     setSaving(true)
 
     try {
+      // Récupérer les données complètes du client avant modification
+      const clientResponse = await fetch(`/api/clients/${params.clientId}`);
+      const clientData = await clientResponse.json();
+      
+      // Mise à jour uniquement des champs du formulaire tout en préservant le reste
+      const updatedClientData = {
+        ...clientData,
+        nom: client?.nom || clientData.nom,
+        email: client?.email || clientData.email,
+        adresse: client?.adresse || clientData.adresse,
+        telephone: client?.telephone || clientData.telephone,
+      };
+      
+      console.log("Données client envoyées pour mise à jour:", updatedClientData);
+      
       const response = await fetch(`/api/clients/${params.clientId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(client)
+        body: JSON.stringify(updatedClientData)
       })
 
       if (!response.ok) throw new Error('Erreur lors de la mise à jour')
@@ -178,21 +193,21 @@ export default function EditClientPage(props: { params: Promise<{ clientId: stri
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {client.chantier?.map((chantier) => (
+                  {client.Chantier?.map((chantier) => (
                     <tr key={chantier.chantierId}>
                       <td className="px-6 py-4 whitespace-nowrap dark:text-gray-200">
                         {chantier.nomChantier}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap dark:text-gray-200">
-                        {new Date(chantier.dateCommencement).toLocaleDateString()}
+                        {chantier.dateDebut ? new Date(chantier.dateDebut).toLocaleDateString() : 'Non définie'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusStyle(chantier.etatChantier)}`}>
-                          {chantier.etatChantier}
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusStyle(chantier.statut)}`}>
+                          {formatStatus(chantier.statut)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap dark:text-gray-200">
-                        {chantier.montantTotal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        {chantier.budget ? chantier.budget.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '0 €'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Link
@@ -215,14 +230,41 @@ export default function EditClientPage(props: { params: Promise<{ clientId: stri
 }
 
 function getStatusStyle(status: string) {
-  switch (status) {
+  // Convertir au format affiché si nécessaire
+  const displayStatus = formatStatus(status);
+  
+  switch (displayStatus) {
     case 'En cours':
-      return 'bg-green-100 text-green-800'
+      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
     case 'Terminé':
-      return 'bg-gray-100 text-gray-800'
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
     case 'En préparation':
-      return 'bg-yellow-100 text-yellow-800'
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+    case 'À venir':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
     default:
-      return 'bg-gray-100 text-gray-600'
+      return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+  }
+}
+
+function formatStatus(status: string) {
+  // Conversion des formats API (EN_COURS) vers formats d'affichage (En cours)
+  switch (status) {
+    case 'EN_COURS':
+      return 'En cours'
+    case 'TERMINE':
+      return 'Terminé'
+    case 'EN_PREPARATION':
+      return 'En préparation'
+    case 'A_VENIR':
+      return 'À venir'
+    // Déjà au format d'affichage
+    case 'En cours':
+    case 'Terminé':
+    case 'En préparation':
+    case 'À venir':
+      return status
+    default:
+      return status || 'Inconnu'
   }
 } 

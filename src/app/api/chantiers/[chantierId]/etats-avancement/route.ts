@@ -27,8 +27,7 @@ export async function GET(
       },
       include: {
         lignes: true,
-        avenants: true,
-        chantier: true
+        avenants: true
       },
       orderBy: {
         numero: 'desc'
@@ -241,8 +240,7 @@ export async function POST(
       },
       include: {
         lignes: true,
-        avenants: true,
-        chantier: true
+        avenants: true
       }
     })
 

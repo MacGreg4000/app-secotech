@@ -51,7 +51,7 @@ export async function GET(
           chantierId: chantierId
         },
         include: {
-          user: {
+          User: {
             select: {
               name: true,
               email: true
@@ -150,7 +150,7 @@ export async function POST(
           updatedAt: new Date() // Assurez-vous que updatedAt est défini
         },
         include: {
-          user: {
+          User: {
             select: {
               name: true,
               email: true

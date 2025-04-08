@@ -32,7 +32,7 @@ export async function GET(
         chantierId: chantierId
       },
       include: {
-        user: {
+        User: {
           select: {
             name: true,
             email: true
@@ -140,7 +140,7 @@ export async function PUT(
         updatedAt: new Date()
       },
       include: {
-        user: {
+        User: {
           select: {
             name: true,
             email: true

@@ -43,6 +43,8 @@ export async function GET() {
       else if (chantier.statut === 'TERMINE') etatChantier = 'Terminé'
       else if (chantier.statut === 'A_VENIR') etatChantier = 'À venir'
 
+      console.log("Chantier dureeEnJours:", chantier.dureeEnJours, "pour", chantier.nomChantier);
+
       return {
         id: chantier.id,
         chantierId: chantier.chantierId,
@@ -54,10 +56,9 @@ export async function GET() {
         clientAdresse: chantier.client?.adresse || '',
         adresseChantier: chantier.adresseChantier || '',
         villeChantier: chantier.villeChantier || '',
-        montantTotal: chantier.budget || 0,
-        dureeEnJours: chantier.dateFinPrevue && chantier.dateDebut 
-          ? Math.ceil((new Date(chantier.dateFinPrevue).getTime() - new Date(chantier.dateDebut).getTime()) / (1000 * 3600 * 24)) 
-          : null,
+        budget: chantier.budget || 0,
+        dureeEnJours: chantier.dureeEnJours,
+        typeDuree: chantier.typeDuree || 'CALENDRIER',
         createdAt: chantier.createdAt,
         updatedAt: chantier.updatedAt
       }

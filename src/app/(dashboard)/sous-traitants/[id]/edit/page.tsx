@@ -64,12 +64,29 @@ export default function EditSousTraitantPage(
     console.log('Envoi des données du sous-traitant pour mise à jour:', formData)
 
     try {
+      // Récupérer d'abord les données complètes du sous-traitant
+      const soustraitantResponse = await fetch(`/api/sous-traitants/${params.id}`);
+      const existingData = await soustraitantResponse.json();
+      
+      // Fusionner les données existantes avec les données du formulaire
+      const updatedData = {
+        ...existingData,
+        nom: formData.nom,
+        email: formData.email,
+        contact: formData.contact || null,
+        telephone: formData.telephone || null,
+        adresse: formData.adresse || null,
+        tva: formData.tva || null
+      };
+      
+      console.log('Données fusionnées pour mise à jour:', updatedData);
+
       const response = await fetch(`/api/sous-traitants/${params.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(updatedData),
       })
 
       if (!response.ok) {

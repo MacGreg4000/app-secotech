@@ -108,7 +108,9 @@ export async function generatePPSS(chantierId: string, userId: string) {
       .replace(/{{chantierId}}/g, chantier.chantierId)
       .replace(/{{nomChantier}}/g, chantier.nomChantier)
       .replace(/{{adresseChantier}}/g, chantier.adresseChantier || '')
-      .replace(/{{dateCommencement}}/g, format(new Date(chantier.dateCommencement), 'MMMM yyyy', { locale: fr }))
+      .replace(/{{dateCommencement}}/g, chantier.dateDebut 
+        ? format(new Date(chantier.dateDebut), 'MMMM yyyy', { locale: fr })
+        : 'Non définie')
       
       // Informations de l'entreprise
       .replace(/{{nomEntreprise}}/g, companyInfo.nom)

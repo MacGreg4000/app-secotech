@@ -18,17 +18,17 @@ export async function GET(request: Request, props: { params: Promise<{ clientId:
     const client = await prisma.client.findUnique({
       where: { id: params.clientId },
       include: {
-        chantier: {
+        Chantier: {
           select: {
             chantierId: true,
             nomChantier: true,
-            dateCommencement: true,
-            etatChantier: true,
-            montantTotal: true,
+            dateDebut: true,
+            statut: true,
+            budget: true,
             adresseChantier: true
           },
           orderBy: {
-            dateCommencement: 'desc'
+            dateDebut: 'desc'
           }
         }
       }
@@ -74,17 +74,17 @@ export async function PUT(request: Request, props: { params: Promise<{ clientId:
         adresse: body.adresse || null
       },
       include: {
-        chantier: {
+        Chantier: {
           select: {
             chantierId: true,
             nomChantier: true,
-            dateCommencement: true,
-            etatChantier: true,
-            montantTotal: true,
+            dateDebut: true,
+            statut: true,
+            budget: true,
             adresseChantier: true
           },
           orderBy: {
-            dateCommencement: 'desc'
+            dateDebut: 'desc'
           }
         }
       }

@@ -10,8 +10,9 @@ export interface Chantier {
   adresseChantier: string | null
   latitude: number | null
   longitude: number | null
-  montantTotal: number
+  budget: number
   dureeEnJours: number | null
+  typeDuree: string
   createdAt: string
   updatedAt: string
 } 

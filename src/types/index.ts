@@ -41,7 +41,7 @@ export interface Marche {
   id: number
   chantierId: string
   dateImport: string
-  montantTotal: number
+  budget: number
   lignes: LigneMarche[]
   avenants: Avenant[]
 }

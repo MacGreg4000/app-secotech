@@ -19,23 +19,12 @@ export async function GET(
 
     console.log(`Récupération de l'ouvrier ID: ${params.ouvrierId} du sous-traitant ID: ${params.id}`);
 
+    // Récupérer l'ouvrier sans relations problématiques
     const ouvrier = await prisma.ouvrier.findUnique({
       where: { 
         id: params.ouvrierId 
-      },
-      include: {
-        soustraitant: {
-          select: {
-            id: true,
-            nom: true
-          }
-        },
-        documentouvrier: true,
-        _count: {
-          select: { documentouvrier: true }
-        }
       }
-    })
+    });
 
     if (!ouvrier) {
       console.log(`Ouvrier non trouvé avec ID: ${params.ouvrierId}`);
@@ -45,14 +34,28 @@ export async function GET(
       )
     }
 
+    // Récupérer séparément le sous-traitant
+    const sousTraitant = await prisma.soustraitant.findUnique({
+      where: { id: params.id },
+      select: {
+        id: true,
+        nom: true
+      }
+    });
+
+    // Récupérer séparément les documents de l'ouvrier
+    const documents = await prisma.documentOuvrier.findMany({
+      where: { ouvrierId: params.ouvrierId }
+    });
+
     // Transformer la réponse pour maintenir la compatibilité avec le frontend
     const response = {
       ...ouvrier,
-      sousTraitant: ouvrier.soustraitant,
-      documents: ouvrier.documentouvrier
+      sousTraitant: sousTraitant,
+      documents: documents
     };
 
-    console.log(`Ouvrier trouvé: ${ouvrier.prenom} ${ouvrier.nom} avec ${ouvrier.documentouvrier.length} documents`);
+    console.log(`Ouvrier trouvé: ${ouvrier.prenom} ${ouvrier.nom} avec ${documents.length} documents`);
     return NextResponse.json(response)
   } catch (error) {
     console.error('Erreur:', error)

@@ -14,6 +14,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import toast, { Toaster } from 'react-hot-toast'
 import SelectField from '@/components/ui/SelectField'
+import React, { ChangeEvent } from 'react'
 
 interface CommandePageProps {
   params: Promise<{
@@ -637,13 +638,12 @@ export default function CommandePage(props: CommandePageProps) {
     }
   };
 
-  // Fonction pour télécharger un template Excel
+  // Fonction pour télécharger un modèle Excel pour l'importation
   const downloadExcelTemplate = async () => {
-    // Créer un nouveau workbook
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Template');
-
-    // Définir les colonnes
+    const worksheet = workbook.addWorksheet('Bon de commande');
+    
+    // Définir les en-têtes dans le même format que celui attendu à l'importation
     worksheet.columns = [
       { header: 'Article', key: 'article', width: 20 },
       { header: 'Description', key: 'description', width: 40 },
@@ -653,27 +653,56 @@ export default function CommandePage(props: CommandePageProps) {
       { header: 'Quantité', key: 'quantite', width: 10 },
       { header: 'Option', key: 'option', width: 10 }
     ];
-
-    // Ajouter une ligne d'exemple
+    
+    // Ajouter quelques lignes d'exemple
     worksheet.addRow({
-      article: '',
-      description: '',
+      article: 'EX001',
+      description: 'Exemple de produit',
       type: 'QP',
       unite: 'Pièces',
-      prixUnitaire: 0,
-      quantite: 0,
+      prixUnitaire: 100,
+      quantite: 1,
       option: 'Non'
     });
-
-    // Générer le fichier Excel
-    const buffer = await workbook.xlsx.writeBuffer();
     
-    // Créer un blob et le télécharger
+    worksheet.addRow({
+      article: 'EX002',
+      description: 'Exemple de service',
+      type: 'FF',
+      unite: 'Heures',
+      prixUnitaire: 75,
+      quantite: 2,
+      option: 'Non'
+    });
+    
+    // Ajouter un exemple d'option
+    worksheet.addRow({
+      article: 'OPT001',
+      description: 'Option exemple',
+      type: 'QP',
+      unite: 'Pièces',
+      prixUnitaire: 50,
+      quantite: 1,
+      option: 'Oui'
+    });
+    
+    // Mettre en forme l'en-tête
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF333333' },
+      bgColor: { argb: 'FF333333' }
+    };
+    worksheet.getRow(1).font = { color: { argb: 'FFFFFFFF' }, bold: true };
+    
+    // Générer le fichier
+    const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'template_commande.xlsx';
+    a.download = 'modele_bon_commande.xlsx';
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -689,13 +718,16 @@ export default function CommandePage(props: CommandePageProps) {
   };
 
   // Fonction pour importer un fichier Excel
-  const importExcelFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const importExcelFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0) {
+      return;
+    }
 
     try {
-      // Lire le fichier Excel
+      const file = event.target.files[0];
       const arrayBuffer = await file.arrayBuffer();
+      
+      // Chargement du fichier Excel
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(arrayBuffer);
 
@@ -711,6 +743,17 @@ export default function CommandePage(props: CommandePageProps) {
       worksheet.getRow(1).eachCell((cell, colNumber) => {
         headers[colNumber] = cell.value?.toString() || '';
       });
+      
+      // Vérifier que les en-têtes requis sont présents
+      const requiredHeaders = ['Article', 'Description', 'Prix Unitaire', 'Quantité'];
+      const missingHeaders = requiredHeaders.filter(header => 
+        !Object.values(headers).some(h => h === header)
+      );
+      
+      if (missingHeaders.length > 0) {
+        alert(`Le fichier ne contient pas tous les en-têtes requis. Manquants : ${missingHeaders.join(', ')}. Veuillez télécharger et utiliser le modèle fourni.`);
+        return;
+      }
 
       // Convertir les données en lignes de commande
       const newLignes: Array<Omit<LigneCommande, 'id' | 'commandeId'>> = [];
@@ -1158,6 +1201,8 @@ export default function CommandePage(props: CommandePageProps) {
                           <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8">#</th>
                           <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Article</th>
                           <th scope="col" className="hidden sm:table-cell px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
+                          <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Type de marché</th>
+                          <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Unité</th>
                           <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Quantité</th>
                           <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Prix Unit.</th>
                           <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Total</th>

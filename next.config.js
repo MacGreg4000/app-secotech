@@ -2,6 +2,8 @@
 const nextConfig = {
   // Configuration pour Next.js
   reactStrictMode: true,
+  // Générer un build standalone qui inclut toutes les dépendances
+  output: 'standalone',
   images: {
     domains: ['localhost'],
     // Configurations spécifiques pour les images statiques

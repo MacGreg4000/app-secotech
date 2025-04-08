@@ -20,46 +20,49 @@ export async function GET() {
     const chantiers = await prisma.chantier.findMany({
       where: {
         // Retirer le filtre pour récupérer tous les chantiers
+      },
+      include: {
+        client: {
+          select: {
+            nom: true,
+            email: true,
+            adresse: true
+          }
+        }
       }
     })
 
     console.log(`Chantiers récupérés: ${chantiers.length}`)
     
-    // Log des chantiers avec coordonnées
-    const chantiersAvecCoords = chantiers.filter(c => c.latitude && c.longitude)
-    console.log(`Chantiers avec coordonnées: ${chantiersAvecCoords.length}`)
-    console.log('Coordonnées des chantiers:', chantiersAvecCoords.map(c => ({
-      nom: c.nomChantier,
-      lat: c.latitude,
-      lon: c.longitude
-    })))
-
-    // Formater les données pour la carte
+    // Formater les données pour correspondre à l'interface attendue
     const chantiersFormatted = chantiers.map(chantier => {
+      // Conversion des états pour l'interface utilisateur
+      let etatChantier = 'En préparation'
+      if (chantier.statut === 'EN_COURS') etatChantier = 'En cours'
+      else if (chantier.statut === 'TERMINE') etatChantier = 'Terminé'
+      else if (chantier.statut === 'A_VENIR') etatChantier = 'À venir'
+
       // Attribuer une progression selon l'état du chantier
       let progression = 0;
-      
-      if (chantier.etatChantier === "En préparation") {
+      if (etatChantier === "En préparation") {
         progression = 25;
-      } else if (chantier.etatChantier === "En cours") {
+      } else if (etatChantier === "En cours") {
         progression = 50;
-      } else if (chantier.etatChantier === "Terminé") {
+      } else if (etatChantier === "Terminé") {
         progression = 100;
       }
       
       return {
         id: chantier.chantierId,
         nom: chantier.nomChantier,
-        client: chantier.clientNom || 'Client non spécifié',
-        etat: chantier.etatChantier,
-        montant: chantier.montantTotal,
-        dateCommencement: chantier.dateCommencement,
+        client: chantier.client?.nom || 'Client non spécifié',
+        etat: etatChantier,
+        montant: chantier.budget || 0,
+        dateCommencement: chantier.dateDebut,
         createdAt: chantier.createdAt,
         progression,
-        latitude: chantier.latitude,
-        longitude: chantier.longitude,
-        adresse: chantier.clientAdresse,
-        adresseChantier: chantier.adresseChantier
+        adresseChantier: chantier.adresseChantier || '',
+        clientAdresse: chantier.client?.adresse || ''
       }
     });
 

@@ -26,7 +26,8 @@ interface Ouvrier {
   id: string
   nom: string
   prenom: string
-  documentouvrier: Document[]
+  documentouvrier?: Document[]
+  documents?: Document[]
   sousTraitant?: {
     id: string
     nom: string
@@ -118,6 +119,10 @@ function UploadModal({ isOpen, onClose, onUpload, isUploading }: UploadModalProp
             <option value="a1">Attestation A1</option>
             <option value="livre_parts">Livre des parts</option>
             <option value="attestation_onss">Attestation ONSS</option>
+            <option value="permis_travail">Permis de travail</option>
+            <option value="diplome">Diplôme</option>
+            <option value="certificat_medical">Certificat médical</option>
+            <option value="autre">Autre document</option>
           </SelectField>
 
           <div>
@@ -268,7 +273,12 @@ export default function DocumentsOuvrierPage(
       carte_identite: "Carte d'identité",
       limosa: "Certificat Limosa",
       a1: "Attestation A1",
-      livre_parts: "Livre des parts"
+      livre_parts: "Livre des parts",
+      attestation_onss: "Attestation ONSS",
+      permis_travail: "Permis de travail",
+      diplome: "Diplôme",
+      certificat_medical: "Certificat médical",
+      autre: "Autre document"
     }
     return types[type] || type
   }
@@ -330,7 +340,7 @@ export default function DocumentsOuvrierPage(
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {ouvrier.documentouvrier.map((document) => (
+                  {(ouvrier.documents || ouvrier.documentouvrier || []).map((document) => (
                     <tr key={document.id}>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">
                         <div className="flex items-center">

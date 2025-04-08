@@ -124,7 +124,7 @@ export async function PUT(request: Request, props: { params: Promise<{ commandeI
     
     await prisma.chantier.update({
       where: { chantierId: commandeData.chantierId },
-      data: { montantTotal }
+      data: { budget: montantTotal }
     })
 
     // Récupérer la commande mise à jour avec ses lignes
@@ -191,7 +191,7 @@ export async function DELETE(request: Request, props: { params: Promise<{ comman
     
     await prisma.chantier.update({
       where: { chantierId: commande.chantierId },
-      data: { montantTotal }
+      data: { budget: montantTotal }
     })
 
     return NextResponse.json({ success: true })

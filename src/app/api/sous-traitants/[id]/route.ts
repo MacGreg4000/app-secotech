@@ -65,13 +65,8 @@ export async function GET(
     const sousTraitant = await prisma.soustraitant.findUnique({
       where: { id },
       include: {
-        ouvrier: {
-          include: {
-            _count: {
-              select: { documentouvrier: true }
-            }
-          }
-        }
+        commandes: true,
+        contrats: true
       }
     })
 
@@ -83,8 +78,26 @@ export async function GET(
       )
     }
 
-    console.log('Données du sous-traitant récupérées:', JSON.stringify(sousTraitant, null, 2));
-    return NextResponse.json(sousTraitant)
+    // Récupérer les ouvriers associés dans une requête séparée
+    const ouvriers = await prisma.ouvrier.findMany({
+      where: {
+        sousTraitantId: id
+      },
+      include: {
+        _count: {
+          select: { DocumentOuvrier: true }
+        }
+      }
+    });
+
+    // Ajouter les ouvriers au résultat
+    const result = {
+      ...sousTraitant,
+      ouvriers: ouvriers
+    };
+
+    console.log('Données du sous-traitant récupérées:', JSON.stringify(result, null, 2));
+    return NextResponse.json(result)
   } catch (error) {
     console.error('Erreur lors de la récupération du sous-traitant:', error)
     return NextResponse.json(

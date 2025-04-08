@@ -42,6 +42,11 @@ export default function ChantiersPage() {
           setChantiers([])
           return
         }
+        console.log('Chantiers reçus:', data);
+        // Vérifier si dureeEnJours est présent dans les données
+        data.forEach(chantier => {
+          console.log(`Chantier ${chantier.nomChantier}: dureeEnJours = ${chantier.dureeEnJours}, type = ${typeof chantier.dureeEnJours}`);
+        });
         setChantiers(data)
         setLoading(false)
       })
@@ -138,13 +143,15 @@ export default function ChantiersPage() {
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    {chantier.montantTotal ? `${chantier.montantTotal.toLocaleString('fr-FR')} €` : '-'}
+                    {chantier.budget ? `${chantier.budget.toLocaleString('fr-FR')} €` : '-'}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {chantier.dateCommencement ? new Date(chantier.dateCommencement).toLocaleDateString('fr-FR') : '-'}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    {chantier.dureeEnJours ? `${chantier.dureeEnJours} jours` : '-'}
+                    {chantier.dureeEnJours 
+                      ? `${chantier.dureeEnJours} jour${chantier.dureeEnJours > 1 ? 's' : ''} ${chantier.typeDuree === 'OUVRABLE' ? 'ouvrables' : 'calendrier'}`
+                      : '-'}
                   </td>
                   <td className="whitespace-nowrap py-4 px-3 text-center text-sm font-medium">
                     <ChantierActions chantierId={chantier.chantierId} />

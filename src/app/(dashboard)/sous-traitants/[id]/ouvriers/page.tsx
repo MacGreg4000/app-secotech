@@ -30,7 +30,8 @@ interface Ouvrier {
 interface SousTraitant {
   id: string
   nom: string
-  ouvrier: Ouvrier[]
+  ouvrier?: Ouvrier[]  // Ancien format (pour rétrocompatibilité)
+  ouvriers?: Ouvrier[] // Nouveau format
 }
 
 // Modal de confirmation pour la suppression
@@ -107,8 +108,15 @@ export default function OuvriersPage(
           console.log('Données du sous-traitant reçues:', data.nom);
           setSousTraitant(data);
           
-          if (data.ouvrier && Array.isArray(data.ouvrier)) {
-            console.log(`${data.ouvrier.length} ouvriers trouvés`);
+          // Vérifier d'abord ouvriers (nouveau format)
+          if (data.ouvriers && Array.isArray(data.ouvriers)) {
+            console.log(`${data.ouvriers.length} ouvriers trouvés (nouveau format)`);
+            setOuvriers(data.ouvriers);
+            setLoading(false);
+          } 
+          // Vérifier ensuite ouvrier (ancien format pour compatibilité)
+          else if (data.ouvrier && Array.isArray(data.ouvrier)) {
+            console.log(`${data.ouvrier.length} ouvriers trouvés (ancien format)`);
             setOuvriers(data.ouvrier);
             setLoading(false);
           } else {

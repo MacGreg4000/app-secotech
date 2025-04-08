@@ -8,7 +8,17 @@ import { existsSync } from 'fs'
 import crypto from 'crypto'
 
 // Types de documents autorisés
-const ALLOWED_TYPES = ['carte_identite', 'limosa', 'a1', 'livre_parts']
+const ALLOWED_TYPES = [
+  'carte_identite', 
+  'limosa', 
+  'a1', 
+  'livre_parts', 
+  'attestation_onss',
+  'permis_travail',
+  'diplome',
+  'certificat_medical',
+  'autre'
+]
 
 export async function POST(
   request: Request,
@@ -76,7 +86,7 @@ export async function POST(
     await writeFile(filePath, buffer)
 
     // Créer l'entrée dans la base de données
-    const document = await prisma.documentouvrier.create({
+    const document = await prisma.documentOuvrier.create({
       data: {
         id: crypto.randomUUID(),
         nom: file.name,

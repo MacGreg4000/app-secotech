@@ -14,41 +14,39 @@ export async function GET() {
       )
     }
 
-    // Récupérer le montant des chantiers en préparation
-    const chantiersPreperation = await prisma.chantier.aggregate({
+    // Récupérer le nombre de chantiers en préparation
+    const chantiersPreperation = await prisma.chantier.count({
       where: {
-        etatChantier: 'En préparation'
-      },
-      _sum: {
-        montantTotal: true
+        statut: 'En préparation'
       }
     })
 
-    // Récupérer le montant des chantiers en cours
-    const chantiersEnCours = await prisma.chantier.aggregate({
+    // Récupérer le nombre de chantiers en cours
+    const chantiersEnCours = await prisma.chantier.count({
       where: {
-        etatChantier: 'En cours'
-      },
-      _sum: {
-        montantTotal: true
+        statut: 'En cours'
       }
     })
 
     // Récupérer le nombre de chantiers actifs (en préparation + en cours)
     const chantiersActifs = await prisma.chantier.count({
       where: {
-        etatChantier: {
+        statut: {
           in: ['En préparation', 'En cours']
         }
       }
     })
 
-    // Récupérer le chiffre d'affaires total (tous chantiers)
-    const chiffreAffaires = await prisma.chantier.aggregate({
-      _sum: {
-        montantTotal: true
+    // Récupérer tous les chantiers pour calculer le budget total
+    const chantiers = await prisma.chantier.findMany({
+      select: {
+        budget: true
       }
     })
+
+    // Calculer le chiffre d'affaires total basé sur le budget des chantiers
+    const chiffreAffairesTotal = chantiers.reduce((sum, chantier) => 
+      sum + (chantier.budget || 0), 0)
 
     // Valeur par défaut pour le taux de complétion et la marge
     const tauxCompletionMoyen = 0;
@@ -56,13 +54,13 @@ export async function GET() {
 
     return NextResponse.json({
       // Métriques financières
-      chiffreAffairesTotal: chiffreAffaires._sum.montantTotal || 0,
+      chiffreAffairesTotal: chiffreAffairesTotal || 0,
       
       // Métriques chantiers
       nombreChantiersActifs: chantiersActifs,
       tauxCompletionMoyen: parseFloat(tauxCompletionMoyen.toFixed(1)),
-      montantChantiersPreperation: chantiersPreperation._sum.montantTotal || 0,
-      montantChantiersEnCours: chantiersEnCours._sum.montantTotal || 0
+      montantChantiersPreperation: chantiersPreperation,
+      montantChantiersEnCours: chantiersEnCours
     })
   } catch (error) {
     console.error('Erreur:', error)
