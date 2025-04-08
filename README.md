@@ -100,3 +100,9 @@ app-secotech/
 ## Support
 
 Pour toute question ou problème, veuillez créer une issue dans le dépôt GitHub.
+
+## Problèmes connus
+
+### Carte des chantiers
+- **Marqueurs non visibles** : La carte s'affiche correctement mais les marqueurs (pointeurs) ne sont pas visibles sur la carte. Des améliorations ont été apportées à la stabilité du composant pour éviter les erreurs de build avec Next.js 15, mais les marqueurs ne s'affichent pas correctement malgré la présence des fichiers d'icônes dans `/public/images/`.
+- Pour résoudre ce problème, des investigations supplémentaires sont nécessaires concernant le chargement des icônes Leaflet et leur compatibilité avec Next.js 15.
