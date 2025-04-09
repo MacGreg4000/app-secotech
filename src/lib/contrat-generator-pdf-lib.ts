@@ -57,62 +57,94 @@ async function getCompanyInfo() {
  */
 export async function generateContratSoustraitance(soustraitantId: string, userId: string): Promise<string> {
   try {
+    console.log('Début de la génération du contrat pour soustraitantId:', soustraitantId);
+    
     // Récupérer les données du sous-traitant
+    console.log('Récupération des données du sous-traitant...');
     const soustraitant = await prisma.soustraitant.findUnique({
       where: { id: soustraitantId }
     })
     
     if (!soustraitant) {
+      console.error(`Sous-traitant avec l'ID ${soustraitantId} non trouvé`);
       throw new Error(`Sous-traitant avec l'ID ${soustraitantId} non trouvé`)
     }
     
+    console.log('Sous-traitant trouvé:', soustraitant.nom);
+    
     // Récupérer les informations de l'entreprise
+    console.log('Récupération des informations de l\'entreprise...');
     const companyInfo = await getCompanyInfo();
+    console.log('Informations de l\'entreprise récupérées:', companyInfo.nom);
     
     // Récupérer le logo de l'entreprise
+    console.log('Récupération du logo de l\'entreprise...');
     let logoBuffer
     try {
       const logoPath = join(process.cwd(), 'public', 'images', 'logo.png')
+      console.log('Chemin du logo:', logoPath);
       logoBuffer = await readFile(logoPath)
+      console.log('Logo récupéré, taille:', logoBuffer.length, 'octets');
     } catch (error) {
       console.error('Erreur lors de la lecture du logo:', error)
     }
     
     // Récupérer l'image de la signature
+    console.log('Récupération de l\'image de la signature...');
     let signatureBuffer
     try {
       const signaturePath = join(process.cwd(), 'public', 'images', 'signature.png')
+      console.log('Chemin de la signature:', signaturePath);
       signatureBuffer = await readFile(signaturePath)
+      console.log('Signature récupérée, taille:', signatureBuffer.length, 'octets');
     } catch (error) {
       console.error('Erreur lors de la lecture de la signature:', error)
     }
     
     // Date de génération formatée
+    console.log('Formatage des dates...');
     const dateGeneration = format(new Date(), 'dd/MM/yyyy', { locale: fr })
     const dateFin = format(addYears(new Date(), 1), 'dd/MM/yyyy', { locale: fr })
     
     // Générer un token unique pour la signature électronique
+    console.log('Génération du token...');
     const token = crypto.randomBytes(32).toString('hex')
     
     // Créer le dossier pour le sous-traitant s'il n'existe pas
+    console.log('Création du dossier pour le sous-traitant...');
     const soustraitantFolder = `ST-${Date.now()}-${Math.floor(Math.random() * 1000)}`
     const soustraitantDir = join(DOCUMENTS_BASE_PATH, 'soustraitants', soustraitantFolder)
-    await mkdir(soustraitantDir, { recursive: true })
+    console.log('Dossier à créer:', soustraitantDir);
+    try {
+      await mkdir(soustraitantDir, { recursive: true })
+      console.log('Dossier créé avec succès');
+    } catch (mkdirError) {
+      console.error('Erreur lors de la création du dossier:', mkdirError);
+      // Continuer malgré l'erreur et tenter de sauvegarder le fichier
+    }
     
     // Nom du fichier PDF
+    console.log('Préparation du fichier PDF...');
     const fileName = `Contrat-${soustraitant.nom.replace(/\s+/g, '-')}-${format(new Date(), 'yyyyMMdd')}.pdf`
     const filePath = join(soustraitantDir, fileName)
+    console.log('Chemin du fichier PDF à créer:', filePath);
     
     // Créer un nouveau document PDF
+    console.log('Création du document PDF...');
     const pdfDoc = await PDFDocument.create()
     pdfDoc.registerFontkit(fontkit)
+    console.log('Document PDF créé');
     
     // Ajouter une page
+    console.log('Ajout d\'une page...');
     const page = pdfDoc.addPage([595, 842]) // Format A4
+    console.log('Page ajoutée');
     
     // Charger les polices
+    console.log('Chargement des polices...');
     const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
     const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+    console.log('Polices chargées');
     
     // Ajouter le logo s'il existe
     if (logoBuffer) {
@@ -827,7 +859,8 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     return fileUrl
   } catch (error) {
-    console.error("Erreur lors de la génération du contrat de sous-traitance:", error)
+    console.error("Erreur détaillée lors de la génération du contrat de sous-traitance:", error)
+    console.error("Trace d'erreur:", error instanceof Error ? error.stack : "Pas de stack trace disponible")
     throw error
   }
 }
