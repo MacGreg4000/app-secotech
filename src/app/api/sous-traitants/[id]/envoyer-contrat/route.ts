@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma/client'
 import { sendContractSignatureEmail } from '@/lib/email-sender'
-import { generateContratSoustraitance } from '@/lib/contrat-generator'
+import { generateContratSoustraitance } from '@/lib/contrat-generator-pdf-lib'
 
 export async function POST(
   request: Request,

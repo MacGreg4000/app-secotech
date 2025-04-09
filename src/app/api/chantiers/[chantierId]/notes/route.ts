@@ -63,8 +63,14 @@ export async function GET(
         }
       })
 
+      // Transformer les données pour correspondre à l'interface attendue par le frontend
+      const formattedNotes = notes.map(note => ({
+        ...note,
+        user: note.User // Création d'une propriété 'user' à partir de 'User'
+      }))
+
       console.log(`${notes.length} notes trouvées pour le chantier ${chantierId}`)
-      return NextResponse.json(notes)
+      return NextResponse.json(formattedNotes)
     } catch (prismaError: any) {
       console.error('Erreur Prisma lors de la récupération des notes:', prismaError)
       return NextResponse.json(
@@ -159,8 +165,14 @@ export async function POST(
         }
       })
 
-      console.log('Note créée avec succès:', note)
-      return NextResponse.json(note)
+      // Transformer les données pour correspondre à l'interface attendue par le frontend
+      const formattedNote = {
+        ...note,
+        user: note.User // Création d'une propriété 'user' à partir de 'User'
+      }
+
+      console.log('Note créée avec succès:', formattedNote)
+      return NextResponse.json(formattedNote)
     } catch (prismaError: any) {
       console.error('Erreur Prisma lors de la création de la note:', prismaError)
       return NextResponse.json(

@@ -49,8 +49,14 @@ export async function GET(
       )
     }
 
+    // Transformer les données pour correspondre à l'interface attendue par le frontend
+    const formattedNote = {
+      ...note,
+      user: note.User
+    }
+
     console.log(`Note ${noteId} récupérée pour le chantier ${chantierId}`)
-    return NextResponse.json(note)
+    return NextResponse.json(formattedNote)
   } catch (error: any) {
     console.error('Erreur lors de la récupération de la note:', error)
     return NextResponse.json(
@@ -149,8 +155,14 @@ export async function PUT(
       }
     })
 
-    console.log('Note modifiée avec succès:', note)
-    return NextResponse.json(note)
+    // Transformer les données pour correspondre à l'interface attendue par le frontend
+    const formattedNote = {
+      ...note,
+      user: note.User
+    }
+
+    console.log('Note modifiée avec succès:', formattedNote)
+    return NextResponse.json(formattedNote)
   } catch (error: any) {
     console.error('Erreur lors de la modification de la note:', error)
     return NextResponse.json(
