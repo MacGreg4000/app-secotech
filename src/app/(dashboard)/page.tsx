@@ -6,13 +6,13 @@ import {
   BriefcaseIcon, 
   BanknotesIcon, 
   BuildingOfficeIcon, 
-  ClockIcon 
+  ClockIcon,
+  MapPinIcon
 } from '@heroicons/react/24/outline'
 
 // Components
 import UserNotepad from '@/components/dashboard/UserNotepad'
 import KPICard from '@/components/dashboard/KPICard'
-import DynamicChantiersMap from '@/components/dashboard/DynamicChantiersMap'
 import ChantiersStatsChart from '@/components/dashboard/ChantiersStatsChart'
 import BonsRegieWidget from '@/components/dashboard/BonsRegieWidget'
 import DocumentsExpiresWidget from '@/components/dashboard/DocumentsExpiresWidget'
@@ -37,6 +37,9 @@ interface ChantierMapData {
   latitude?: number
   longitude?: number
 }
+
+// Désactiver le pré-rendu
+export const dynamic = 'force-dynamic'
 
 export default function DashboardPage() {
   const { data: session } = useSession()
@@ -162,9 +165,42 @@ export default function DashboardPage() {
         />
       </div>
       
-      {/* Carte des chantiers */}
-      <div className="mb-6">
-        <DynamicChantiersMap chantiers={chantiersMap} loading={loading} />
+      {/* Liste des chantiers */}
+      <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="p-6">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Liste des chantiers</h2>
+          {loading ? (
+            <p>Chargement des chantiers...</p>
+          ) : (
+            <div className="space-y-4">
+              {chantiersMap.map((chantier) => (
+                <div key={chantier.id} className="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-0">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium text-gray-900 dark:text-white">{chantier.nom}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{chantier.client}</p>
+                    </div>
+                    <span className="px-3 py-1 text-sm rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      {chantier.etat}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                    <MapPinIcon className="h-4 w-4 mr-1" />
+                    <span>{chantier.adresse || chantier.adresseChantier || 'Adresse non spécifiée'}</span>
+                  </div>
+                  <div className="mt-2 text-sm">
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {formatEuros(chantier.montant)}
+                    </span>
+                    <span className="ml-2 text-gray-500 dark:text-gray-400">
+                      • Progression: {chantier.progression}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Documents à surveiller */}
