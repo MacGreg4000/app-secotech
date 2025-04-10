@@ -12,8 +12,9 @@ interface RapportVisite {
   url: string
   createdAt: string
   createdBy: string
-  user: {
-    name: string
+  User: {
+    name: string | null
+    email: string
   }
 }
 
@@ -168,7 +169,7 @@ export default function RapportsVisitePage(props: { params: Promise<{ chantierId
                             {rapport.nom}
                           </a>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Créé par {rapport.user?.name || 'Utilisateur inconnu'} le{' '}
+                            Créé par {rapport.User?.name || rapport.User?.email || 'Utilisateur inconnu'} le{' '}
                             {new Date(rapport.createdAt).toLocaleDateString('fr-FR')}
                           </p>
                         </div>

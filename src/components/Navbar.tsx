@@ -1,5 +1,5 @@
 'use client'
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
@@ -15,13 +15,16 @@ import {
   CalendarIcon,
   FolderIcon,
   DocumentTextIcon,
-  CubeIcon
+  CubeIcon,
+  Bars3Icon,
+  XMarkIcon
 } from '@heroicons/react/24/outline'
 import ThemeToggle from './ThemeToggle'
 
 export function Navbar() {
   const pathname = usePathname()
   const { data: session } = useSession()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Ne pas afficher la navbar sur la page de login
   if (pathname === '/auth/login') return null
@@ -40,7 +43,7 @@ export function Navbar() {
               <span className="ml-2 font-medium">AppSecotech</span>
             </Link>
 
-            {/* Navigation principale */}
+            {/* Navigation principale pour écrans > sm */}
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link
                 href="/chantiers"
@@ -92,8 +95,25 @@ export function Navbar() {
             </div>
           </div>
 
+          {/* Bouton du menu mobile */}
+          <div className="sm:hidden flex items-center">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white focus:outline-none"
+              aria-expanded="false"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              <span className="sr-only">Ouvrir le menu principal</span>
+              {mobileMenuOpen ? (
+                <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
+              ) : (
+                <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+
           {/* Actions à droite */}
-          <div className="flex items-center">
+          <div className="hidden sm:flex items-center">
             {session ? (
               <>
                 {/* Outillage déplacé à droite */}
@@ -157,6 +177,134 @@ export function Navbar() {
           </div>
         </div>
       </div>
+
+      {/* Menu mobile */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+          <div className="px-2 pt-2 pb-3 space-y-1">
+            <Link
+              href="/chantiers"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                pathname.startsWith('/chantiers')
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-900 dark:bg-opacity-20 dark:text-blue-300'
+                  : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <div className="flex items-center">
+                <BuildingOfficeIcon className="h-5 w-5 mr-3" />
+                Chantiers
+              </div>
+            </Link>
+
+            <Link
+              href="/clients"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                pathname.startsWith('/clients')
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-900 dark:bg-opacity-20 dark:text-blue-300'
+                  : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <div className="flex items-center">
+                <UserGroupIcon className="h-5 w-5 mr-3" />
+                Clients
+              </div>
+            </Link>
+
+            <Link
+              href="/sous-traitants"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                pathname.startsWith('/sous-traitants')
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-900 dark:bg-opacity-20 dark:text-blue-300'
+                  : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <div className="flex items-center">
+                <UserGroupIcon className="h-5 w-5 mr-3" />
+                Sous-Traitants
+              </div>
+            </Link>
+
+            <Link
+              href="/administratif"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                pathname.startsWith('/administratif')
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-900 dark:bg-opacity-20 dark:text-blue-300'
+                  : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <div className="flex items-center">
+                <DocumentTextIcon className="h-5 w-5 mr-3" />
+                Administratifs
+              </div>
+            </Link>
+
+            <Link
+              href="/outillage"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                pathname.startsWith('/outillage')
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-900 dark:bg-opacity-20 dark:text-blue-300'
+                  : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <div className="flex items-center">
+                <WrenchScrewdriverIcon className="h-5 w-5 mr-3" />
+                Outillage
+              </div>
+            </Link>
+
+            <Link
+              href="/inventory"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                pathname.startsWith('/inventory')
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-900 dark:bg-opacity-20 dark:text-blue-300'
+                  : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <div className="flex items-center">
+                <CubeIcon className="h-5 w-5 mr-3" />
+                Inventaire
+              </div>
+            </Link>
+
+            {session?.user?.role && ['ADMIN', 'MANAGER'].includes(session.user.role as string) && (
+              <Link
+                href="/utilisateurs"
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  pathname.startsWith('/utilisateurs')
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-900 dark:bg-opacity-20 dark:text-blue-300'
+                    : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <div className="flex items-center">
+                  <UserCircleIcon className="h-5 w-5 mr-3" />
+                  Utilisateurs
+                </div>
+              </Link>
+            )}
+
+            <div className="pt-4 pb-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between px-3">
+                <div className="flex items-center">
+                  <ThemeToggle />
+                </div>
+                <button
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 p-2"
+                >
+                  <ArrowRightOnRectangleIcon className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   )
 } 

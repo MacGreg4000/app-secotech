@@ -1,164 +1,118 @@
 'use client'
-
-import { useState, useEffect } from 'react'
+import { useEffect, useState, use } from 'react';
+import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { AdminTasksContent } from '@/components/chantier/AdminTasksContent'
+import { NotesContent } from '@/components/chantier/NotesContent'
+import { DocumentExpirationAlert } from '@/components/DocumentExpirationAlert'
+import { type Chantier } from '@/types/chantier'
 
 export default function NotesPage({ params }: { params: { chantierId: string } }) {
-  const chantierId = params.chantierId;
-  const router = useRouter();
-  const [notes, setNotes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [newNote, setNewNote] = useState('');
+  const router = useRouter()
+  const [chantier, setChantier] = useState<Chantier | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [chantierId, setChantierId] = useState<string | null>(null)
+
+  // Attendre les paramètres de route
+  useEffect(() => {
+    const initParams = async () => {
+      const awaitedParams = await params;
+      setChantierId(awaitedParams.chantierId);
+    };
+    
+    initParams();
+  }, [params]);
 
   useEffect(() => {
-    fetchNotes();
-  }, []);
-
-  const fetchNotes = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch(`/api/chantiers/${chantierId}/notes`);
-      if (!response.ok) {
-        throw new Error(`Erreur ${response.status}: ${await response.text()}`);
+    if (!chantierId) return;
+    
+    const fetchChantier = async () => {
+      try {
+        const response = await fetch(`/api/chantiers/${chantierId}`)
+        if (response.ok) {
+          const data = await response.json()
+          setChantier(data)
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération du chantier:', error)
+      } finally {
+        setLoading(false)
       }
-      const data = await response.json();
-      console.log('Notes récupérées:', data);
-      setNotes(data);
-    } catch (err: any) {
-      console.error('Erreur lors de la récupération des notes:', err);
-      setError(err.message || 'Erreur lors de la récupération des notes');
-    } finally {
-      setLoading(false);
     }
-  };
 
-  const addNote = async () => {
-    if (!newNote.trim()) return;
+    fetchChantier()
+  }, [chantierId])
 
-    try {
-      setError(null);
-      const response = await fetch(`/api/chantiers/${chantierId}/notes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ contenu: newNote }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur ${response.status}: ${await response.text()}`);
-      }
-
-      const createdNote = await response.json();
-      setNotes([createdNote, ...notes]);
-      setNewNote('');
-    } catch (err: any) {
-      console.error('Erreur lors de l\'ajout de la note:', err);
-      setError(err.message || 'Erreur lors de l\'ajout de la note');
-    }
-  };
-
-  const deleteNote = async (noteId: number) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette note ?')) return;
-
-    try {
-      setError(null);
-      const response = await fetch(`/api/chantiers/${chantierId}/notes/${noteId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur ${response.status}: ${await response.text()}`);
-      }
-
-      setNotes(notes.filter(note => note.id !== noteId));
-    } catch (err: any) {
-      console.error('Erreur lors de la suppression de la note:', err);
-      setError(err.message || 'Erreur lors de la suppression de la note');
-    }
-  };
+  if (!chantierId) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center mb-6">
-        <button 
-          onClick={() => router.back()}
-          className="mr-4 p-2 bg-gray-100 dark:bg-gray-700 rounded-full"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-        </button>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Notes du chantier</h1>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6 text-red-700 dark:text-red-400">
-          {error}
-        </div>
-      )}
-
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <div className="mb-4 flex">
-          <input
-            type="text"
-            value={newNote}
-            onChange={(e) => setNewNote(e.target.value)}
-            placeholder="Ajouter une nouvelle note..."
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            onKeyPress={(e) => e.key === 'Enter' && addNote()}
-          />
-          <button
-            onClick={addNote}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-r-lg transition-colors"
-          >
-            Ajouter
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          </div>
-        ) : notes.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            Aucune note pour ce chantier
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {notes.map((note) => (
-              <div key={note.id} className="p-4 bg-gray-50 dark:bg-gray-750 rounded-lg border border-gray-100 dark:border-gray-700">
-                <div className="flex justify-between">
-                  <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{note.contenu}</p>
-                  <button
-                    onClick={() => deleteNote(note.id)}
-                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 ml-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  {note.user?.name || note.user?.email || note.User?.name || note.User?.email || 'Utilisateur inconnu'}
-                  <span className="mx-1.5">•</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  {format(new Date(note.createdAt), 'dd/MM/yyyy à HH:mm', { locale: fr })}
+    <div className="container mx-auto py-6">
+      <DocumentExpirationAlert />
+      
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+        {/* En-tête avec informations principales et boutons d'action */}
+        <div className="bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 px-6 py-5 border-b-2 border-blue-200 dark:border-blue-700">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center">
+              <button
+                onClick={() => router.push(`/chantiers/${chantierId}/etats`)}
+                className="mr-3 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 bg-white dark:bg-gray-700 p-2 rounded-full shadow-md transition-all hover:shadow-lg border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600"
+              >
+                <ArrowLeftIcon className="h-5 w-5" />
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white drop-shadow-sm">
+                  Notes et tâches administratives
+                </h1>
+                <div className="flex items-center mt-2">
+                  {!loading && chantier && (
+                    <span className="text-sm text-gray-600 dark:text-gray-300 font-medium flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      {chantier.nomChantier}
+                    </span>
+                  )}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        )}
+        </div>
+        
+        {/* Contenu principal */}
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Tâches administratives */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center mb-4 border-b pb-2 border-gray-200 dark:border-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Tâches administratives</h2>
+              </div>
+              <AdminTasksContent chantierId={chantierId} />
+            </div>
+
+            {/* Notes */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center mb-4 border-b pb-2 border-gray-200 dark:border-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Notes</h2>
+              </div>
+              <NotesContent chantierId={chantierId} />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  );
+  )
 } 

@@ -53,12 +53,19 @@ export async function GET(request: Request, props: { params: Promise<{ chantierI
     const documentsWithUser = await prisma.document.findMany({
       where: whereClause,
       include: {
-        User: true
+        User: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
       }
     })
 
     console.log(`Documents trouvés: ${documentsWithUser.length}`)
 
+    // Ne plus transformer les données, retourner directement ce que Prisma fournit
     return NextResponse.json(documentsWithUser)
   } catch (error) {
     // Log plus détaillé de l'erreur
@@ -216,6 +223,7 @@ export async function POST(request: Request, props: { params: Promise<{ chantier
         include: {
           User: {
             select: {
+              id: true,
               name: true,
               email: true
             }

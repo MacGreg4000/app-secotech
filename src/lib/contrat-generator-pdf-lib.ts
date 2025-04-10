@@ -10,6 +10,32 @@ import crypto from 'crypto'
 // Chemin de base pour les documents
 const DOCUMENTS_BASE_PATH = join(process.cwd(), 'public', 'uploads', 'documents')
 
+// Fonction pour s'assurer que les répertoires existent
+async function ensureDirectoriesExist() {
+  try {
+    // Vérifier et créer le répertoire de base s'il n'existe pas
+    const baseDirectoryPaths = [
+      join(process.cwd(), 'public'),
+      join(process.cwd(), 'public', 'uploads'),
+      DOCUMENTS_BASE_PATH,
+      join(DOCUMENTS_BASE_PATH, 'soustraitants')
+    ];
+    
+    for (const path of baseDirectoryPaths) {
+      try {
+        await stat(path);
+      } catch (error) {
+        console.log(`Création du répertoire: ${path}`);
+        await mkdir(path, { recursive: true });
+      }
+    }
+    return true;
+  } catch (error) {
+    console.error("Erreur lors de la vérification/création des répertoires:", error);
+    return false;
+  }
+}
+
 // Fonction pour récupérer les informations de l'entreprise depuis la base de données
 async function getCompanyInfo() {
   try {
@@ -58,6 +84,12 @@ async function getCompanyInfo() {
 export async function generateContratSoustraitance(soustraitantId: string, userId: string): Promise<string> {
   try {
     console.log('Début de la génération du contrat pour soustraitantId:', soustraitantId);
+    
+    // S'assurer que les répertoires existent
+    const directoriesOk = await ensureDirectoriesExist();
+    if (!directoriesOk) {
+      throw new Error("Impossible de créer les répertoires nécessaires");
+    }
     
     // Récupérer les données du sous-traitant
     console.log('Récupération des données du sous-traitant...');
@@ -149,39 +181,39 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     // Ajouter le logo s'il existe
     if (logoBuffer) {
       const logoImage = await pdfDoc.embedPng(logoBuffer)
-      const logoSize = logoImage.scale(0.45) // Réduire légèrement la taille à 45%
+      const logoSize = logoImage.scale(0.6) // Agrandir le logo à 60% au lieu de 45%
       
       // Centrer le logo en haut de la page
       page.drawImage(logoImage, {
         x: (page.getWidth() - logoSize.width) / 2, // Centrer horizontalement
-        y: page.getHeight() - logoSize.height - 40,
+        y: page.getHeight() - logoSize.height - 25, // Réduire l'espacement en haut
         width: logoSize.width,
         height: logoSize.height,
       })
     }
     
-    // Ajouter le titre avec un espace suffisant sous le logo
+    // Ajouter le titre avec un espace réduit sous le logo
     page.drawText('CONTRAT DE SOUS-TRAITANCE', {
       x: 150,
-      y: page.getHeight() - 230, // Augmenter l'espacement
+      y: page.getHeight() - 170, // Réduire l'espacement (avant: 230)
       size: 16,
       font: helveticaBoldFont,
       color: rgb(0.1, 0.1, 0.1),
     })
     
-    // Informations des parties avec espacement suffisant après le titre
+    // Informations des parties avec espacement réduit après le titre
     page.drawText('Entre les soussignés :', {
       x: 50,
-      y: page.getHeight() - 260, // Augmenter l'espacement
+      y: page.getHeight() - 200, // Réduire l'espacement (avant: 260)
       size: 12,
       font: helveticaBoldFont,
       color: rgb(0.1, 0.1, 0.1),
     })
     
-    // Informations de l'entreprise
+    // Informations de l'entreprise avec espacement proportionnellement réduit
     page.drawText(`${companyInfo.nom}`, {
       x: 50,
-      y: page.getHeight() - 290, // Ajuster tous les espacements
+      y: page.getHeight() - 230, // Réduire l'espacement (avant: 290)
       size: 12,
       font: helveticaBoldFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -189,7 +221,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`${companyInfo.adresse}`, {
       x: 50,
-      y: page.getHeight() - 310,
+      y: page.getHeight() - 250, // Réduire l'espacement (avant: 310)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -197,7 +229,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`TVA : ${companyInfo.tva}`, {
       x: 50,
-      y: page.getHeight() - 330,
+      y: page.getHeight() - 270, // Réduire l'espacement (avant: 330)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -205,7 +237,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`Tél : ${companyInfo.telephone}`, {
       x: 50,
-      y: page.getHeight() - 350,
+      y: page.getHeight() - 290, // Réduire l'espacement (avant: 350)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -213,7 +245,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`Email : ${companyInfo.email}`, {
       x: 50,
-      y: page.getHeight() - 370,
+      y: page.getHeight() - 310, // Réduire l'espacement (avant: 370)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -221,7 +253,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`Représentée par Maccio Grégory`, {
       x: 50,
-      y: page.getHeight() - 390,
+      y: page.getHeight() - 330, // Réduire l'espacement (avant: 390)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -229,25 +261,25 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`Ci-après dénommée "l'Entrepreneur principal"`, {
       x: 50,
-      y: page.getHeight() - 410,
+      y: page.getHeight() - 350, // Réduire l'espacement (avant: 410)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
     })
     
-    // Séparateur
+    // Séparateur avec espacement proportionnellement réduit
     page.drawText(`Et`, {
       x: 50,
-      y: page.getHeight() - 440,
+      y: page.getHeight() - 380, // Réduire l'espacement (avant: 440)
       size: 12,
       font: helveticaBoldFont,
       color: rgb(0.1, 0.1, 0.1),
     })
     
-    // Informations du sous-traitant
+    // Informations du sous-traitant avec espacement proportionnellement réduit
     page.drawText(`${soustraitant.nom}`, {
       x: 50,
-      y: page.getHeight() - 470,
+      y: page.getHeight() - 410, // Réduire l'espacement (avant: 470)
       size: 12,
       font: helveticaBoldFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -255,7 +287,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`${soustraitant.adresse || 'Adresse non spécifiée'}`, {
       x: 50,
-      y: page.getHeight() - 490,
+      y: page.getHeight() - 430, // Réduire l'espacement (avant: 490)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -263,7 +295,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`TVA : ${(soustraitant as any).tva || 'Non spécifié'}`, {
       x: 50,
-      y: page.getHeight() - 510,
+      y: page.getHeight() - 450, // Réduire l'espacement (avant: 510)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -271,7 +303,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`Tél : ${soustraitant.telephone || 'Non spécifié'}`, {
       x: 50,
-      y: page.getHeight() - 530,
+      y: page.getHeight() - 470, // Réduire l'espacement (avant: 530)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -279,7 +311,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`Email : ${soustraitant.email || 'Non spécifié'}`, {
       x: 50,
-      y: page.getHeight() - 550,
+      y: page.getHeight() - 490, // Réduire l'espacement (avant: 550)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -287,7 +319,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`Représentée par ${soustraitant.contact || soustraitant.nom}`, {
       x: 50,
-      y: page.getHeight() - 570,
+      y: page.getHeight() - 510, // Réduire l'espacement (avant: 570)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -295,25 +327,25 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`Ci-après dénommée "le Sous-traitant"`, {
       x: 50,
-      y: page.getHeight() - 590,
+      y: page.getHeight() - 530, // Réduire l'espacement (avant: 590)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
     })
     
-    // Titre des clauses
+    // Titre des clauses avec espacement proportionnellement réduit
     page.drawText(`Il a été convenu ce qui suit :`, {
       x: 50,
-      y: page.getHeight() - 630,
+      y: page.getHeight() - 570, // Réduire l'espacement (avant: 630)
       size: 12,
       font: helveticaBoldFont,
       color: rgb(0.1, 0.1, 0.1),
     })
     
-    // Article 1
+    // Article 1 avec espacement proportionnellement réduit
     page.drawText(`Article 1 - Objet du contrat`, {
       x: 50,
-      y: page.getHeight() - 660,
+      y: page.getHeight() - 600, // Réduire l'espacement (avant: 660)
       size: 12,
       font: helveticaBoldFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -321,7 +353,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`L'Entrepreneur principal confie au Sous-traitant, qui accepte, l'exécution des`, {
       x: 50,
-      y: page.getHeight() - 680,
+      y: page.getHeight() - 620, // Réduire l'espacement (avant: 680)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -329,16 +361,16 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`travaux de construction sur les chantiers qui lui seront confiés par bon de commande.`, {
       x: 50,
-      y: page.getHeight() - 695,
+      y: page.getHeight() - 635, // Réduire l'espacement (avant: 695)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
     })
     
-    // Article 2
+    // Article 2 avec espacement proportionnellement réduit
     page.drawText(`Article 2 - Durée du contrat`, {
       x: 50,
-      y: page.getHeight() - 725,
+      y: page.getHeight() - 665, // Réduire l'espacement (avant: 725)
       size: 12,
       font: helveticaBoldFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -346,7 +378,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     page.drawText(`Le présent contrat est conclu pour une période du ${format(new Date(), 'dd/MM/yyyy')} au ${dateFin}.`, {
       x: 50,
-      y: page.getHeight() - 745,
+      y: page.getHeight() - 685, // Réduire l'espacement (avant: 745)
       size: 10,
       font: helveticaFont,
       color: rgb(0.1, 0.1, 0.1),
@@ -507,334 +539,170 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
       color: rgb(0.1, 0.1, 0.1),
     });
 
-    // Si la page est presque pleine, ajouter une nouvelle page
-    if (yPos < 200) {
-      const page3 = pdfDoc.addPage([595, 842]);
-      yPos = page3.getHeight() - 50;
+    // Article 7
+    yPos -= 30;
+    page2.drawText(`Article 7 - Confidentialité`, {
+      x: 50,
+      y: yPos,
+      size: 12,
+      font: helveticaBoldFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    yPos -= 20;
+    page2.drawText(`Le Sous-traitant s'engage à garder confidentielles toutes les informations dont il pourrait`, {
+      x: 50,
+      y: yPos,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    yPos -= 15;
+    page2.drawText(`avoir connaissance dans le cadre de l'exécution du présent contrat.`, {
+      x: 50,
+      y: yPos,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    // Article 8
+    yPos -= 30;
+    page2.drawText(`Article 8 - Résiliation`, {
+      x: 50,
+      y: yPos,
+      size: 12,
+      font: helveticaBoldFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    yPos -= 20;
+    page2.drawText(`En cas de manquement par l'une des parties à l'une quelconque de ses obligations, l'autre partie`, {
+      x: 50,
+      y: yPos,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    yPos -= 15;
+    page2.drawText(`pourra résilier le présent contrat après mise en demeure restée sans effet pendant 15 jours.`, {
+      x: 50,
+      y: yPos,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    // Forcer un saut de page après l'article 8, peu importe l'espace restant
+    // Créer une troisième page pour les articles 9, 10 et signatures
+    const page3 = pdfDoc.addPage([595, 842]);
+    yPos = page3.getHeight() - 50;
+    
+    // Article 9
+    yPos -= 30;
+    page3.drawText(`Article 9 - Litiges`, {
+      x: 50,
+      y: yPos,
+      size: 12,
+      font: helveticaBoldFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    yPos -= 20;
+    page3.drawText(`En cas de litige relatif à l'interprétation ou à l'exécution du présent contrat, les parties`, {
+      x: 50,
+      y: yPos,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    yPos -= 15;
+    page3.drawText(`s'efforceront de trouver une solution amiable. À défaut, le litige sera soumis aux tribunaux de Liège.`, {
+      x: 50,
+      y: yPos,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    // Article 10
+    yPos -= 30;
+    page3.drawText(`Article 10 - Droit applicable`, {
+      x: 50,
+      y: yPos,
+      size: 12,
+      font: helveticaBoldFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    yPos -= 20;
+    page3.drawText(`Le présent contrat est soumis au droit belge.`, {
+      x: 50,
+      y: yPos,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    // Date et signatures
+    yPos -= 60;
+    page3.drawText(`Fait à ${companyInfo.ville}, le ${dateGeneration}, en deux exemplaires originaux.`, {
+      x: 50,
+      y: yPos,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    // Zone de signatures
+    yPos -= 40;
+    page3.drawText(`Pour l'Entrepreneur principal`, {
+      x: 100,
+      y: yPos,
+      size: 10,
+      font: helveticaBoldFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    page3.drawText(`Pour le Sous-traitant`, {
+      x: 350,
+      y: yPos,
+      size: 10,
+      font: helveticaBoldFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    yPos -= 20;
+    page3.drawText(`Maccio Grégory`, {
+      x: 100,
+      y: yPos,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    page3.drawText(`${soustraitant.contact || soustraitant.nom}`, {
+      x: 350,
+      y: yPos,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    
+    // Ajouter la signature si elle existe
+    if (signatureBuffer) {
+      const signatureImagePrincipal = await pdfDoc.embedPng(signatureBuffer)
+      const signatureSizePrincipal = signatureImagePrincipal.scale(0.12) // Réduire davantage la taille de la signature
       
-      // Articles 7-10 sur la nouvelle page
-      // Article 7
-      yPos -= 30;
-      page3.drawText(`Article 7 - Confidentialité`, {
-        x: 50,
-        y: yPos,
-        size: 12,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 20;
-      page3.drawText(`Le Sous-traitant s'engage à garder confidentielles toutes les informations dont il pourrait`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 15;
-      page3.drawText(`avoir connaissance dans le cadre de l'exécution du présent contrat.`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Article 8
-      yPos -= 30;
-      page3.drawText(`Article 8 - Résiliation`, {
-        x: 50,
-        y: yPos,
-        size: 12,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 20;
-      page3.drawText(`En cas de manquement par l'une des parties à l'une quelconque de ses obligations, l'autre partie`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 15;
-      page3.drawText(`pourra résilier le présent contrat après mise en demeure restée sans effet pendant 15 jours.`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Article 9
-      yPos -= 30;
-      page3.drawText(`Article 9 - Litiges`, {
-        x: 50,
-        y: yPos,
-        size: 12,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 20;
-      page3.drawText(`En cas de litige relatif à l'interprétation ou à l'exécution du présent contrat, les parties`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 15;
-      page3.drawText(`s'efforceront de trouver une solution amiable. À défaut, le litige sera soumis aux tribunaux de Liège.`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Article 10
-      yPos -= 30;
-      page3.drawText(`Article 10 - Droit applicable`, {
-        x: 50,
-        y: yPos,
-        size: 12,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 20;
-      page3.drawText(`Le présent contrat est soumis au droit belge.`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Date et signatures
-      yPos -= 60;
-      page3.drawText(`Fait à ${companyInfo.ville}, le ${dateGeneration}, en deux exemplaires originaux.`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Zone de signatures
-      yPos -= 40;
-      page3.drawText(`Pour l'Entrepreneur principal`, {
+      page3.drawImage(signatureImagePrincipal, {
         x: 100,
-        y: yPos,
-        size: 10,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      page3.drawText(`Pour le Sous-traitant`, {
-        x: 350,
-        y: yPos,
-        size: 10,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 20;
-      page3.drawText(`Maccio Grégory`, {
-        x: 100,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      page3.drawText(`${soustraitant.contact || soustraitant.nom}`, {
-        x: 350,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Ajouter la signature si elle existe
-      if (signatureBuffer) {
-        const signatureImagePrincipal = await pdfDoc.embedPng(signatureBuffer)
-        const signatureSizePrincipal = signatureImagePrincipal.scale(0.12) // Réduire davantage la taille de la signature
-        
-        page3.drawImage(signatureImagePrincipal, {
-          x: 100,
-          y: yPos - 40, // Remonter la position pour éviter le débordement
-          width: signatureSizePrincipal.width,
-          height: signatureSizePrincipal.height,
-        })
-      }
-    } else {
-      // Articles 7-10 sur la même page si suffisamment d'espace
-      // Article 7
-      yPos -= 30;
-      page2.drawText(`Article 7 - Confidentialité`, {
-        x: 50,
-        y: yPos,
-        size: 12,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 20;
-      page2.drawText(`Le Sous-traitant s'engage à garder confidentielles toutes les informations dont il pourrait`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 15;
-      page2.drawText(`avoir connaissance dans le cadre de l'exécution du présent contrat.`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Article 8
-      yPos -= 30;
-      page2.drawText(`Article 8 - Résiliation`, {
-        x: 50,
-        y: yPos,
-        size: 12,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 20;
-      page2.drawText(`En cas de manquement par l'une des parties à l'une quelconque de ses obligations, l'autre partie`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 15;
-      page2.drawText(`pourra résilier le présent contrat après mise en demeure restée sans effet pendant 15 jours.`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Article 9
-      yPos -= 30;
-      page2.drawText(`Article 9 - Litiges`, {
-        x: 50,
-        y: yPos,
-        size: 12,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 20;
-      page2.drawText(`En cas de litige relatif à l'interprétation ou à l'exécution du présent contrat, les parties`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 15;
-      page2.drawText(`s'efforceront de trouver une solution amiable. À défaut, le litige sera soumis aux tribunaux de Liège.`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Article 10
-      yPos -= 30;
-      page2.drawText(`Article 10 - Droit applicable`, {
-        x: 50,
-        y: yPos,
-        size: 12,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 20;
-      page2.drawText(`Le présent contrat est soumis au droit belge.`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Date et signatures
-      yPos -= 60;
-      page2.drawText(`Fait à ${companyInfo.ville}, le ${dateGeneration}, en deux exemplaires originaux.`, {
-        x: 50,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Zone de signatures
-      yPos -= 40;
-      page2.drawText(`Pour l'Entrepreneur principal`, {
-        x: 100,
-        y: yPos,
-        size: 10,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      page2.drawText(`Pour le Sous-traitant`, {
-        x: 350,
-        y: yPos,
-        size: 10,
-        font: helveticaBoldFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      yPos -= 20;
-      page2.drawText(`Maccio Grégory`, {
-        x: 100,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      page2.drawText(`${soustraitant.contact || soustraitant.nom}`, {
-        x: 350,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      
-      // Ajouter la signature si elle existe
-      if (signatureBuffer) {
-        const signatureImagePrincipal = await pdfDoc.embedPng(signatureBuffer)
-        const signatureSizePrincipal = signatureImagePrincipal.scale(0.12) // Réduire davantage la taille de la signature
-        
-        page2.drawImage(signatureImagePrincipal, {
-          x: 100,
-          y: yPos - 40, // Remonter la position pour éviter le débordement
-          width: signatureSizePrincipal.width,
-          height: signatureSizePrincipal.height,
-        })
-      }
+        y: yPos - 40, // Remonter la position pour éviter le débordement
+        width: signatureSizePrincipal.width,
+        height: signatureSizePrincipal.height,
+      })
     }
     
     // Sauvegarder le PDF
