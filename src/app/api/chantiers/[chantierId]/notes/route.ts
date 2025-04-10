@@ -46,6 +46,7 @@ export async function GET(
     }
 
     try {
+      console.log('Exécution de la requête prisma.note.findMany avec include User')
       const notes = await prisma.note.findMany({
         where: {
           chantierId: chantierId
@@ -64,23 +65,34 @@ export async function GET(
       })
 
       console.log(`${notes.length} notes trouvées pour le chantier ${chantierId}`)
+      console.log('Premier élément des notes (si disponible):', notes.length > 0 ? JSON.stringify(notes[0], null, 2) : 'Aucune note')
+      
       return NextResponse.json(notes)
     } catch (prismaError: any) {
       console.error('Erreur Prisma lors de la récupération des notes:', prismaError)
+      console.error('Stack trace complète:', prismaError.stack)
+      
+      if (prismaError.meta) {
+        console.error('Métadonnées d\'erreur Prisma:', prismaError.meta)
+      }
+      
       return NextResponse.json(
         { 
           error: 'Erreur lors de la récupération des notes dans la base de données',
-          details: prismaError.message 
+          details: prismaError.message,
+          code: prismaError.code || 'UNKNOWN' 
         },
         { status: 500 }
       )
     }
   } catch (error: any) {
     console.error('Erreur générale lors de la récupération des notes:', error)
+    console.error('Stack trace complète:', error.stack)
     return NextResponse.json(
       { 
         error: 'Erreur lors de la récupération des notes',
-        details: error.message 
+        details: error.message,
+        stack: error.stack
       },
       { status: 500 }
     )

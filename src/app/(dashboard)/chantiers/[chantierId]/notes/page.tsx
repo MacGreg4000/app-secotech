@@ -108,7 +108,7 @@ export default function NotesPage({ params }: { params: { chantierId: string } }
                 </svg>
                 <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Notes</h2>
               </div>
-              <NotesContent chantierId={chantierId} />
+              <NotesContent chantierId={chantierId} debug={true} />
             </div>
           </div>
         </div>

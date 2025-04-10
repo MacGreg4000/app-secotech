@@ -15,13 +15,19 @@ interface Note {
   }
 }
 
-export function NotesContent({ chantierId }: { chantierId: string }) {
+interface NotesContentProps {
+  chantierId: string;
+  debug?: boolean;
+}
+
+export function NotesContent({ chantierId, debug = false }: NotesContentProps) {
   const { data: session } = useSession()
   const [notes, setNotes] = useState<Note[]>([])
   const [newNote, setNewNote] = useState('')
   const [loading, setLoading] = useState(true)
   const [noteToDelete, setNoteToDelete] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [apiResponse, setApiResponse] = useState<any>(null)
 
   useEffect(() => {
     fetchNotes()
@@ -30,17 +36,39 @@ export function NotesContent({ chantierId }: { chantierId: string }) {
   const fetchNotes = async () => {
     setError(null)
     try {
-      console.log(`Récupération des notes pour le chantier ${chantierId}`)
+      if (debug) console.log(`Récupération des notes pour le chantier ${chantierId}`)
       const response = await fetch(`/api/chantiers/${chantierId}/notes`)
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Réponse d\'erreur:', response.status, errorData)
-        throw new Error(`Erreur ${response.status}: ${errorData.error || response.statusText}`)
+      const responseText = await response.text()
+      if (debug) console.log('Réponse brute:', responseText)
+      
+      let data
+      try {
+        data = JSON.parse(responseText)
+        if (debug) console.log('Réponse parsée:', data)
+        setApiResponse(data)
+      } catch (e) {
+        console.error('Erreur lors du parsing de la réponse:', e)
+        setError(`Erreur de format de réponse: ${responseText.substring(0, 100)}...`)
+        setLoading(false)
+        return
       }
       
-      const data = await response.json()
-      console.log('Notes récupérées:', data)
+      if (!response.ok) {
+        console.error('Réponse d\'erreur:', response.status, data)
+        setError(`Erreur ${response.status}: ${data.error || response.statusText}`)
+        setLoading(false)
+        return
+      }
+      
+      if (!Array.isArray(data)) {
+        console.error('La réponse n\'est pas un tableau:', data)
+        setError('Format de réponse invalide: attendu un tableau de notes')
+        setLoading(false)
+        return
+      }
+      
+      if (debug) console.log('Notes récupérées:', data)
       setNotes(data)
     } catch (error: any) {
       console.error('Erreur lors de la récupération des notes:', error)
@@ -126,6 +154,11 @@ export function NotesContent({ chantierId }: { chantierId: string }) {
       {error && (
         <div className="p-4 mb-4 text-sm text-red-700 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800 dark:text-red-400">
           {error}
+          {debug && apiResponse && (
+            <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-auto max-h-40">
+              <pre>{JSON.stringify(apiResponse, null, 2)}</pre>
+            </div>
+          )}
         </div>
       )}
       
