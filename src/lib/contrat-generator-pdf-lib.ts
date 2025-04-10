@@ -11,8 +11,11 @@ import crypto from 'crypto'
 const DOCUMENTS_BASE_PATH = join(process.cwd(), 'public', 'uploads', 'documents')
 
 // Fonction pour s'assurer que les répertoires existent
-async function ensureDirectoriesExist() {
+async function ensureDirectoriesExist(soustraitantId: string) {
   try {
+    // Créer un identifiant unique pour le dossier du sous-traitant
+    const soustraitantFolder = `ST-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+    
     // Vérifier et créer le répertoire de base s'il n'existe pas
     const baseDirectoryPaths = [
       join(process.cwd(), 'public'),
@@ -21,18 +24,46 @@ async function ensureDirectoriesExist() {
       join(DOCUMENTS_BASE_PATH, 'soustraitants')
     ];
     
+    console.log('Création des répertoires requis:');
     for (const path of baseDirectoryPaths) {
       try {
         await stat(path);
+        console.log(`Le répertoire existe déjà: ${path}`);
       } catch (error) {
         console.log(`Création du répertoire: ${path}`);
-        await mkdir(path, { recursive: true });
+        try {
+          await mkdir(path, { recursive: true });
+          console.log(`Répertoire créé avec succès: ${path}`);
+        } catch (mkdirError) {
+          console.error(`Erreur lors de la création du répertoire ${path}:`, mkdirError);
+          throw mkdirError;
+        }
       }
     }
-    return true;
+    
+    // Créer le dossier spécifique pour ce sous-traitant
+    const soustraitantPath = join(DOCUMENTS_BASE_PATH, 'soustraitants', soustraitantFolder);
+    console.log(`Création du dossier pour le sous-traitant: ${soustraitantPath}`);
+    
+    try {
+      await mkdir(soustraitantPath, { recursive: true });
+      console.log(`Dossier du sous-traitant créé avec succès: ${soustraitantPath}`);
+    } catch (mkdirError) {
+      console.error(`Erreur lors de la création du dossier du sous-traitant ${soustraitantPath}:`, mkdirError);
+      throw mkdirError;
+    }
+    
+    return {
+      success: true,
+      soustraitantFolder
+    };
   } catch (error) {
     console.error("Erreur lors de la vérification/création des répertoires:", error);
-    return false;
+    return {
+      success: false,
+      error,
+      soustraitantFolder: ''
+    };
   }
 }
 
@@ -86,10 +117,15 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     console.log('Début de la génération du contrat pour soustraitantId:', soustraitantId);
     
     // S'assurer que les répertoires existent
-    const directoriesOk = await ensureDirectoriesExist();
-    if (!directoriesOk) {
-      throw new Error("Impossible de créer les répertoires nécessaires");
+    const directoriesResult = await ensureDirectoriesExist(soustraitantId);
+    if (!directoriesResult.success) {
+      console.error("Échec de la création des répertoires:", directoriesResult.error);
+      throw new Error("Impossible de créer les répertoires nécessaires: " + 
+        (directoriesResult.error instanceof Error ? directoriesResult.error.message : "Erreur inconnue"));
     }
+    
+    const soustraitantFolder = directoriesResult.soustraitantFolder;
+    console.log('Dossier du sous-traitant:', soustraitantFolder);
     
     // Récupérer les données du sous-traitant
     console.log('Récupération des données du sous-traitant...');
@@ -142,23 +178,10 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     console.log('Génération du token...');
     const token = crypto.randomBytes(32).toString('hex')
     
-    // Créer le dossier pour le sous-traitant s'il n'existe pas
-    console.log('Création du dossier pour le sous-traitant...');
-    const soustraitantFolder = `ST-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-    const soustraitantDir = join(DOCUMENTS_BASE_PATH, 'soustraitants', soustraitantFolder)
-    console.log('Dossier à créer:', soustraitantDir);
-    try {
-      await mkdir(soustraitantDir, { recursive: true })
-      console.log('Dossier créé avec succès');
-    } catch (mkdirError) {
-      console.error('Erreur lors de la création du dossier:', mkdirError);
-      // Continuer malgré l'erreur et tenter de sauvegarder le fichier
-    }
-    
     // Nom du fichier PDF
     console.log('Préparation du fichier PDF...');
     const fileName = `Contrat-${soustraitant.nom.replace(/\s+/g, '-')}-${format(new Date(), 'yyyyMMdd')}.pdf`
-    const filePath = join(soustraitantDir, fileName)
+    const filePath = join(DOCUMENTS_BASE_PATH, 'soustraitants', soustraitantFolder, fileName)
     console.log('Chemin du fichier PDF à créer:', filePath);
     
     // Créer un nouveau document PDF
@@ -713,17 +736,25 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     // URL relative du fichier
     const fileUrl = `/uploads/documents/soustraitants/${soustraitantFolder}/${fileName}`
+    console.log('URL relative du fichier:', fileUrl)
     
     // Créer l'entrée du contrat dans la base de données
-    const contrat = await (prisma as any).contrat.create({
-      data: {
-        soustraitantId: soustraitantId,
-        url: fileUrl,
-        token: token,
-        estSigne: false,
-        dateGeneration: new Date()
-      }
-    })
+    try {
+      console.log('Création de l\'entrée dans la base de données...')
+      await (prisma as any).contrat.create({
+        data: {
+          soustraitantId: soustraitantId,
+          url: fileUrl,
+          token: token,
+          estSigne: false,
+          dateGeneration: new Date()
+        }
+      })
+      console.log('Entrée créée avec succès dans la base de données')
+    } catch (dbError) {
+      console.error('Erreur lors de la création de l\'entrée dans la base de données:', dbError)
+      // On continue malgré l'erreur pour retourner l'URL au client
+    }
     
     return fileUrl
   } catch (error) {
