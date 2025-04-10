@@ -1,0 +1,201 @@
+/* Styles pour le PDF */
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+/* Style général */
+body {
+  font-family: 'Roboto', Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  color: #333333;
+}
+
+/* Titres */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Roboto', Arial, sans-serif;
+  color: #0056b3;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  page-break-after: avoid;
+}
+
+h1 {
+  font-size: 28pt;
+  color: #003366;
+  text-align: center;
+  margin-top: 40px;
+}
+
+h2 {
+  font-size: 20pt;
+  border-bottom: 1px solid #0056b3;
+  padding-bottom: 5px;
+  color: #0056b3;
+}
+
+h3 {
+  font-size: 16pt;
+  color: #0066cc;
+}
+
+h4 {
+  font-size: 13pt;
+  color: #007bff;
+}
+
+/* Paragraphes */
+p {
+  text-align: justify;
+  margin-bottom: 10px;
+}
+
+/* Liens */
+a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+/* Images */
+img {
+  max-width: 90%;
+  height: auto;
+  margin: 20px auto;
+  display: block;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 5px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* Listes */
+ul, ol {
+  margin: 10px 0;
+  padding-left: 30px;
+}
+
+ul li, ol li {
+  margin-bottom: 5px;
+}
+
+/* Tableaux */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+}
+
+th, td {
+  padding: 10px;
+  border: 1px solid #ddd;
+}
+
+th {
+  background-color: #f2f8ff;
+  color: #0056b3;
+  font-weight: bold;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+/* Code */
+pre, code {
+  font-family: Consolas, Monaco, 'Andale Mono', monospace;
+  background-color: #f5f5f5;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+pre {
+  padding: 10px;
+  overflow: auto;
+  margin: 15px 0;
+  border: 1px solid #ddd;
+}
+
+/* Blocs de citation */
+blockquote {
+  margin: 15px 0;
+  padding: 10px 20px;
+  border-left: 5px solid #0056b3;
+  background-color: #f2f8ff;
+  font-style: italic;
+}
+
+/* Éléments de mise en page */
+hr {
+  border: 0;
+  border-top: 1px solid #ddd;
+  margin: 20px 0;
+}
+
+/* Table des matières */
+.table-of-contents {
+  background-color: #f9f9f9;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  margin: 20px 0;
+}
+
+/* Styles pour les encadrés d'information */
+.info-box {
+  background-color: #e8f4ff;
+  border-left: 5px solid #007bff;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 3px;
+}
+
+.warning-box {
+  background-color: #fff9e6;
+  border-left: 5px solid #ffc107;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 3px;
+}
+
+/* Page de couverture */
+.cover {
+  text-align: center;
+  margin: 0;
+  padding: 0;
+}
+
+.cover h1 {
+  font-size: 32pt;
+  margin-top: 150px;
+}
+
+.cover h2 {
+  font-size: 24pt;
+  border: none;
+  margin-top: 20px;
+}
+
+.cover img {
+  margin-top: 50px;
+  width: 200px;
+}
+
+/* Pied de page */
+.footer {
+  text-align: center;
+  font-size: 10pt;
+  color: #666;
+  margin-top: 50px;
+}
+
+/* Questions fréquentes */
+.faq-question {
+  font-weight: bold;
+  color: #0056b3;
+}
+
+/* Mise en évidence */
+.highlight {
+  background-color: #ffff99;
+  padding: 0 3px;
+} 

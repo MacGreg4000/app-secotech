@@ -14,53 +14,77 @@ export async function GET() {
       )
     }
 
-    // Récupérer le nombre de chantiers en préparation
-    const chantiersPreperation = await prisma.chantier.count({
-      where: {
-        statut: 'En préparation'
-      }
-    })
+    console.log('Calcul des statistiques du dashboard...')
 
-    // Récupérer le nombre de chantiers en cours
-    const chantiersEnCours = await prisma.chantier.count({
-      where: {
-        statut: 'En cours'
-      }
-    })
-
-    // Récupérer le nombre de chantiers actifs (en préparation + en cours)
-    const chantiersActifs = await prisma.chantier.count({
-      where: {
-        statut: {
-          in: ['En préparation', 'En cours']
-        }
-      }
-    })
-
-    // Récupérer tous les chantiers pour calculer le budget total
-    const chantiers = await prisma.chantier.findMany({
+    // Récupérer tous les chantiers
+    const tousLesChantiers = await prisma.chantier.findMany({
       select: {
-        budget: true
+        chantierId: true,
+        budget: true,
+        statut: true,
+        createdAt: true
       }
     })
 
-    // Calculer le chiffre d'affaires total basé sur le budget des chantiers
-    const chiffreAffairesTotal = chantiers.reduce((sum, chantier) => 
+    console.log(`Statuts trouvés dans la base: ${[...new Set(tousLesChantiers.map(c => c.statut))].join(', ')}`)
+
+    // Obtenir l'année civile actuelle
+    const anneeActuelle = new Date().getFullYear();
+    const debutAnnee = new Date(anneeActuelle, 0, 1); // 1er janvier
+    const finAnnee = new Date(anneeActuelle, 11, 31); // 31 décembre
+
+    // Récupérer les chantiers en préparation
+    const chantiersPreparation = tousLesChantiers.filter(c => 
+      c.statut === 'EN_PREPARATION' || c.statut === 'En préparation' || c.statut === 'A_VENIR' || c.statut === 'À venir'
+    )
+    console.log(`Chantiers en préparation trouvés: ${chantiersPreparation.length}`)
+
+    // Récupérer les chantiers en cours
+    const chantiersEnCours = tousLesChantiers.filter(c => 
+      c.statut === 'EN_COURS' || c.statut === 'En cours'
+    )
+    console.log(`Chantiers en cours trouvés: ${chantiersEnCours.length}`)
+
+    // Compter les chantiers actifs (en préparation + en cours)
+    const chantiersActifs = tousLesChantiers.filter(c => 
+      c.statut === 'EN_PREPARATION' || c.statut === 'En préparation' || 
+      c.statut === 'EN_COURS' || c.statut === 'En cours' ||
+      c.statut === 'A_VENIR' || c.statut === 'À venir'
+    )
+    const nombreChantiersActifs = chantiersActifs.length
+    console.log(`Nombre total de chantiers actifs: ${nombreChantiersActifs}`)
+
+    // Récupérer tous les chantiers créés cette année
+    const chantiersAnnee = tousLesChantiers.filter(c => {
+      if (!c.createdAt) return false;
+      const createdAt = new Date(c.createdAt);
+      return createdAt >= debutAnnee && createdAt <= finAnnee;
+    })
+    console.log(`Chantiers créés cette année: ${chantiersAnnee.length}`)
+
+    // Calculer le montant total des chantiers en préparation
+    const montantChantiersPreperation = chantiersPreparation.reduce((sum, chantier) => 
       sum + (chantier.budget || 0), 0)
 
-    // Valeur par défaut pour le taux de complétion et la marge
-    const tauxCompletionMoyen = 0;
-    const margeGlobale = 0;
+    // Calculer le montant total des chantiers en cours
+    const montantChantiersEnCours = chantiersEnCours.reduce((sum, chantier) => 
+      sum + (chantier.budget || 0), 0)
+
+    // Calculer le chiffre d'affaires total basé sur le budget de tous les chantiers
+    const chiffreAffairesTotal = tousLesChantiers.reduce((sum, chantier) => 
+      sum + (chantier.budget || 0), 0)
+
+    console.log(`Stats calculées: ${nombreChantiersActifs} chantiers actifs, ${chiffreAffairesTotal}€ CA total`)
+    console.log(`Montant en préparation: ${montantChantiersPreperation}€, Montant en cours: ${montantChantiersEnCours}€`)
 
     return NextResponse.json({
       // Métriques financières
       chiffreAffairesTotal: chiffreAffairesTotal || 0,
       
       // Métriques chantiers
-      nombreChantiersActifs: chantiersActifs,
-      tauxCompletionMoyen: parseFloat(tauxCompletionMoyen.toFixed(1)),
-      montantChantiersPreperation: chantiersPreperation,
-      montantChantiersEnCours: chantiersEnCours
+      nombreChantiersActifs: nombreChantiersActifs,
+      montantChantiersPreperation: montantChantiersPreperation || 0,
+      montantChantiersEnCours: montantChantiersEnCours || 0
     })
   } catch (error) {
     console.error('Erreur:', error)
@@ -69,4 +93,4 @@ export async function GET() {
       { status: 500 }
     )
   }
-} 
+}

@@ -143,6 +143,7 @@ model EtatAvancement {
   numero                       Int
   date                         DateTime                       @default(now())
   commentaires                 String?                        @db.Text
+  mois                         String?
   estFinalise                  Boolean                        @default(false)
   createdAt                    DateTime                       @default(now())
   updatedAt                    DateTime                       @updatedAt

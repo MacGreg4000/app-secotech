@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { EtatAvancement, EtatAvancementSummary } from '@/types/etat-avancement'
 import { TrashIcon, PlusIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
 import { useRouter } from 'next/navigation'
@@ -26,17 +26,23 @@ export default function EtatAvancementClient({
   })
   const [quantites, setQuantites] = useState<{ [key: number]: number }>({})
   const [avenants, setAvenants] = useState(etatAvancement.avenants)
-  const [avenantValues, setAvenantValues] = useState<{
-    [key: number]: {
-      article: string
-      description: string
-      type: string
-      unite: string
-      prixUnitaire: number
-      quantite: number
-      quantiteActuelle: number
-    }
-  }>({})
+  
+  interface AvenantValues {
+    article: string;
+    description: string;
+    type: string;
+    unite: string;
+    prixUnitaire: number;
+    quantite: number;
+    quantiteActuelle: number;
+    quantitePrecedente: number;
+    quantiteTotale: number;
+    montantPrecedent: number;
+    montantActuel: number;
+    montantTotal: number;
+  }
+  
+  const [avenantValues, setAvenantValues] = useState<Record<number, AvenantValues>>({})
   const [isLoading, setIsLoading] = useState(false)
 
   // Ajouter un log pour déboguer
@@ -66,7 +72,12 @@ export default function EtatAvancementClient({
         unite: avenant.unite || 'U',
         prixUnitaire: avenant.prixUnitaire || 0,
         quantite: avenant.quantite || 0,
-        quantiteActuelle: avenant.quantiteActuelle || 0
+        quantiteActuelle: avenant.quantiteActuelle || 0,
+        quantitePrecedente: avenant.quantitePrecedente || 0,
+        quantiteTotale: avenant.quantiteTotale || 0,
+        montantPrecedent: avenant.montantPrecedent || 0,
+        montantActuel: avenant.montantActuel || 0,
+        montantTotal: avenant.montantTotal || 0
       }
       return acc
     }, {} as typeof avenantValues)
@@ -78,38 +89,66 @@ export default function EtatAvancementClient({
     setAvenants(etatAvancement.avenants);
   }, [etatAvancement])
 
-  // Calcul des valeurs dérivées pour les lignes
-  const calculatedLignes = etatAvancement.lignes.map(ligne => {
-    const quantiteActuelle = quantites[ligne.id] ?? ligne.quantiteActuelle
-    const quantiteTotale = quantiteActuelle + ligne.quantitePrecedente
-    const montantActuel = quantiteActuelle * ligne.prixUnitaire
-    const montantTotal = montantActuel + ligne.montantPrecedent
+  // Utilisation de useMemo pour éviter les recalculs inutiles et les boucles
+  const memoizedCalculatedLignes = useMemo(() => {
+    return etatAvancement.lignes.map(ligne => {
+      const quantiteActuelle = quantites[ligne.id] ?? ligne.quantiteActuelle
+      const quantiteTotale = quantiteActuelle + ligne.quantitePrecedente
+      const montantActuel = quantiteActuelle * ligne.prixUnitaire
+      const montantTotal = montantActuel + ligne.montantPrecedent
+  
+      return {
+        ...ligne,
+        quantiteActuelle,
+        quantiteTotale,
+        montantActuel,
+        montantTotal
+      }
+    })
+  }, [etatAvancement.lignes, quantites]);
+  
+  const memoizedCalculatedAvenants = useMemo(() => {
+    return avenants.map(avenant => {
+      const values = avenantValues[avenant.id] ?? avenant
+      const quantiteActuelle = values.quantiteActuelle
+      const quantiteTotale = quantiteActuelle + avenant.quantitePrecedente
+      const montantActuel = quantiteActuelle * values.prixUnitaire
+      const montantTotal = montantActuel + avenant.montantPrecedent
+  
+      return {
+        ...avenant,
+        ...values,
+        quantiteTotale,
+        montantActuel,
+        montantTotal
+      }
+    })
+  }, [avenants, avenantValues]);
 
-    return {
-      ...ligne,
-      quantiteActuelle,
-      quantiteTotale,
-      montantActuel,
-      montantTotal
+  useEffect(() => {
+    // Calculer les totaux
+    const totalCommandeInitiale = {
+      precedent: memoizedCalculatedLignes.reduce((sum, ligne) => sum + ligne.montantPrecedent, 0),
+      actuel: memoizedCalculatedLignes.reduce((sum, ligne) => sum + ligne.montantActuel, 0),
+      total: memoizedCalculatedLignes.reduce((sum, ligne) => sum + ligne.montantTotal, 0)
     }
-  })
 
-  // Calcul des valeurs dérivées pour les avenants
-  const calculatedAvenants = avenants.map(avenant => {
-    const values = avenantValues[avenant.id] ?? avenant
-    const quantiteActuelle = values.quantiteActuelle
-    const quantiteTotale = quantiteActuelle + avenant.quantitePrecedente
-    const montantActuel = quantiteActuelle * values.prixUnitaire
-    const montantTotal = montantActuel + avenant.montantPrecedent
-
-    return {
-      ...avenant,
-      ...values,
-      quantiteTotale,
-      montantActuel,
-      montantTotal
+    const totalAvenants = {
+      precedent: memoizedCalculatedAvenants.reduce((sum, avenant) => sum + avenant.montantPrecedent, 0),
+      actuel: memoizedCalculatedAvenants.reduce((sum, avenant) => sum + avenant.montantActuel, 0),
+      total: memoizedCalculatedAvenants.reduce((sum, avenant) => sum + avenant.montantTotal, 0)
     }
-  })
+
+    setSummary({
+      totalCommandeInitiale,
+      totalAvenants,
+      totalGeneral: {
+        precedent: totalCommandeInitiale.precedent + totalAvenants.precedent,
+        actuel: totalCommandeInitiale.actuel + totalAvenants.actuel,
+        total: totalCommandeInitiale.total + totalAvenants.total
+      }
+    })
+  }, [memoizedCalculatedLignes, memoizedCalculatedAvenants])
 
   const handleQuantiteActuelleChange = async (ligneId: number, nouvelleQuantite: number) => {
     try {
@@ -216,7 +255,12 @@ export default function EtatAvancementClient({
           unite: newAvenant.unite,
           prixUnitaire: newAvenant.prixUnitaire,
           quantite: newAvenant.quantite,
-          quantiteActuelle: newAvenant.quantiteActuelle || 0
+          quantiteActuelle: newAvenant.quantiteActuelle || 0,
+          quantitePrecedente: newAvenant.quantitePrecedente || 0,
+          quantiteTotale: newAvenant.quantiteTotale || 0,
+          montantPrecedent: newAvenant.montantPrecedent || 0,
+          montantActuel: newAvenant.montantActuel || 0,
+          montantTotal: newAvenant.montantTotal || 0
         }
       })
 
@@ -227,31 +271,6 @@ export default function EtatAvancementClient({
       toast.error('Erreur lors de l\'ajout de l\'avenant')
     }
   }
-
-  useEffect(() => {
-    // Calculer les totaux
-    const totalCommandeInitiale = {
-      precedent: calculatedLignes.reduce((sum, ligne) => sum + ligne.montantPrecedent, 0),
-      actuel: calculatedLignes.reduce((sum, ligne) => sum + ligne.montantActuel, 0),
-      total: calculatedLignes.reduce((sum, ligne) => sum + ligne.montantTotal, 0)
-    }
-
-    const totalAvenants = {
-      precedent: calculatedAvenants.reduce((sum, avenant) => sum + avenant.montantPrecedent, 0),
-      actuel: calculatedAvenants.reduce((sum, avenant) => sum + avenant.montantActuel, 0),
-      total: calculatedAvenants.reduce((sum, avenant) => sum + avenant.montantTotal, 0)
-    }
-
-    setSummary({
-      totalCommandeInitiale,
-      totalAvenants,
-      totalGeneral: {
-        precedent: totalCommandeInitiale.precedent + totalAvenants.precedent,
-        actuel: totalCommandeInitiale.actuel + totalAvenants.actuel,
-        total: totalCommandeInitiale.total + totalAvenants.total
-      }
-    })
-  }, [calculatedLignes, calculatedAvenants])
 
   const handleAvenantChange = async (avenantId: number, field: string, value: string | number) => {
     try {
@@ -285,7 +304,12 @@ export default function EtatAvancementClient({
         unite: updatedValues.unite || avenant.unite || 'U',
         prixUnitaire: updatedValues.prixUnitaire !== undefined ? updatedValues.prixUnitaire : (avenant.prixUnitaire || 0),
         quantite: updatedValues.quantite !== undefined ? updatedValues.quantite : (avenant.quantite || 0),
-        quantiteActuelle: updatedValues.quantiteActuelle !== undefined ? updatedValues.quantiteActuelle : (avenant.quantiteActuelle || 0)
+        quantiteActuelle: updatedValues.quantiteActuelle !== undefined ? updatedValues.quantiteActuelle : (avenant.quantiteActuelle || 0),
+        quantitePrecedente: updatedValues.quantitePrecedente !== undefined ? updatedValues.quantitePrecedente : (avenant.quantitePrecedente || 0),
+        quantiteTotale: updatedValues.quantiteTotale !== undefined ? updatedValues.quantiteTotale : (avenant.quantiteTotale || 0),
+        montantPrecedent: updatedValues.montantPrecedent !== undefined ? updatedValues.montantPrecedent : (avenant.montantPrecedent || 0),
+        montantActuel: updatedValues.montantActuel !== undefined ? updatedValues.montantActuel : (avenant.montantActuel || 0),
+        montantTotal: updatedValues.montantTotal !== undefined ? updatedValues.montantTotal : (avenant.montantTotal || 0)
       };
       
       // Sauvegarder les valeurs exactes pour le champ modifié
@@ -313,10 +337,16 @@ export default function EtatAvancementClient({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...completeValues,
-          quantiteTotale: quantiteActuelle + avenant.quantitePrecedente,
-          montantActuel,
-          montantTotal
+          article: exactValues.article,
+          description: exactValues.description,
+          type: exactValues.type,
+          unite: exactValues.unite,
+          prixUnitaire: exactValues.prixUnitaire,
+          quantite: exactValues.quantite,
+          quantiteActuelle: exactValues.quantiteActuelle,
+          quantiteTotale: exactValues.quantiteActuelle + avenant.quantitePrecedente,
+          montantActuel: exactValues.quantiteActuelle * exactValues.prixUnitaire,
+          montantTotal: (exactValues.quantiteActuelle * exactValues.prixUnitaire) + avenant.montantPrecedent
         }),
       })
 
@@ -341,7 +371,12 @@ export default function EtatAvancementClient({
             // Conserver les valeurs exactes pour les champs numériques
             prixUnitaire: field === 'prixUnitaire' ? exactValues.prixUnitaire : serverAvenant.prixUnitaire,
             quantite: field === 'quantite' ? exactValues.quantite : serverAvenant.quantite,
-            quantiteActuelle: field === 'quantiteActuelle' ? exactValues.quantiteActuelle : serverAvenant.quantiteActuelle
+            quantiteActuelle: field === 'quantiteActuelle' ? exactValues.quantiteActuelle : serverAvenant.quantiteActuelle,
+            quantitePrecedente: field === 'quantitePrecedente' ? exactValues.quantitePrecedente : serverAvenant.quantitePrecedente,
+            quantiteTotale: field === 'quantiteTotale' ? exactValues.quantiteTotale : serverAvenant.quantiteTotale,
+            montantPrecedent: field === 'montantPrecedent' ? exactValues.montantPrecedent : serverAvenant.montantPrecedent,
+            montantActuel: field === 'montantActuel' ? exactValues.montantActuel : serverAvenant.montantActuel,
+            montantTotal: field === 'montantTotal' ? exactValues.montantTotal : serverAvenant.montantTotal
           };
         }
         return a;
@@ -467,7 +502,7 @@ export default function EtatAvancementClient({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-900">
-                {calculatedLignes.map((ligne) => (
+                {memoizedCalculatedLignes.map((ligne) => (
                   <tr key={ligne.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/10">
                     <td className="w-24 px-2 py-3 text-xs text-gray-900 dark:text-gray-200">{ligne.article}</td>
                     <td className="w-96 px-2 py-3 text-xs text-gray-900 dark:text-gray-200">{ligne.description}</td>
@@ -485,7 +520,7 @@ export default function EtatAvancementClient({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="number"
-                          value={quantites[ligne.id] === 0 ? "0" : quantites[ligne.id]?.toString()}
+                          value={(quantites[ligne.id] === 0 || quantites[ligne.id] === undefined) ? "0" : quantites[ligne.id]?.toString()}
                           onChange={(e) => {
                             const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                             if (!isNaN(value)) {
@@ -563,13 +598,13 @@ export default function EtatAvancementClient({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-900">
-                {calculatedAvenants.map((avenant) => (
+                {memoizedCalculatedAvenants.map((avenant) => (
                   <tr key={avenant.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/10">
                     <td className="w-24 px-2 py-3 text-xs text-gray-900 dark:text-gray-200">
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="text"
-                          value={avenantValues[avenant.id]?.article ?? avenant.article}
+                          value={avenantValues[avenant.id]?.article ?? avenant.article ?? ''}
                           onChange={(e) => handleAvenantChange(avenant.id, 'article', e.target.value)}
                           className="w-full border rounded px-1 py-0.5 text-xs dark:bg-gray-800 dark:border-gray-600"
                         />
@@ -581,7 +616,7 @@ export default function EtatAvancementClient({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="text"
-                          value={avenantValues[avenant.id]?.description ?? avenant.description}
+                          value={avenantValues[avenant.id]?.description ?? avenant.description ?? ''}
                           onChange={(e) => handleAvenantChange(avenant.id, 'description', e.target.value)}
                           className="w-full border rounded px-1 py-0.5 text-xs dark:bg-gray-800 dark:border-gray-600"
                         />
@@ -592,7 +627,7 @@ export default function EtatAvancementClient({
                     <td className="w-16 px-2 py-3 text-xs text-gray-900 dark:text-gray-200">
                       {!etatAvancement.estFinalise ? (
                         <select
-                          value={avenantValues[avenant.id]?.type ?? avenant.type}
+                          value={avenantValues[avenant.id]?.type ?? avenant.type ?? 'QP'}
                           onChange={(e) => handleAvenantChange(avenant.id, 'type', e.target.value)}
                           className="border rounded px-1 py-0.5 text-xs dark:bg-gray-800 dark:border-gray-600"
                         >
@@ -608,7 +643,7 @@ export default function EtatAvancementClient({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="text"
-                          value={avenantValues[avenant.id]?.unite ?? avenant.unite}
+                          value={avenantValues[avenant.id]?.unite ?? avenant.unite ?? 'U'}
                           onChange={(e) => handleAvenantChange(avenant.id, 'unite', e.target.value)}
                           className="w-16 border rounded px-1 py-0.5 text-xs dark:bg-gray-800 dark:border-gray-600"
                         />
@@ -621,7 +656,7 @@ export default function EtatAvancementClient({
                         <div className="flex items-center justify-end space-x-1">
                           <input
                             type="number"
-                            value={avenantValues[avenant.id]?.prixUnitaire === 0 ? "0" : avenantValues[avenant.id]?.prixUnitaire?.toString()}
+                            value={(avenantValues[avenant.id]?.prixUnitaire ?? avenant.prixUnitaire) === 0 ? "0" : (avenantValues[avenant.id]?.prixUnitaire ?? avenant.prixUnitaire)?.toString()}
                             onChange={(e) => {
                               const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                               if (!isNaN(value)) {
@@ -643,7 +678,7 @@ export default function EtatAvancementClient({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="number"
-                          value={avenantValues[avenant.id]?.quantite === 0 ? "0" : avenantValues[avenant.id]?.quantite?.toString()}
+                          value={(avenantValues[avenant.id]?.quantite ?? avenant.quantite) === 0 ? "0" : (avenantValues[avenant.id]?.quantite ?? avenant.quantite)?.toString()}
                           onChange={(e) => {
                             const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                             if (!isNaN(value)) {
@@ -670,7 +705,7 @@ export default function EtatAvancementClient({
                       {!etatAvancement.estFinalise ? (
                         <input
                           type="number"
-                          value={avenantValues[avenant.id]?.quantiteActuelle === 0 ? "0" : avenantValues[avenant.id]?.quantiteActuelle?.toString()}
+                          value={(avenantValues[avenant.id]?.quantiteActuelle ?? avenant.quantiteActuelle) === 0 ? "0" : (avenantValues[avenant.id]?.quantiteActuelle ?? avenant.quantiteActuelle)?.toString()}
                           onChange={(e) => {
                             const value = e.target.value === '' ? 0 : parseFloat(e.target.value)
                             if (!isNaN(value)) {
@@ -687,16 +722,16 @@ export default function EtatAvancementClient({
                       )}
                     </td>
                     <td className="w-20 px-2 py-3 text-xs text-gray-900 dark:text-gray-200 text-right">
-                      {calculatedAvenants.find(a => a.id === avenant.id)?.quantiteTotale}
+                      {memoizedCalculatedAvenants.find(a => a.id === avenant.id)?.quantiteTotale}
                     </td>
                     <td className="w-28 px-2 py-3 text-xs text-gray-900 dark:text-gray-200 text-right">
                       {avenant.montantPrecedent.toLocaleString('fr-FR')} €
                     </td>
                     <td className="w-28 px-2 py-3 text-xs text-gray-900 dark:text-gray-200 text-right bg-blue-50 dark:bg-blue-900/10">
-                      {calculatedAvenants.find(a => a.id === avenant.id)?.montantActuel.toLocaleString('fr-FR')} €
+                      {memoizedCalculatedAvenants.find(a => a.id === avenant.id)?.montantActuel.toLocaleString('fr-FR')} €
                     </td>
                     <td className="w-28 px-2 py-3 text-xs text-gray-900 dark:text-gray-200 text-right">
-                      {calculatedAvenants.find(a => a.id === avenant.id)?.montantTotal.toLocaleString('fr-FR')} €
+                      {memoizedCalculatedAvenants.find(a => a.id === avenant.id)?.montantTotal.toLocaleString('fr-FR')} €
                     </td>
                     <td className="w-10 px-2 py-3">
                       {!etatAvancement.estFinalise && (

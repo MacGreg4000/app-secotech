@@ -32,8 +32,16 @@ export async function GET(
         numero: parseInt(params.etatId)
       },
       include: {
-        lignes: true,
-        avenants: true
+        lignes: {
+          orderBy: {
+            ligneCommandeId: 'asc'
+          }
+        },
+        avenants: {
+          orderBy: {
+            id: 'asc'
+          }
+        }
       }
     }) as EtatAvancementWithRelations | null
 
@@ -82,6 +90,13 @@ export async function PUT(
 
     const body = await request.json()
 
+    // Construire dynamiquement l'objet data en fonction des champs présents dans la requête
+    const updateData: any = {};
+    
+    if (body.commentaires !== undefined) updateData.commentaires = body.commentaires;
+    if (body.estFinalise !== undefined) updateData.estFinalise = body.estFinalise;
+    if (body.mois !== undefined) updateData.mois = body.mois;
+
     const etatAvancement = await prisma.etatAvancement.update({
       where: {
         chantierId_numero: {
@@ -89,13 +104,18 @@ export async function PUT(
           numero: parseInt(params.etatId)
         }
       },
-      data: {
-        commentaires: body.commentaires,
-        estFinalise: body.estFinalise
-      },
+      data: updateData,
       include: {
-        lignes: true,
-        avenants: true
+        lignes: {
+          orderBy: {
+            ligneCommandeId: 'asc'
+          }
+        },
+        avenants: {
+          orderBy: {
+            id: 'asc'
+          }
+        }
       }
     }) as EtatAvancementWithRelations
 

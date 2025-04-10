@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { FormInput, FormTextarea, Button } from '@/components/ui'
 
+export const dynamic = 'force-dynamic'
+
 interface FormData {
   nom: string
   email: string

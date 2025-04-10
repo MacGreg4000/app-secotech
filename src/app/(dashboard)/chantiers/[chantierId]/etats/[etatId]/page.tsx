@@ -15,6 +15,7 @@ import { EtatAvancement } from '@/types/etat-avancement'
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import EtatAvancementClient from '@/components/etat-avancement/EtatAvancementClient'
+import { toast } from 'react-hot-toast'
 
 interface PageProps {
   params: Promise<{
@@ -108,27 +109,59 @@ export default function EtatAvancementPage(props: PageProps) {
 
   const handleDownloadPDF = async () => {
     try {
+      // Afficher un message pour indiquer que la génération est en cours
+      toast.loading('Génération du PDF en cours...', { id: 'pdf-generation' });
+      
       const response = await fetch(`/api/chantiers/${params.chantierId}/etats-avancement/${params.etatId}/pdf`, {
         method: 'GET',
-      })
+        // Ajouter un timeout plus long pour la requête
+        signal: AbortSignal.timeout(90000), // 90 secondes
+      });
 
       if (!response.ok) {
-        throw new Error('Erreur lors de la génération du PDF')
+        toast.dismiss('pdf-generation');
+        
+        // Extraire le message d'erreur si disponible
+        let errorMessage = 'Erreur lors de la génération du PDF';
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch (e) {
+          console.error('Impossible de parser l\'erreur:', e);
+        }
+        
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
       }
 
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `etat-avancement-${params.chantierId}-${etatAvancement?.numero || ''}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
+      const blob = await response.blob();
+      
+      // Vérifier que le blob n'est pas vide
+      if (blob.size === 0) {
+        toast.dismiss('pdf-generation');
+        toast.error('Le PDF généré est vide');
+        return;
+      }
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `etat-avancement-${params.chantierId}-${etatAvancement?.numero || ''}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.dismiss('pdf-generation');
+      toast.success('PDF téléchargé avec succès');
     } catch (error) {
-      console.error('Erreur:', error)
-      setError('Erreur lors de la génération du PDF')
+      console.error('Erreur lors de la génération du PDF:', error);
+      toast.dismiss('pdf-generation');
+      toast.error('Erreur lors de la génération du PDF');
+      setError('Erreur lors de la génération du PDF');
     }
-  }
+  };
 
   const handleValidation = async () => {
     if (!etatAvancement) return;
@@ -138,30 +171,15 @@ export default function EtatAvancementPage(props: PageProps) {
       
       console.log('Validation de l\'état avec commentaires:', etatAvancement.commentaires);
       
-      // S'assurer que les commentaires sont bien à jour avant la validation
-      // Récupérer les derniers commentaires de l'état d'avancement
-      const getResponse = await fetch(`/api/chantiers/${params.chantierId}/etats-avancement/${params.etatId}`);
-      if (!getResponse.ok) {
-        throw new Error('Erreur lors de la récupération de l\'état d\'avancement');
-      }
-      const currentEtat = await getResponse.json();
-      console.log('Commentaires actuels avant validation:', currentEtat.commentaires);
-      
-      // Si une période est sélectionnée mais pas dans les commentaires, l'ajouter
-      let commentairesFinaux = currentEtat.commentaires || '';
-      if (mois && !commentairesFinaux.includes(`Période de travaux: ${mois}`)) {
-        commentairesFinaux = commentairesFinaux 
-          ? `${commentairesFinaux}\nPériode de travaux: ${mois}`
-          : `Période de travaux: ${mois}`;
-      }
-      
+      // Récupérer les derniers commentaires de l'état d'avancement sans ajouter la période
       const response = await fetch(`/api/chantiers/${params.chantierId}/etats-avancement/${params.etatId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          commentaires: commentairesFinaux,
+          commentaires: etatAvancement.commentaires, // Utiliser les commentaires existants tels quels
+          mois: mois, // Envoyer le mois séparément
           estFinalise: true
         }),
       });
@@ -229,15 +247,15 @@ export default function EtatAvancementPage(props: PageProps) {
     if (!etatAvancement) return;
     
     try {
+      // Mettre à jour seulement le champ mois sans modifier les commentaires
       const response = await fetch(`/api/chantiers/${params.chantierId}/etats-avancement/${params.etatId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          commentaires: etatAvancement.commentaires 
-            ? `${etatAvancement.commentaires}\nPériode de travaux: ${newMois}`
-            : `Période de travaux: ${newMois}`,
+          mois: newMois,
+          commentaires: etatAvancement.commentaires, // garder les commentaires inchangés
           estFinalise: etatAvancement.estFinalise
         }),
       });
@@ -249,12 +267,10 @@ export default function EtatAvancementPage(props: PageProps) {
       const updatedEtat = await response.json();
       setEtatAvancement(updatedEtat);
       
-      // Optionnel: feedback visuel subtil
-      // toast.success('Période de travaux sauvegardée');
+      toast.success('Période de travaux sauvegardée');
     } catch (error) {
       console.error('Erreur:', error);
-      // Optionnel: afficher un message d'erreur
-      // toast.error('Erreur lors de la sauvegarde de la période de travaux');
+      toast.error('Erreur lors de la sauvegarde de la période de travaux');
     }
   };
 

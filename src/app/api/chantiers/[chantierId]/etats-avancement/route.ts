@@ -26,8 +26,16 @@ export async function GET(
         chantierId: chantierId
       },
       include: {
-        lignes: true,
-        avenants: true
+        lignes: {
+          orderBy: {
+            ligneCommandeId: 'asc'
+          }
+        },
+        avenants: {
+          orderBy: {
+            id: 'asc'
+          }
+        }
       },
       orderBy: {
         numero: 'desc'
@@ -80,8 +88,16 @@ export async function POST(
         numero: 'desc'
       },
       include: {
-        lignes: true,
-        avenants: true
+        lignes: {
+          orderBy: {
+            ligneCommandeId: 'asc'
+          }
+        },
+        avenants: {
+          orderBy: {
+            id: 'asc'
+          }
+        }
       }
     })
 
@@ -239,8 +255,16 @@ export async function POST(
         id: etatAvancement.id
       },
       include: {
-        lignes: true,
-        avenants: true
+        lignes: {
+          orderBy: {
+            ligneCommandeId: 'asc'
+          }
+        },
+        avenants: {
+          orderBy: {
+            id: 'asc'
+          }
+        }
       }
     })
 

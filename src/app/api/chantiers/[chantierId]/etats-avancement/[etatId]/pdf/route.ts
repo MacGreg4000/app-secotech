@@ -49,6 +49,20 @@ function generateHTML(data: any, settings: any) {
     logoHtml = '<div class="logo-placeholder">Logo non disponible</div>';
   }
 
+  // Extraire la période de travaux des commentaires
+  let periodeDeTravaux = '';
+  let commentairesFiltres = '';
+  if (data.commentaires) {
+    const lines = data.commentaires.split('\n');
+    const periodeLine = lines.find((line: string) => line.startsWith('Période de travaux:'));
+    if (periodeLine) {
+      periodeDeTravaux = periodeLine.replace('Période de travaux:', '').trim();
+      commentairesFiltres = lines.filter((ligne: string) => !ligne.startsWith('Période de travaux:')).join('\n').trim();
+    } else {
+      commentairesFiltres = data.commentaires;
+    }
+  }
+
   return `
     <!DOCTYPE html>
     <html lang="fr">
@@ -92,6 +106,13 @@ function generateHTML(data: any, settings: any) {
           flex: 1;
           margin: 0 20px;
           color: #2c3e50;
+        }
+        .period {
+          font-size: 16px;
+          font-weight: normal;
+          color: #666;
+          display: block;
+          margin-top: 5px;
         }
         .subtitle {
           margin-bottom: 20px;
@@ -216,12 +237,16 @@ function generateHTML(data: any, settings: any) {
       <div class="content">
         <div class="header">
           ${logoHtml}
-          <h1 class="title">ÉTAT D'AVANCEMENT</h1>
+          <div class="title">
+            ÉTAT D'AVANCEMENT
+            ${periodeDeTravaux ? `<span class="period">Période : ${periodeDeTravaux}</span>` : ''}
+          </div>
         </div>
 
         <div class="subtitle">
           <p>Chantier: ${data.chantier.nomChantier}</p>
           <p>État n°${data.numero} - ${new Date(data.date).toLocaleDateString('fr-FR')}${data.mois ? ` - ${data.mois}` : ''}</p>
+          ${commentairesFiltres ? `<p>Commentaires: ${commentairesFiltres}</p>` : ''}
         </div>
 
         <table>
@@ -391,13 +416,13 @@ export async function GET(
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
+    // Récupérer l'état d'avancement
     const etatAvancement = await prisma.etatAvancement.findFirst({
       where: {
         chantierId: params.chantierId,
         numero: parseInt(params.etatId)
       },
       include: {
-        chantier: true,
         lignes: true,
         avenants: true,
       }
@@ -409,6 +434,18 @@ export async function GET(
     }
 
     console.log(`État d'avancement trouvé: ${etatAvancement.id}`);
+
+    // Récupérer les informations du chantier
+    const chantier = await prisma.chantier.findFirst({
+      where: {
+        chantierId: params.chantierId
+      }
+    });
+
+    if (!chantier) {
+      console.log(`Chantier non trouvé: ${params.chantierId}`);
+      return NextResponse.json({ error: 'Chantier non trouvé' }, { status: 404 })
+    }
 
     // Récupérer les paramètres de l'entreprise
     const settings = await prisma.companysettings.findFirst()
@@ -455,6 +492,7 @@ export async function GET(
       totalTVA,
       totalTTC,
       tauxTVA,
+      chantier,
     }, settings)
 
     console.log('HTML généré avec succès, lancement de Puppeteer...');
@@ -522,7 +560,7 @@ export async function GET(
                 chantierId: params.chantierId
               }
             },
-            user: {
+            User: {
               connect: {
                 id: user.id
               }

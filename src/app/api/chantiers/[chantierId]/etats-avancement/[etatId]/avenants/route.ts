@@ -84,6 +84,12 @@ export async function PUT(
         id: parseInt(params.avenantId)
       },
       data: {
+        article: body.article !== undefined ? body.article : undefined,
+        description: body.description !== undefined ? body.description : undefined,
+        type: body.type !== undefined ? body.type : undefined,
+        unite: body.unite !== undefined ? body.unite : undefined,
+        prixUnitaire: body.prixUnitaire !== undefined ? body.prixUnitaire : undefined,
+        quantite: body.quantite !== undefined ? body.quantite : undefined,
         quantiteActuelle: body.quantiteActuelle,
         quantiteTotale: body.quantiteTotale,
         montantActuel: body.montantActuel,

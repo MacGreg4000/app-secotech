@@ -16,6 +16,8 @@ import KPICard from '@/components/dashboard/KPICard'
 import ChantiersStatsChart from '@/components/dashboard/ChantiersStatsChart'
 import BonsRegieWidget from '@/components/dashboard/BonsRegieWidget'
 import DocumentsExpiresWidget from '@/components/dashboard/DocumentsExpiresWidget'
+import SimpleChantiersMap from '@/components/dashboard/SimpleChantiersMap'
+import SimpleMapNas from '@/components/dashboard/SimpleMapNas'
 
 // Types
 interface DashboardStats {
@@ -201,6 +203,11 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Localisation des chantiers (SimpleMapNas) */}
+      <div className="mb-6">
+        <SimpleMapNas chantiers={chantiersMap} loading={loading} />
       </div>
 
       {/* Documents à surveiller */}
