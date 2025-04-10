@@ -35,6 +35,15 @@ const nextConfig = {
 
     return config;
   },
+  // Ajouter des règles de réécriture pour servir correctement les fichiers statiques
+  async rewrites() {
+    return [
+      {
+        source: '/uploads/:path*',
+        destination: '/api/documents/serve/:path*'
+      }
+    ];
+  },
 }
 
 module.exports = nextConfig 
