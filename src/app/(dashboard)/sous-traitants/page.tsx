@@ -243,6 +243,7 @@ export default function SousTraitantsPage() {
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                         <div className="flex flex-col space-y-2">
                           {st.contrats && st.contrats.length > 0 && st.contrats[0].estSigne ? (
+                            console.log(`Contrat signé pour ${st.nom}:`, st.contrats[0].estSigne),
                             <a
                               href={st.contrats[0].url}
                               target="_blank"
@@ -253,6 +254,7 @@ export default function SousTraitantsPage() {
                               Voir contrat signé
                             </a>
                           ) : (
+                            console.log(`Contrat non signé pour ${st.nom}`),
                             <button
                               onClick={() => genererContrat(st.id)}
                               disabled={generatingContract === st.id}

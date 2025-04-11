@@ -682,6 +682,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     
     // Zone de signatures
     yPos -= 40;
+    const signatureHeaderY = yPos; // Mémoriser la position des entêtes de signature
     page3.drawText(`Pour l'Entrepreneur principal`, {
       x: 100,
       y: yPos,
@@ -699,6 +700,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     });
     
     yPos -= 20;
+    const signatureNameY = yPos; // Mémoriser la position des noms
     page3.drawText(`Maccio Grégory`, {
       x: 100,
       y: yPos,
@@ -715,20 +717,17 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
       color: rgb(0.1, 0.1, 0.1),
     });
     
+    // Définir une position fixe pour les signatures (60 pixels sous les noms)
+    const signatureY = signatureNameY - 60;
+    
     // Ajouter la signature si elle existe
     if (signatureBuffer) {
       const signatureImagePrincipal = await pdfDoc.embedPng(signatureBuffer)
-      const signatureSizePrincipal = signatureImagePrincipal.scale(0.5) // Augmenter considérablement la taille de la signature
-      
-      // Calculer la position pour centrer la signature dans la zone prévue
-      const xPositionPrincipal = 100;        // Position horizontale à gauche
-      const yPositionPrincipal = yPos - 40;  // Position verticale basée sur yPos
-      
-      console.log("Position de la signature principal:", xPositionPrincipal, yPositionPrincipal);
+      const signatureSizePrincipal = signatureImagePrincipal.scale(0.2) // Réduire davantage la taille
       
       page3.drawImage(signatureImagePrincipal, {
-        x: xPositionPrincipal,
-        y: yPositionPrincipal,
+        x: 100,
+        y: signatureY,
         width: signatureSizePrincipal.width,
         height: signatureSizePrincipal.height,
       })
@@ -740,7 +739,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
       // Positionner la date sous la signature
       page3.drawText(`Signé électroniquement le ${dateFormatted}`, {
         x: 100,
-        y: yPositionPrincipal - signatureSizePrincipal.height - 10, // Sous la signature
+        y: signatureY - signatureSizePrincipal.height - 10,
         size: 8,
         font: await pdfDoc.embedFont(StandardFonts.Helvetica),
         color: rgb(0.1, 0.1, 0.1),
@@ -828,11 +827,12 @@ export async function signerContrat(token: string, signatureBase64: string): Pro
     const lastPage = pages[pages.length - 1]
     
     // Dessiner la signature du sous-traitant
-    const signatureSize = signatureImage.scale(0.5) // Augmenter considérablement la taille de la signature
+    const signatureSize = signatureImage.scale(0.2) // Même échelle que la signature principale
     
-    // Positionner la signature sous le nom du sous-traitant
+    // Position fixe pour la signature du sous-traitant, alignée avec l'autre signature
+    // La signature du principal est à une position de 100,220 approximativement
     const xPosition = 350;  // Aligné avec le texte "Pour le Sous-traitant"
-    const yPosition = 280;  // Position plus haute, juste sous le nom du sous-traitant
+    const yPosition = 220;  // Position fixe correspondant à celle du principal
     
     console.log("Position de la signature du sous-traitant:", xPosition, yPosition);
     
@@ -850,7 +850,7 @@ export async function signerContrat(token: string, signatureBase64: string): Pro
     // Positionner la date sous la signature
     lastPage.drawText(`Signé électroniquement le ${dateFormatted}`, {
       x: 350,
-      y: yPosition - signatureSize.height - 10, // Sous la signature
+      y: yPosition - signatureSize.height - 10,
       size: 8,
       font: await pdfDoc.embedFont(StandardFonts.Helvetica),
       color: rgb(0.1, 0.1, 0.1),

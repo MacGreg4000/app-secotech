@@ -1,26 +1,28 @@
 import { NextResponse } from 'next/server'
 import { signerContrat } from '@/lib/contrat-generator'
 
-export async function POST(request: Request, props: { params: Promise<{ token: string }> }) {
-  const params = await props.params;
+export async function POST(
+  request: Request,
+  { params }: { params: { token: string } }
+) {
   try {
     const { signature } = await request.json()
     
+    console.log(`Demande de signature pour le token: ${params.token}`)
+    console.log(`Taille de la signature base64: ${signature ? signature.length : 'non fournie'} caractères`)
+    
     if (!signature) {
-      return NextResponse.json(
-        { error: 'La signature est requise' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Signature manquante" }, { status: 400 })
     }
     
-    // Signer le contrat
     const contratUrl = await signerContrat(params.token, signature)
+    console.log(`Contrat signé avec succès, URL: ${contratUrl}`)
     
     return NextResponse.json({ url: contratUrl })
-  } catch (error: any) {
-    console.error('Erreur lors de la signature du contrat:', error)
+  } catch (error) {
+    console.error("Erreur lors de la signature du contrat:", error)
     return NextResponse.json(
-      { error: `Erreur lors de la signature du contrat: ${error.message}` },
+      { error: error instanceof Error ? error.message : "Une erreur est survenue" },
       { status: 500 }
     )
   }
