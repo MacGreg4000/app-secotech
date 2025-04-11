@@ -50,7 +50,7 @@ export async function GET() {
         const soustraitant = await prisma.soustraitant.findUnique({
           where: { id: doc.Ouvrier.sousTraitantId },
           select: { id: true, nom: true }
-        })
+        }) || { id: doc.Ouvrier.sousTraitantId, nom: 'Inconnu' }; // Valeur par défaut si le sous-traitant n'existe pas
 
         // Déterminer si le document est expiré ou va expirer bientôt
         const isExpired = doc.dateExpiration && new Date(doc.dateExpiration) < now

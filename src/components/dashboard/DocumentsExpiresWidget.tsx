@@ -133,7 +133,7 @@ export default function DocumentsExpiresWidget() {
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="text-sm text-gray-900 dark:text-white">{doc.Ouvrier.prenom} {doc.Ouvrier.nom}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">{doc.soustraitant.nom}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{doc.soustraitant?.nom || 'Sans sous-traitant'}</div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className={`text-sm ${doc.isExpired ? 'text-red-500' : 'text-yellow-500'}`}>
