@@ -247,10 +247,10 @@ export default function SousTraitantsPage() {
                               href={st.contrats[0].url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800"
+                              className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800"
                             >
                               <DocumentTextIcon className="h-4 w-4 mr-1" />
-                              Consulter le contrat
+                              Contrat signé
                             </a>
                           ) : (
                             <button
@@ -273,6 +273,18 @@ export default function SousTraitantsPage() {
                                 </>
                               )}
                             </button>
+                          )}
+                          
+                          {st.contrats && st.contrats.length > 0 && !st.contrats[0].estSigne && (
+                            <a
+                              href={st.contrats[0].url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800"
+                            >
+                              <DocumentTextIcon className="h-4 w-4 mr-1" />
+                              Voir contrat généré
+                            </a>
                           )}
                           
                           {(!st.contrats || st.contrats.length === 0 || !st.contrats[0].estSigne) && (

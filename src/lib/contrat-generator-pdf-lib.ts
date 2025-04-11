@@ -718,7 +718,7 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     // Ajouter la signature si elle existe
     if (signatureBuffer) {
       const signatureImagePrincipal = await pdfDoc.embedPng(signatureBuffer)
-      const signatureSizePrincipal = signatureImagePrincipal.scale(0.12) // Réduire davantage la taille de la signature
+      const signatureSizePrincipal = signatureImagePrincipal.scale(0.25) // Augmenter la taille de la signature (0.12 -> 0.25)
       
       page3.drawImage(signatureImagePrincipal, {
         x: 100,
@@ -809,10 +809,10 @@ export async function signerContrat(token: string, signatureBase64: string): Pro
     const lastPage = pages[pages.length - 1]
     
     // Dessiner la signature du sous-traitant
-    const signatureSize = signatureImage.scale(0.12) // Réduire davantage la taille de la signature
+    const signatureSize = signatureImage.scale(0.25) // Augmenter la taille de la signature (0.12 -> 0.25)
     lastPage.drawImage(signatureImage, {
       x: 350,
-      y: 200, // Position plus haute pour éviter le débordement
+      y: 280, // Position plus haute sur la page (200 -> 280)
       width: signatureSize.width,
       height: signatureSize.height,
     })
