@@ -718,13 +718,32 @@ export async function generateContratSoustraitance(soustraitantId: string, userI
     // Ajouter la signature si elle existe
     if (signatureBuffer) {
       const signatureImagePrincipal = await pdfDoc.embedPng(signatureBuffer)
-      const signatureSizePrincipal = signatureImagePrincipal.scale(0.25) // Augmenter la taille de la signature (0.12 -> 0.25)
+      const signatureSizePrincipal = signatureImagePrincipal.scale(0.5) // Augmenter considérablement la taille de la signature
+      
+      // Calculer la position pour centrer la signature dans la zone prévue
+      const xPositionPrincipal = 100;        // Position horizontale à gauche
+      const yPositionPrincipal = yPos - 40;  // Position verticale basée sur yPos
+      
+      console.log("Position de la signature principal:", xPositionPrincipal, yPositionPrincipal);
       
       page3.drawImage(signatureImagePrincipal, {
-        x: 100,
-        y: yPos - 40, // Remonter la position pour éviter le débordement
+        x: xPositionPrincipal,
+        y: yPositionPrincipal,
         width: signatureSizePrincipal.width,
         height: signatureSizePrincipal.height,
+      })
+      
+      // Ajouter la date et l'heure de signature
+      const dateSignature = new Date()
+      const dateFormatted = format(dateSignature, "dd/MM/yyyy à HH:mm", { locale: fr })
+      
+      // Positionner la date sous la signature
+      page3.drawText(`Signé électroniquement le ${dateFormatted}`, {
+        x: 100,
+        y: yPositionPrincipal - signatureSizePrincipal.height - 10, // Sous la signature
+        size: 8,
+        font: await pdfDoc.embedFont(StandardFonts.Helvetica),
+        color: rgb(0.1, 0.1, 0.1),
       })
     }
     
@@ -809,24 +828,64 @@ export async function signerContrat(token: string, signatureBase64: string): Pro
     const lastPage = pages[pages.length - 1]
     
     // Dessiner la signature du sous-traitant
-    const signatureSize = signatureImage.scale(0.25) // Augmenter la taille de la signature (0.12 -> 0.25)
+    const signatureSize = signatureImage.scale(0.5) // Augmenter considérablement la taille de la signature
+    
+    // Positionner la signature sous le nom du sous-traitant
+    const xPosition = 350;  // Aligné avec le texte "Pour le Sous-traitant"
+    const yPosition = 280;  // Position plus haute, juste sous le nom du sous-traitant
+    
+    console.log("Position de la signature du sous-traitant:", xPosition, yPosition);
+    
     lastPage.drawImage(signatureImage, {
-      x: 350,
-      y: 280, // Position plus haute sur la page (200 -> 280)
+      x: xPosition,
+      y: yPosition,
       width: signatureSize.width,
       height: signatureSize.height,
     })
     
+    // Ajouter la date et l'heure de signature
+    const dateSignature = new Date()
+    const dateFormatted = format(dateSignature, "dd/MM/yyyy à HH:mm", { locale: fr })
+    
+    // Positionner la date sous la signature
+    lastPage.drawText(`Signé électroniquement le ${dateFormatted}`, {
+      x: 350,
+      y: yPosition - signatureSize.height - 10, // Sous la signature
+      size: 8,
+      font: await pdfDoc.embedFont(StandardFonts.Helvetica),
+      color: rgb(0.1, 0.1, 0.1),
+    })
+    
     // Chemin pour le nouveau PDF
     const fileName = `Contrat-${contrat.soustraitant.nom.replace(/\s+/g, '-')}-${format(new Date(), 'yyyyMMdd')}-signe.pdf`
-    const filePath = join(DOCUMENTS_BASE_PATH, 'soustraitants', folderName, fileName)
+    const folderPath = join(DOCUMENTS_BASE_PATH, 'soustraitants', folderName)
+    const filePath = join(folderPath, fileName)
+    
+    console.log("Chemin du dossier:", folderPath)
+    console.log("Chemin du fichier signé:", filePath)
+    
+    // Vérifier que le dossier existe
+    try {
+      await mkdir(folderPath, { recursive: true })
+      console.log("Dossier créé ou existant vérifié")
+    } catch (dirError) {
+      console.error("Erreur lors de la création du dossier:", dirError)
+      throw dirError
+    }
     
     // Sauvegarder le PDF modifié
-    const signedPdfBytes = await pdfDoc.save()
-    await writeFile(filePath, signedPdfBytes)
+    try {
+      const signedPdfBytes = await pdfDoc.save()
+      await writeFile(filePath, signedPdfBytes)
+      console.log(`Fichier signé sauvegardé avec succès (${signedPdfBytes.length} octets)`)
+    } catch (fileError) {
+      console.error("Erreur lors de la sauvegarde du fichier signé:", fileError)
+      throw fileError
+    }
     
     // URL relative du fichier
     const fileUrl = `/uploads/documents/soustraitants/${folderName}/${fileName}`
+    console.log("URL relative du fichier:", fileUrl)
     
     // Mettre à jour le contrat dans la base de données
     await (prisma as any).contrat.update({
