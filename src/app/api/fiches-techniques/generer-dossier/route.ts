@@ -11,22 +11,33 @@ async function findPdfFile(baseDir: string, fileName: string): Promise<string | 
   console.log(`Recherche de fichier: ${fileName} dans ${baseDir}`)
   
   try {
-    // Vérifier d'abord dans le dossier Carrelage
-    const carrelagePath = path.join(process.cwd(), 'public', 'fiches-techniques', 'Carrelage', `${fileName}.pdf`)
-    if (fs.existsSync(carrelagePath)) {
-      console.log(`Fichier trouvé dans Carrelage: ${carrelagePath}`)
-      return carrelagePath
-    }
-    
-    // Ensuite vérifier dans les dossiers connus de Produits Technique
-    const produitsTechniquePath = path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique')
-    const knownSubdirs = ['Colle', 'Etanchéité', 'Joint', 'Silicone']
-    
-    for (const subdir of knownSubdirs) {
-      const ptPath = path.join(produitsTechniquePath, subdir, `${fileName}.pdf`)
-      if (fs.existsSync(ptPath)) {
-        console.log(`Fichier trouvé dans ${subdir}: ${ptPath}`)
-        return ptPath
+    // Vérifier si le chemin est déjà complet avec l'extension .pdf
+    if (fileName.toLowerCase().endsWith('.pdf')) {
+      // Construire le chemin complet sans ajouter d'extension
+      const fullPath = path.join(process.cwd(), 'public', fileName)
+      if (fs.existsSync(fullPath)) {
+        console.log(`Fichier trouvé: ${fullPath}`)
+        return fullPath
+      }
+    } else {
+      // Si le fichier n'a pas d'extension, utiliser l'ancienne logique
+      // Vérifier d'abord dans le dossier Carrelage
+      const carrelagePath = path.join(process.cwd(), 'public', 'fiches-techniques', 'Carrelage', `${fileName}.pdf`)
+      if (fs.existsSync(carrelagePath)) {
+        console.log(`Fichier trouvé dans Carrelage: ${carrelagePath}`)
+        return carrelagePath
+      }
+      
+      // Ensuite vérifier dans les dossiers connus de Produits Technique
+      const produitsTechniquePath = path.join(process.cwd(), 'public', 'fiches-techniques', 'Produits Technique')
+      const knownSubdirs = ['Colle', 'Etanchéité', 'Joint', 'Silicone']
+      
+      for (const subdir of knownSubdirs) {
+        const ptPath = path.join(produitsTechniquePath, subdir, `${fileName}.pdf`)
+        if (fs.existsSync(ptPath)) {
+          console.log(`Fichier trouvé dans ${subdir}: ${ptPath}`)
+          return ptPath
+        }
       }
     }
     
