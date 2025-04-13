@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeftIcon, FolderIcon, DocumentIcon } from '@heroicons/react/24/outline'
+import { ChevronLeftIcon, FolderIcon, DocumentIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { type Chantier } from '@/types/chantier'
 
 interface FicheTechnique {
@@ -25,6 +25,7 @@ interface Dossier {
 export default function NouveauDossierTechniquePage() {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
+  const [fichesSearchTerm, setFichesSearchTerm] = useState('')
   const [selectedChantier, setSelectedChantier] = useState<Chantier | null>(null)
   const [chantiers, setChantiers] = useState<Chantier[]>([])
   const [loading, setLoading] = useState(true)
@@ -129,40 +130,71 @@ export default function NouveauDossierTechniquePage() {
   }
 
   const renderDossier = (dossier: Dossier) => {
+    // Filtrer les fiches si un terme de recherche est présent
+    const filteredFiches = fichesSearchTerm 
+      ? dossier.fiches.filter(fiche => 
+          fiche.titre.toLowerCase().includes(fichesSearchTerm.toLowerCase()) ||
+          (fiche.description && fiche.description.toLowerCase().includes(fichesSearchTerm.toLowerCase())))
+      : dossier.fiches;
+    
+    // Si aucune fiche ne correspond et aucun sous-dossier n'a de correspondance, ne pas afficher ce dossier
+    const hasFiches = filteredFiches.length > 0;
+    
+    // Vérifier si les sous-dossiers contiennent des fiches correspondantes
+    const sousDossiersWithMatches = dossier.sousDossiers
+      .map(sd => {
+        const result = renderDossier(sd);
+        return result ? true : false;
+      })
+      .some(Boolean);
+    
+    // Ne pas rendre le dossier si aucune correspondance n'est trouvée
+    if (fichesSearchTerm && !hasFiches && !sousDossiersWithMatches) {
+      return null;
+    }
+    
     return (
-      <div key={dossier.chemin} className="ml-4">
-        <div className="flex items-center text-gray-700 dark:text-gray-300">
-          <FolderIcon className="h-5 w-5 mr-2" />
-          <span className="font-medium">{dossier.nom}</span>
+      <div key={`folder-${dossier.chemin}`} className="ml-4 mb-3">
+        <div className="flex items-center text-gray-700 dark:text-gray-300 p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+          <FolderIcon className="h-5 w-5 mr-2 text-amber-500" />
+          <span className="font-semibold">{dossier.nom}</span>
         </div>
         
         {/* Sous-dossiers */}
-        {dossier.sousDossiers.map(sousDossier => renderDossier(sousDossier))}
+        <div className="ml-4 mt-2">
+          {dossier.sousDossiers.map(sousDossier => renderDossier(sousDossier))}
+        </div>
         
         {/* Fiches techniques */}
-        {dossier.fiches.map(fiche => (
-          <div key={fiche.id} className="ml-7 flex items-center space-x-2">
-            <DocumentIcon className="h-4 w-4 text-gray-500" />
-            <div className="flex items-center space-x-2 w-full">
-              <input
-                type="checkbox"
-                checked={selectedFiches.includes(fiche.id)}
-                onChange={() => handleFicheSelect(fiche.id)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm dark:text-gray-300">{fiche.titre}</span>
-              {selectedFiches.includes(fiche.id) && (
-                <input
-                  type="text"
-                  placeholder="Référence CSC"
-                  value={ficheReferences[fiche.id] || ''}
-                  onChange={(e) => handleReferenceChange(fiche.id, e.target.value)}
-                  className="ml-2 text-sm dark:text-gray-300 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md w-32"
-                />
-              )}
-            </div>
+        {filteredFiches.length > 0 && (
+          <div className="ml-6 mt-2 space-y-2 border-l-2 border-gray-100 dark:border-gray-600 pl-3">
+            {filteredFiches.map(fiche => (
+              <div key={`file-${fiche.id}`} className="flex items-start space-x-2 p-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors">
+                <DocumentIcon className="h-4 w-4 text-blue-500 mt-1" />
+                <div className="flex flex-col w-full">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedFiches.includes(fiche.id)}
+                      onChange={() => handleFicheSelect(fiche.id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm dark:text-gray-300 font-medium">{fiche.titre}</span>
+                  </div>
+                  {selectedFiches.includes(fiche.id) && (
+                    <input
+                      type="text"
+                      placeholder="Référence CSC"
+                      value={ficheReferences[fiche.id] || ''}
+                      onChange={(e) => handleReferenceChange(fiche.id, e.target.value)}
+                      className="ml-6 mt-1 text-sm dark:text-gray-300 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md w-48"
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     )
   }
@@ -182,9 +214,9 @@ export default function NouveauDossierTechniquePage() {
         <h1 className="text-2xl font-bold dark:text-white">Générer un Dossier Technique</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Colonne de gauche */}
-        <div className="space-y-6">
+      <div className="grid grid-cols-12 gap-8">
+        {/* Colonne de gauche (1/3) */}
+        <div className="col-span-12 lg:col-span-4 space-y-6">
           {/* Sélection du chantier */}
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold mb-4 dark:text-white">Sélection du chantier</h2>
@@ -229,18 +261,7 @@ export default function NouveauDossierTechniquePage() {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Colonne de droite */}
-        <div className="space-y-6">
-          {/* Sélection des fiches techniques */}
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4 dark:text-white">Fiches techniques disponibles</h2>
-            <div className="space-y-4">
-              {structureDossiers.map(dossier => renderDossier(dossier))}
-            </div>
-          </div>
-
+          
           {/* Options de génération */}
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold mb-4 dark:text-white">Options de génération</h2>
@@ -272,6 +293,46 @@ export default function NouveauDossierTechniquePage() {
                 />
                 <span className="dark:text-gray-300">Numéroter les pages</span>
               </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Colonne de droite (2/3) */}
+        <div className="col-span-12 lg:col-span-8 space-y-6">
+          {/* Sélection des fiches techniques */}
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4 dark:text-white">Fiches techniques disponibles</h2>
+            
+            {/* Champ de recherche pour les fiches */}
+            <div className="relative mb-4">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Filtrer les fiches techniques..."
+                value={fichesSearchTerm}
+                onChange={(e) => setFichesSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+              />
+              {fichesSearchTerm && (
+                <button 
+                  onClick={() => setFichesSearchTerm('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500"
+                >
+                  <span className="text-sm">×</span>
+                </button>
+              )}
+            </div>
+            
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+              {structureDossiers.map(dossier => renderDossier(dossier))}
+              
+              {fichesSearchTerm && structureDossiers.every(dossier => !renderDossier(dossier)) && (
+                <div className="text-center py-4 text-gray-500">
+                  Aucune fiche ne correspond à votre recherche
+                </div>
+              )}
             </div>
           </div>
         </div>

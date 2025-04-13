@@ -44,7 +44,9 @@ export async function GET() {
 function scanDirectory(dir: string): Dossier[] {
   const items = fs.readdirSync(dir)
   const structure: Dossier[] = []
+  const fichesParDossier: Record<string, FicheTechnique[]> = {}
 
+  // Première passe: récupérer tous les fichiers et les organiser par dossier
   items.forEach(item => {
     const fullPath = path.join(dir, item)
     const stat = fs.statSync(fullPath)
@@ -64,20 +66,31 @@ function scanDirectory(dir: string): Dossier[] {
       const parentDir = path.basename(dir)
       const grandParentDir = path.basename(path.dirname(dir))
       
-      structure.push({
-        nom: parentDir,
-        chemin: path.dirname(relativePath),
-        sousDossiers: [],
-        fiches: [{
-          id: path.parse(item).name,
-          titre: path.parse(item).name,
-          categorie: grandParentDir,
-          sousCategorie: parentDir,
-          fichierUrl: relativePath,
-          description: null
-        }]
-      })
+      const fiche = {
+        id: `${relativePath}`, // Utiliser le chemin complet comme ID unique
+        titre: path.parse(item).name,
+        categorie: grandParentDir,
+        sousCategorie: parentDir,
+        fichierUrl: relativePath,
+        description: null
+      }
+      
+      // Regrouper les fiches par dossier parent
+      if (!fichesParDossier[parentDir]) {
+        fichesParDossier[parentDir] = []
+      }
+      fichesParDossier[parentDir].push(fiche)
     }
+  })
+
+  // Deuxième passe: ajouter les dossiers avec leurs fiches
+  Object.entries(fichesParDossier).forEach(([nomDossier, fiches]) => {
+    structure.push({
+      nom: nomDossier,
+      chemin: path.dirname(fiches[0].fichierUrl),
+      sousDossiers: [],
+      fiches: fiches
+    })
   })
 
   return structure
