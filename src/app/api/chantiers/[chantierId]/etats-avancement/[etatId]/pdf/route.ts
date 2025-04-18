@@ -1,451 +1,388 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma/client'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import puppeteer from 'puppeteer'
-import fs from 'fs'
 import path from 'path'
+import fs from 'fs'
+import { PrismaClient } from '@prisma/client'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import { authOptions } from '@/lib/auth'
 
-// Fonction pour formater les nombres
-function formatNumber(num: number): string {
-  return num.toLocaleString('fr-FR', {
+const prisma = new PrismaClient()
+
+// Fonction pour formatter les nombres avec 2 décimales
+const formatNumber = (number: number) => {
+  // S'assurer que le nombre est bien un nombre
+  if (isNaN(number) || number === null || number === undefined) {
+    return "0,00";
+  }
+  
+  try {
+    return number.toLocaleString('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  } catch (error) {
+    console.error('Erreur lors du formatage du nombre:', error, number);
+    return number.toFixed(2).replace('.', ',');
+  }
+}
+
+// Fonction pour formatter les montants en euro
+const formatCurrency = (number: number) => {
+  // S'assurer que le nombre est bien un nombre
+  if (isNaN(number) || number === null || number === undefined) {
+    return "0,00 €";
+  }
+  
+  try {
+    return number.toLocaleString('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })
+    });
+  } catch (error) {
+    console.error('Erreur lors du formatage du montant:', error, number);
+    return number.toFixed(2).replace('.', ',') + ' €';
+  }
 }
 
-// Fonction pour générer le HTML
-function generateHTML(data: any, settings: any) {
-  // Préparer le logo
-  let logoHtml = '';
-  if (settings && settings.logo) {
-    // Vérifier si le logo existe dans le dossier public/images
+// Couleur primaire pour les entêtes 
+const primaryColor = [41, 128, 185]; // Bleu
+
+// Fonction pour générer le PDF avec jsPDF
+async function genererPDF(etatAvancement: any, chantier: any, settings: any) {
+  // Créer un nouveau document PDF
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // Définir marges et dimensions utiles
+  const margin = 10;
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  const contentWidth = pageWidth - (margin * 2);
+
+  // Ajouter le logo s'il existe
+  if (settings?.logo) {
+    try {
     const logoPath = path.join(process.cwd(), 'public', settings.logo);
     if (fs.existsSync(logoPath)) {
-      try {
-        const logoBase64 = fs.readFileSync(logoPath).toString('base64');
-        logoHtml = `<img src="data:image/png;base64,${logoBase64}" class="logo" alt="Logo">`;
-      } catch (error) {
-        console.error('Erreur lors du chargement du logo:', error);
-        // Utiliser un logo par défaut ou ne pas afficher de logo
-        logoHtml = '<div class="logo-placeholder">Logo non disponible</div>';
+        const logoData = fs.readFileSync(logoPath);
+        const logoBase64 = `data:image/png;base64,${logoData.toString('base64')}`;
+        doc.addImage(logoBase64, 'PNG', margin, margin, 40, 20);
       }
-    } else {
-      // Chercher dans public/images/ pour les anciens fichiers
-      const fallbackLogoPath = path.join(process.cwd(), 'public', 'images', 'logo.png');
-      if (fs.existsSync(fallbackLogoPath)) {
-        try {
-          const logoBase64 = fs.readFileSync(fallbackLogoPath).toString('base64');
-          logoHtml = `<img src="data:image/png;base64,${logoBase64}" class="logo" alt="Logo">`;
         } catch (error) {
-          console.error('Erreur lors du chargement du logo par défaut:', error);
-          logoHtml = '<div class="logo-placeholder">Logo non disponible</div>';
+      console.error('Erreur lors du chargement du logo:', error);
+    }
+  }
+
+  // Titre principal
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('ÉTAT D\'AVANCEMENT', pageWidth / 2, margin + 15, { align: 'center' });
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`N° ${etatAvancement.numero}`, pageWidth / 2, margin + 25, { align: 'center' });
+  doc.text(`Date: ${new Date(etatAvancement.date).toLocaleDateString('fr-BE')}`, pageWidth / 2, margin + 32, { align: 'center' });
+
+  // Informations du chantier et de l'entreprise dans un bloc
+  doc.setFontSize(9);
+  doc.setDrawColor(200, 200, 200);
+  doc.setFillColor(250, 250, 250);
+  doc.roundedRect(margin, margin + 40, contentWidth, 35, 2, 2, 'FD');
+
+  // Informations du chantier (colonne gauche)
+  doc.setFont('helvetica', 'bold');
+  doc.text('CHANTIER', margin + 5, margin + 47);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Référence: ${chantier.chantierId}`, margin + 5, margin + 54);
+  doc.text(`Nom: ${chantier.nomChantier}`, margin + 5, margin + 60);
+  doc.text(`Adresse: ${chantier.adresseChantier || 'N/A'}`, margin + 5, margin + 66);
+
+  // Informations de l'entreprise (colonne droite)
+  if (settings) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('ENTREPRISE', pageWidth - margin - 60, margin + 47);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${settings.name || 'N/A'}`, pageWidth - margin - 60, margin + 54);
+    doc.text(`${settings.address || 'N/A'}, ${settings.zipCode || ''} ${settings.city || ''}`, pageWidth - margin - 60, margin + 60);
+    doc.text(`TVA: ${settings.tva || 'N/A'}`, pageWidth - margin - 60, margin + 66);
+  }
+
+  // Tableau des lignes de commande
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('COMMANDE INITIALE', margin, margin + 85);
+  
+  autoTable(doc, {
+    startY: margin + 90,
+    head: [['Description', 'Quantité', 'Prix unitaire (€)', 'Précédent (€)', 'Actuel (€)', 'Total (€)']],
+    body: etatAvancement.lignes.map((ligne: any) => [
+      ligne.description,
+      formatNumber(ligne.quantite),
+      formatNumber(ligne.prixUnitaire),
+      formatNumber(ligne.montantPrecedent),
+      formatNumber(ligne.montantActuel),
+      formatNumber(ligne.montantTotal)
+    ]),
+    foot: [
+      [
+        'Total commande initiale',
+        '',
+        '',
+        formatNumber(etatAvancement.lignes.reduce((sum: number, ligne: any) => sum + ligne.montantPrecedent, 0)),
+        formatNumber(etatAvancement.lignes.reduce((sum: number, ligne: any) => sum + ligne.montantActuel, 0)),
+        formatNumber(etatAvancement.lignes.reduce((sum: number, ligne: any) => sum + ligne.montantTotal, 0))
+      ]
+    ],
+    theme: 'grid',
+    headStyles: { 
+      fillColor: [primaryColor[0], primaryColor[1], primaryColor[2]], 
+      textColor: [255, 255, 255],
+      fontStyle: 'bold' 
+    },
+    footStyles: { 
+      fillColor: [240, 240, 240], 
+      fontStyle: 'bold' 
+    },
+    styles: {
+      cellPadding: 3,
+      fontSize: 9
+    },
+    columnStyles: {
+      0: { cellWidth: 'auto' },
+      1: { halign: 'right' },
+      2: { halign: 'right' },
+      3: { halign: 'right' },
+      4: { halign: 'right' },
+      5: { halign: 'right' }
+    },
+    margin: { top: 70, left: margin, right: margin }
+  });
+
+  // Si des avenants existent, créer un tableau pour eux
+  if (etatAvancement.avenants && etatAvancement.avenants.length > 0) {
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('AVENANTS', margin, finalY);
+    
+    autoTable(doc, {
+      startY: finalY + 5,
+      head: [['Description', 'Précédent (€)', 'Actuel (€)', 'Total (€)']],
+      body: etatAvancement.avenants.map((avenant: any) => [
+        avenant.description,
+        formatNumber(avenant.montantPrecedent),
+        formatNumber(avenant.montantActuel),
+        formatNumber(avenant.montantTotal)
+      ]),
+      foot: [
+        [
+          'Total avenants',
+          formatNumber(etatAvancement.avenants.reduce((sum: number, avenant: any) => sum + avenant.montantPrecedent, 0)),
+          formatNumber(etatAvancement.avenants.reduce((sum: number, avenant: any) => sum + avenant.montantActuel, 0)),
+          formatNumber(etatAvancement.avenants.reduce((sum: number, avenant: any) => sum + avenant.montantTotal, 0))
+        ]
+      ],
+      theme: 'grid',
+      headStyles: { 
+        fillColor: [primaryColor[0], primaryColor[1], primaryColor[2]],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      footStyles: { 
+        fillColor: [240, 240, 240], 
+        fontStyle: 'bold' 
+      },
+      styles: {
+        cellPadding: 3,
+        fontSize: 9
+      },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { halign: 'right' },
+        2: { halign: 'right' },
+        3: { halign: 'right' }
+      },
+      margin: { left: margin, right: margin }
+    });
+  }
+
+  // Résumé des totaux
+  const totalCommandeInitiale = {
+    precedent: etatAvancement.lignes.reduce((sum: number, ligne: any) => sum + ligne.montantPrecedent, 0),
+    actuel: etatAvancement.lignes.reduce((sum: number, ligne: any) => sum + ligne.montantActuel, 0),
+    total: etatAvancement.lignes.reduce((sum: number, ligne: any) => sum + ligne.montantTotal, 0)
+  };
+
+  const totalAvenants = {
+    precedent: etatAvancement.avenants ? etatAvancement.avenants.reduce((sum: number, avenant: any) => sum + avenant.montantPrecedent, 0) : 0,
+    actuel: etatAvancement.avenants ? etatAvancement.avenants.reduce((sum: number, avenant: any) => sum + avenant.montantActuel, 0) : 0,
+    total: etatAvancement.avenants ? etatAvancement.avenants.reduce((sum: number, avenant: any) => sum + avenant.montantTotal, 0) : 0
+  };
+
+  const totalGeneral = {
+    precedent: totalCommandeInitiale.precedent + totalAvenants.precedent,
+    actuel: totalCommandeInitiale.actuel + totalAvenants.actuel,
+    total: totalCommandeInitiale.total + totalAvenants.total
+  };
+
+  // Calculer la TVA
+  const tauxTVA = 0.21; // 21%
+  const totalHT = totalGeneral.total;
+  const totalTVA = totalHT * tauxTVA;
+  const totalTTC = totalHT + totalTVA;
+
+  // Ajouter un tableau de résumé
+  const finalY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : 180;
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('RÉCAPITULATIF', margin, finalY);
+  
+  autoTable(doc, {
+    startY: finalY + 5,
+    head: [['', 'Précédent (€)', 'Actuel (€)', 'Total (€)']],
+    body: [
+      ['Commande initiale', formatCurrency(totalCommandeInitiale.precedent), formatCurrency(totalCommandeInitiale.actuel), formatCurrency(totalCommandeInitiale.total)],
+      ['Avenants', formatCurrency(totalAvenants.precedent), formatCurrency(totalAvenants.actuel), formatCurrency(totalAvenants.total)],
+      ['TOTAL GÉNÉRAL', formatCurrency(totalGeneral.precedent), formatCurrency(totalGeneral.actuel), formatCurrency(totalGeneral.total)]
+    ],
+    theme: 'grid',
+    headStyles: {
+      fillColor: [primaryColor[0], primaryColor[1], primaryColor[2]],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    bodyStyles: { fontSize: 9 },
+    columnStyles: { 
+      0: { fontStyle: 'bold', cellWidth: 40 },
+      1: { halign: 'right', cellWidth: 35 },
+      2: { halign: 'right', cellWidth: 35 },
+      3: { halign: 'right', cellWidth: 35 }
+    },
+    styles: { cellPadding: 5 },
+    margin: { left: 70, right: 70 },
+    didParseCell: (data) => {
+      // Mise en valeur de la ligne TOTAL GÉNÉRAL
+      if (data.row.index === 2) {
+        data.cell.styles.fillColor = [240, 240, 240];
+        data.cell.styles.fontStyle = 'bold';
+        if (data.column.index > 0) {
+          data.cell.styles.fontSize = 10;
         }
-      } else {
-        logoHtml = '<div class="logo-placeholder">Logo non disponible</div>';
       }
     }
-  } else {
-    logoHtml = '<div class="logo-placeholder">Logo non disponible</div>';
+  });
+
+  // Afficher les commentaires s'il y en a
+  if (etatAvancement.commentaires) {
+    const finalY2 = (doc as any).lastAutoTable?.finalY || finalY;
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('COMMENTAIRES', margin, finalY2 + 15);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    
+    // Utiliser splitTextToSize pour gérer les retours à la ligne
+    const commentairesSplit = doc.splitTextToSize(etatAvancement.commentaires, contentWidth);
+    doc.text(commentairesSplit, margin, finalY2 + 25);
   }
 
-  // Extraire la période de travaux des commentaires
-  let periodeDeTravaux = '';
-  let commentairesFiltres = '';
-  if (data.commentaires) {
-    const lines = data.commentaires.split('\n');
-    const periodeLine = lines.find((line: string) => line.startsWith('Période de travaux:'));
-    if (periodeLine) {
-      periodeDeTravaux = periodeLine.replace('Période de travaux:', '').trim();
-      commentairesFiltres = lines.filter((ligne: string) => !ligne.startsWith('Période de travaux:')).join('\n').trim();
-    } else {
-      commentairesFiltres = data.commentaires;
-    }
+  // Pied de page
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text(
+      `${settings?.name || 'Entreprise'} - ${settings?.address || 'Adresse non disponible'} | Page ${i} / ${pageCount}`,
+      pageWidth / 2, 
+      pageHeight - 10, 
+      { align: 'center' }
+    );
   }
 
-  return `
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          margin: 0;
-          padding: 20px;
-          color: #333;
-          position: relative;
-          min-height: 100vh;
-          counter-reset: pages var(--page-count) page var(--page-number);
-        }
-        .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 30px;
-          background-color: #f8f9fa;
-          padding: 15px;
-          border-radius: 5px;
-        }
-        .logo, .logo-placeholder {
-          width: 150px;
-          height: auto;
-          object-fit: contain;
-        }
-        .logo-placeholder {
-          border: 1px dashed #ccc;
-          padding: 10px;
-          text-align: center;
-          color: #888;
-          font-size: 12px;
-        }
-        .title {
-          font-size: 28px;
-          font-weight: bold;
-          text-align: center;
-          flex: 1;
-          margin: 0 20px;
-          color: #2c3e50;
-        }
-        .period {
-          font-size: 16px;
-          font-weight: normal;
-          color: #666;
-          display: block;
-          margin-top: 5px;
-        }
-        .subtitle {
-          margin-bottom: 20px;
-          font-size: 14px;
-        }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 20px;
-          font-size: 9px;
-          table-layout: fixed;
-        }
-        th, td {
-          border: 1px solid #ddd;
-          padding: 6px;
-          text-align: left;
-          overflow-wrap: break-word;
-          word-wrap: break-word;
-          hyphens: auto;
-        }
-        th {
-          background-color: #f4f4f4;
-          font-weight: bold;
-          white-space: nowrap;
-        }
-        td {
-          vertical-align: top;
-        }
-        td.description {
-          white-space: normal;
-          overflow: visible;
-          text-overflow: unset;
-        }
-        .number {
-          text-align: right;
-        }
-        .section-title {
-          font-size: 16px;
-          font-weight: bold;
-          margin: 20px 0;
-          padding: 10px;
-          background-color: #f4f4f4;
-          color: #2c3e50;
-        }
-        .summary {
-          margin-top: 20px;
-          padding: 15px;
-          background-color: #f8f9fa;
-          border-radius: 5px;
-          page-break-before: always;
-          font-size: 11px;
-        }
-        .summary-container {
-          border: 1px solid #ddd;
-          padding: 10px;
-          border-radius: 4px;
-        }
-        .summary-row {
-          display: grid;
-          grid-template-columns: 1fr repeat(3, 120px);
-          gap: 0;
-          margin: 5px 0;
-          align-items: center;
-          border-bottom: 1px solid #eee;
-        }
-        .summary-row > * {
-          padding: 8px;
-          border-right: 1px solid #ddd;
-        }
-        .summary-row > *:last-child {
-          border-right: none;
-        }
-        .summary-label {
-          font-weight: bold;
-          color: #2c3e50;
-        }
-        .summary-header {
-          display: grid;
-          grid-template-columns: 1fr repeat(3, 120px);
-          gap: 0;
-          margin-bottom: 10px;
-          font-weight: bold;
-          color: #2c3e50;
-          border-bottom: 2px solid #ddd;
-        }
-        .summary-header > * {
-          padding: 8px;
-          text-align: center;
-          border-right: 1px solid #ddd;
-        }
-        .summary-header > *:first-child {
-          text-align: left;
-        }
-        .summary-header > *:last-child {
-          border-right: none;
-        }
-        .summary-amount {
-          text-align: right;
-          font-family: Arial, sans-serif;
-        }
-        .total-general {
-          margin-top: 10px;
-          font-size: 13px;
-          font-weight: bold;
-          border-bottom: none !important;
-          background-color: #f4f4f4;
-        }
-        .total-general .summary-amount.current {
-          color: #2563eb;
-          font-size: 14px;
-        }
-        .content {
-          margin-bottom: 50px;
-        }
-        @page {
-          size: A4 landscape;
-          margin: 15mm;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="content">
-        <div class="header">
-          ${logoHtml}
-          <div class="title">
-            ÉTAT D'AVANCEMENT
-            ${periodeDeTravaux ? `<span class="period">Période : ${periodeDeTravaux}</span>` : ''}
-          </div>
-        </div>
-
-        <div class="subtitle">
-          <p>Chantier: ${data.chantier.nomChantier}</p>
-          <p>État n°${data.numero} - ${new Date(data.date).toLocaleDateString('fr-FR')}${data.mois ? ` - ${data.mois}` : ''}</p>
-          ${commentairesFiltres ? `<p>Commentaires: ${commentairesFiltres}</p>` : ''}
-        </div>
-
-        <table>
-          <colgroup>
-            <col style="width: 8%">
-            <col style="width: 25%">
-            <col style="width: 7%">
-            <col style="width: 5%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-            <col style="width: 7%">
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Art.</th>
-              <th>Description</th>
-              <th>Type</th>
-              <th>Un.</th>
-              <th>P.U.</th>
-              <th>Qté</th>
-              <th>Total</th>
-              <th>Qté P.</th>
-              <th>Qté A.</th>
-              <th>Qté T.</th>
-              <th>Mt. P.</th>
-              <th>Mt. A.</th>
-              <th>Mt. T.</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data.lignes.map((ligne: any) => `
-              <tr>
-                <td>${ligne.article}</td>
-                <td class="description">${ligne.description}</td>
-                <td>${ligne.type}</td>
-                <td>${ligne.unite}</td>
-                <td class="number">${formatNumber(ligne.prixUnitaire)}</td>
-                <td class="number">${formatNumber(ligne.quantite)}</td>
-                <td class="number">${formatNumber(ligne.prixUnitaire * ligne.quantite)}</td>
-                <td class="number">${formatNumber(ligne.quantitePrecedente)}</td>
-                <td class="number">${formatNumber(ligne.quantiteActuelle)}</td>
-                <td class="number">${formatNumber(ligne.quantiteTotale)}</td>
-                <td class="number">${formatNumber(ligne.montantPrecedent)}</td>
-                <td class="number">${formatNumber(ligne.montantActuel)}</td>
-                <td class="number">${formatNumber(ligne.montantTotal)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-
-        ${data.avenants.length > 0 ? `
-          <div style="page-break-before: auto;">
-            <h2 class="section-title">AVENANTS</h2>
-            <table>
-              <colgroup>
-                <col style="width: 8%">
-                <col style="width: 25%">
-                <col style="width: 7%">
-                <col style="width: 5%">
-                <col style="width: 7%">
-                <col style="width: 7%">
-                <col style="width: 7%">
-                <col style="width: 7%">
-                <col style="width: 7%">
-                <col style="width: 7%">
-                <col style="width: 7%">
-                <col style="width: 7%">
-                <col style="width: 7%">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Art.</th>
-                  <th>Description</th>
-                  <th>Type</th>
-                  <th>Un.</th>
-                  <th>P.U.</th>
-                  <th>Qté</th>
-                  <th>Total</th>
-                  <th>Qté P.</th>
-                  <th>Qté A.</th>
-                  <th>Qté T.</th>
-                  <th>Mt. P.</th>
-                  <th>Mt. A.</th>
-                  <th>Mt. T.</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${data.avenants.map((avenant: any) => `
-                  <tr>
-                    <td>${avenant.article}</td>
-                    <td class="description">${avenant.description}</td>
-                    <td>${avenant.type}</td>
-                    <td>${avenant.unite}</td>
-                    <td class="number">${formatNumber(avenant.prixUnitaire)}</td>
-                    <td class="number">${formatNumber(avenant.quantite)}</td>
-                    <td class="number">${formatNumber(avenant.prixUnitaire * avenant.quantite)}</td>
-                    <td class="number">${formatNumber(avenant.quantitePrecedente)}</td>
-                    <td class="number">${formatNumber(avenant.quantiteActuelle)}</td>
-                    <td class="number">${formatNumber(avenant.quantiteTotale)}</td>
-                    <td class="number">${formatNumber(avenant.montantPrecedent)}</td>
-                    <td class="number">${formatNumber(avenant.montantActuel)}</td>
-                    <td class="number">${formatNumber(avenant.montantTotal)}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        ` : ''}
-
-        <div class="summary">
-          <h2 class="section-title">RÉCAPITULATIF</h2>
-          
-          <div class="summary-container">
-            <div class="summary-header">
-              <span></span>
-              <span>Montant précédent</span>
-              <span>Montant actuel</span>
-              <span>Montant total</span>
-            </div>
-
-            <div class="summary-row">
-              <span class="summary-label">Total commande initiale</span>
-              <span class="summary-amount">${formatNumber(data.totalCommandeInitiale.precedent)} €</span>
-              <span class="summary-amount">${formatNumber(data.totalCommandeInitiale.actuel)} €</span>
-              <span class="summary-amount">${formatNumber(data.totalCommandeInitiale.total)} €</span>
-            </div>
-
-            <div class="summary-row">
-              <span class="summary-label">Total avenants</span>
-              <span class="summary-amount">${formatNumber(data.totalAvenants.precedent)} €</span>
-              <span class="summary-amount">${formatNumber(data.totalAvenants.actuel)} €</span>
-              <span class="summary-amount">${formatNumber(data.totalAvenants.total)} €</span>
-            </div>
-
-            <div class="summary-row total-general">
-              <span class="summary-label">TOTAL GÉNÉRAL</span>
-              <span class="summary-amount">${formatNumber(data.totalGeneral.precedent)} €</span>
-              <span class="summary-amount current">${formatNumber(data.totalGeneral.actuel)} €</span>
-              <span class="summary-amount">${formatNumber(data.totalGeneral.total)} €</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </body>
-    </html>
-  `
+  return doc.output('arraybuffer');
 }
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: Request,
-  props: { params: Promise<{ chantierId: string; etatId: string }> }
+  { params }: { params: { chantierId: string; etatId: string } }
 ) {
-  const params = await props.params;
   try {
-    // Ajouter des logs pour le debug
-    console.log(`Génération de PDF pour le chantier ${params.chantierId}, état ${params.etatId}`);
+    const paramsResolved = params;
+    console.log('Début de la génération du PDF pour l\'état d\'avancement:', paramsResolved.etatId);
     
-    const session = await getServerSession(authOptions)
+    // Vérifier la session de l'utilisateur
+    const session = await getServerSession(authOptions);
     if (!session) {
-      console.log('Session non trouvée');
+      console.error('Session non trouvée')
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
+    console.log('Session vérifiée avec succès pour:', session.user.email);
+
     // Récupérer l'état d'avancement
-    const etatAvancement = await prisma.etatAvancement.findFirst({
-      where: {
-        chantierId: params.chantierId,
-        numero: parseInt(params.etatId)
-      },
+    const etatAvancement = await prisma.etatAvancement.findUnique({
+      where: { id: parseInt(paramsResolved.etatId) },
       include: {
         lignes: true,
         avenants: true,
-      }
+      },
     })
 
     if (!etatAvancement) {
-      console.log(`État d'avancement non trouvé pour le chantier ${params.chantierId}, état ${params.etatId}`);
-      return NextResponse.json({ error: 'État d\'avancement non trouvé' }, { status: 404 })
+      console.error('État d\'avancement non trouvé:', paramsResolved.etatId)
+      return NextResponse.json(
+        { error: 'État d\'avancement non trouvé' },
+        { status: 404 }
+      )
     }
 
-    console.log(`État d'avancement trouvé: ${etatAvancement.id}`);
-
-    // Récupérer les informations du chantier
-    const chantier = await prisma.chantier.findFirst({
+    // Vérifier si un document existe déjà pour cet état d'avancement
+    const documentExistant = await prisma.document.findFirst({
       where: {
-        chantierId: params.chantierId
+        type: 'ETAT_AVANCEMENT',
+        chantierId: paramsResolved.chantierId,
+        metadata: {
+          equals: { etatId: paramsResolved.etatId }
+        }
       }
     });
 
+    console.log('Document existant trouvé:', documentExistant ? 'Oui' : 'Non');
+    console.log('Commentaires de l\'état d\'avancement:', etatAvancement.commentaires);
+
+    console.log('État d\'avancement récupéré avec succès:', etatAvancement.id);
+
+    // Récupérer le chantier
+    const chantier = await prisma.chantier.findUnique({
+      where: { chantierId: paramsResolved.chantierId },
+    })
+
     if (!chantier) {
-      console.log(`Chantier non trouvé: ${params.chantierId}`);
+      console.error('Chantier non trouvé:', paramsResolved.chantierId)
       return NextResponse.json({ error: 'Chantier non trouvé' }, { status: 404 })
     }
+
+    console.log('Chantier récupéré avec succès:', chantier.chantierId);
 
     // Récupérer les paramètres de l'entreprise
     const settings = await prisma.companysettings.findFirst()
@@ -453,91 +390,23 @@ export async function GET(
       console.warn('Paramètres de l\'entreprise non trouvés, la génération du PDF continuera sans ces informations');
     }
 
-    // Continuer avec la génération du PDF même si les paramètres de l'entreprise ne sont pas trouvés
-    const totalHT = etatAvancement.lignes.reduce(
-      (acc, ligne) => acc + (ligne.prixUnitaire * ligne.quantite),
-      0
-    )
-    // Utiliser un taux de TVA fixe de 21% car il n'existe pas dans le modèle
-    const tauxTVA = 0.21
-    const totalTVA = totalHT * tauxTVA
-    const totalTTC = totalHT + totalTVA
-
-    // Calcul des totaux pour les états d'avancement
-    const totalCommandeInitiale = {
-      precedent: etatAvancement.lignes.reduce((sum, ligne) => sum + ligne.montantPrecedent, 0),
-      actuel: etatAvancement.lignes.reduce((sum, ligne) => sum + ligne.montantActuel, 0),
-      total: etatAvancement.lignes.reduce((sum, ligne) => sum + ligne.montantTotal, 0),
-    }
-
-    const totalAvenants = {
-      precedent: etatAvancement.avenants.reduce((sum, avenant) => sum + avenant.montantPrecedent, 0),
-      actuel: etatAvancement.avenants.reduce((sum, avenant) => sum + avenant.montantActuel, 0),
-      total: etatAvancement.avenants.reduce((sum, avenant) => sum + avenant.montantTotal, 0),
-    }
-
-    const totalGeneral = {
-      precedent: totalCommandeInitiale.precedent + totalAvenants.precedent,
-      actuel: totalCommandeInitiale.actuel + totalAvenants.actuel,
-      total: totalCommandeInitiale.total + totalAvenants.total,
-    }
-
-    // Générer le HTML
-    const html = generateHTML({
-      ...etatAvancement,
-      totalCommandeInitiale,
-      totalAvenants,
-      totalGeneral,
-      totalHT,
-      totalTVA,
-      totalTTC,
-      tauxTVA,
-      chantier,
-    }, settings)
-
-    console.log('HTML généré avec succès, lancement de Puppeteer...');
-
-    // Lancer Puppeteer
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    })
-    const page = await browser.newPage()
-    await page.setContent(html)
-
-    console.log('Page chargée dans Puppeteer, génération du PDF...');
-
     // Générer le PDF
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      landscape: true,
-      printBackground: true,
-      margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
-      displayHeaderFooter: true,
-      headerTemplate: ' ',
-      footerTemplate: `
-        <div style="font-size: 10px; color: #666; padding: 10px; border-top: 1px solid #eee; background-color: white; display: flex; justify-content: space-between; align-items: center; width: 100%;">
-          <span>${settings?.name || 'Entreprise'} - ${settings?.address || 'Adresse non disponible'}</span>
-          <span style="margin-right: 20px;">Page <span class="pageNumber"></span> / <span class="totalPages"></span></span>
-        </div>
-      `,
-    })
-
-    await browser.close()
-    console.log('PDF généré avec succès');
+    console.log('Génération du PDF avec jsPDF...');
+    const pdfBuffer = await genererPDF(etatAvancement, chantier, settings);
 
     // Créer le dossier des documents s'il n'existe pas
-    const documentsDir = path.join(process.cwd(), 'public', 'chantiers', params.chantierId, 'documents')
+    const documentsDir = path.join(process.cwd(), 'public', 'documents', 'chantiers', paramsResolved.chantierId)
     if (!fs.existsSync(documentsDir)) {
       fs.mkdirSync(documentsDir, { recursive: true })
       console.log(`Dossier créé: ${documentsDir}`);
     }
 
-    const fileName = `etat-avancement-${params.etatId}-${new Date().toISOString().split('T')[0]}.pdf`
+    const fileName = `etat-avancement-${paramsResolved.etatId}-${new Date().toISOString().split('T')[0]}.pdf`
     const filePath = path.join(documentsDir, fileName)
+    const publicPath = `/documents/chantiers/${paramsResolved.chantierId}/${fileName}`
 
     // Sauvegarder le PDF
-    await fs.promises.writeFile(filePath, pdfBuffer)
+    await fs.promises.writeFile(filePath, Buffer.from(pdfBuffer))
     console.log(`PDF sauvegardé: ${filePath}`);
 
     // Créer l'entrée dans la base de données
@@ -547,26 +416,34 @@ export async function GET(
       })
 
       if (user) {
+        if (documentExistant) {
+          await prisma.document.update({
+            where: { id: documentExistant.id },
+            data: {
+              updatedAt: new Date(),
+              nom: `État d'avancement n°${paramsResolved.etatId}`,
+              chantierId: paramsResolved.chantierId,
+              url: publicPath,
+              taille: Buffer.from(pdfBuffer).length,
+            }
+          });
+        } else {
         await prisma.document.create({
           data: {
-            nom: `État d'avancement n°${params.etatId}`,
+              nom: `État d'avancement n°${paramsResolved.etatId}`,
             type: 'ETAT_AVANCEMENT',
-            url: `/chantiers/${params.chantierId}/documents/${fileName}`,
-            taille: pdfBuffer.length,
+              url: publicPath,
+              taille: Buffer.from(pdfBuffer).length,
             mimeType: 'application/pdf',
-            updatedAt: new Date(),
-            chantier: {
-              connect: {
-                chantierId: params.chantierId
-              }
-            },
-            User: {
-              connect: {
-                id: user.id
-              }
+              createdBy: user.id,
+              chantierId: paramsResolved.chantierId,
+              metadata: { 
+                etatId: paramsResolved.etatId
+              },
+              updatedAt: new Date()
             }
-          }
-        })
+          });
+        }
         console.log('Document enregistré dans la base de données');
       }
     } catch (error) {
@@ -575,7 +452,7 @@ export async function GET(
     }
 
     console.log('Retour du PDF au client');
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(Buffer.from(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${fileName}"`,
