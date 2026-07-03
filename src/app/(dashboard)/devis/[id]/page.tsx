@@ -13,7 +13,8 @@ import {
   DocumentArrowDownIcon,
   DocumentTextIcon,
   EyeIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  ArrowUturnLeftIcon
 } from '@heroicons/react/24/outline'
 import { PageHeader } from '@/components/PageHeader'
 import { useConfirmation } from '@/components/modals/confirmation-modal'
@@ -807,6 +808,16 @@ export default function DevisDetailPage() {
                   <XCircleIcon className="h-5 w-5" />
                   Marquer comme refusé
                 </button>
+
+                {devis.statut === 'REFUSE' && (
+                  <button
+                    onClick={() => handleChangeStatus('BROUILLON')}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-amber-700 dark:text-amber-300 bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30 hover:from-amber-100 hover:to-amber-200 dark:hover:from-amber-900/50 dark:hover:to-amber-800/50 shadow hover:shadow-lg ring-2 ring-amber-300/50 dark:ring-amber-500/50 transition-all duration-300 transform hover:scale-[1.02]"
+                  >
+                    <ArrowUturnLeftIcon className="h-5 w-5" />
+                    Repasser en brouillon
+                  </button>
+                )}
               </div>
             )}
           </div>
