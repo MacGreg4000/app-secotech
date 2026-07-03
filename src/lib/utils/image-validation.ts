@@ -35,11 +35,13 @@ function _checkVideoMagicBytes(header: Buffer, fileName: string = ''): MediaVali
 
   // MP4 / MOV / M4V : ftyp box at bytes 4-7
   const isFtyp = header.length >= 8 && header.slice(4, 8).toString('ascii') === 'ftyp'
-  const brand = header.length >= 12 ? header.slice(8, 12).toString('ascii').toLowerCase().trim() : ''
-  const mp4Brands = ['mp41', 'mp42', 'isom', 'iso2', 'iso4', 'avc1', 'm4v ', 'm4a ', 'f4v ', 'f4p ', 'dash']
-  const movBrands = ['qt  ']
-  const isMp4 = isFtyp && mp4Brands.includes(brand)
-  const isMov = isFtyp && movBrands.includes(brand)
+  const brand = header.length >= 12 ? header.slice(8, 12).toString('ascii').toLowerCase() : ''
+  const brandTrimmed = brand.trim()
+  const mp4Brands = ['mp41', 'mp42', 'isom', 'iso2', 'iso4', 'avc1', 'm4v', 'm4a', 'f4v', 'f4p', 'dash']
+  // MOV (QuickTime) : brand 'qt  ' (avec espaces) → trimmed = 'qt', ou 'qtff'
+  const movBrands = ['qt', 'qtff']
+  const isMp4 = isFtyp && mp4Brands.includes(brandTrimmed)
+  const isMov = isFtyp && movBrands.includes(brandTrimmed)
 
   // AVI : RIFF....AVI
   const isAVI = header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x46
