@@ -13,9 +13,8 @@ import {
   DocumentTextIcon,
   CurrencyEuroIcon,
   HashtagIcon,
-  TagIcon,
-  ArrowDownTrayIcon,
-  InformationCircleIcon
+  ClipboardDocumentListIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import NumericInput from '@/components/ui/NumericInput'
 
@@ -44,6 +43,7 @@ interface LigneTarif {
   descriptif: string;
   unite: string | null;
   prixUnitaire: number | null;
+  remarques: string | null;
   type: string;
 }
 
@@ -54,11 +54,17 @@ export default function SelectionPostesPage() {
   const router = useRouter();
 
   const [commande, setCommande] = useState<Commande | null>(null);
-  const [tarifs, setTarifs] = useState<LigneTarif[]>([]);
   const [selectedLignes, setSelectedLignes] = useState<Map<number, LigneCommande>>(new Map());
   const [modifiedLignes, setModifiedLignes] = useState<Map<number, { quantite: number, prixUnitaire: number }>>(new Map());
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Panneau tarifs ST
+  const [tarifsPanelOpen, setTarifsPanelOpen] = useState(false);
+  const [tarifs, setTarifs] = useState<LigneTarif[]>([]);
+  const [tarifsLoading, setTarifsLoading] = useState(false);
+  const [tarifsSearch, setTarifsSearch] = useState('');
+  const [soustraitantNom, setSoustraitantNom] = useState('');
 
   useEffect(() => {
     if (!soustraitantId) {
@@ -67,54 +73,57 @@ export default function SelectionPostesPage() {
       return;
     }
 
-    const fetchData = async () => {
+    const fetchCommande = async () => {
       try {
         setLoading(true);
-        const [commandeRes, tarifsRes] = await Promise.all([
-          fetch(`/api/chantiers/${chantierId}/commande`),
-          fetch(`/api/sous-traitants/${soustraitantId}/tarifs`)
-        ]);
-
-        if (!commandeRes.ok) {
-          if (commandeRes.status === 404) {
-            toast.error('Aucune commande validée trouvée pour ce chantier');
-          } else {
-            toast.error('Erreur lors de la récupération de la commande client');
-          }
+        const res = await fetch(`/api/chantiers/${chantierId}/commande`);
+        if (!res.ok) {
+          if (res.status === 404) toast.error('Aucune commande validée trouvée pour ce chantier');
+          else toast.error('Erreur lors de la récupération de la commande client');
           return;
         }
-
-        const commandeData = await commandeRes.json();
-        setCommande(commandeData);
-
-        if (tarifsRes.ok) {
-          const tarifsData = await tarifsRes.json();
-          setTarifs(tarifsData);
-        }
-      } catch (error) {
-        console.error('Erreur:', error);
+        const data = await res.json();
+        setCommande(data);
+      } catch {
         toast.error('Erreur lors du chargement des données');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    fetchCommande();
   }, [chantierId, soustraitantId, router]);
 
-  // Index des tarifs par numéro d'article (normalisation lowercase + trim)
-  const tarifsIndex = useMemo(() => {
-    const map = new Map<string, LigneTarif>();
-    for (const t of tarifs) {
-      if (t.article && t.type === 'LIGNE') {
-        map.set(t.article.trim().toLowerCase(), t);
+  const openTarifsPanel = async () => {
+    setTarifsPanelOpen(true);
+    if (tarifs.length > 0) return;
+    setTarifsLoading(true);
+    try {
+      const [tarifsRes, stRes] = await Promise.all([
+        fetch(`/api/sous-traitants/${soustraitantId}/tarifs`),
+        fetch(`/api/sous-traitants/${soustraitantId}`)
+      ]);
+      if (tarifsRes.ok) setTarifs(await tarifsRes.json());
+      if (stRes.ok) {
+        const st = await stRes.json();
+        setSoustraitantNom(st.nom || st.name || '');
       }
+    } catch {
+      // silencieux
+    } finally {
+      setTarifsLoading(false);
     }
-    return map;
-  }, [tarifs]);
+  };
 
-  const getTarifForLigne = (article: string): LigneTarif | null =>
-    tarifsIndex.get(article.trim().toLowerCase()) ?? null;
+  const filteredTarifs = useMemo(() => {
+    if (!tarifsSearch.trim()) return tarifs;
+    const q = tarifsSearch.toLowerCase();
+    return tarifs.filter(t =>
+      t.descriptif?.toLowerCase().includes(q) ||
+      t.article?.toLowerCase().includes(q) ||
+      t.remarques?.toLowerCase().includes(q)
+    );
+  }, [tarifs, tarifsSearch]);
 
   const handleSelectLigne = (ligne: LigneCommande) => {
     const newSelectedLignes = new Map(selectedLignes);
@@ -127,13 +136,8 @@ export default function SelectionPostesPage() {
     } else {
       newSelectedLignes.set(ligne.id, ligne);
       if (!modifiedLignes.has(ligne.id)) {
-        const tarif = getTarifForLigne(ligne.article);
         const newModifiedLignes = new Map(modifiedLignes);
-        newModifiedLignes.set(ligne.id, {
-          quantite: ligne.quantite,
-          // Pré-remplir avec le tarif ST si disponible, sinon prix client
-          prixUnitaire: tarif?.prixUnitaire ?? ligne.prixUnitaire
-        });
+        newModifiedLignes.set(ligne.id, { quantite: ligne.quantite, prixUnitaire: ligne.prixUnitaire });
         setModifiedLignes(newModifiedLignes);
       }
     }
@@ -143,22 +147,15 @@ export default function SelectionPostesPage() {
 
   const handleQuantiteChange = (ligneId: number, value: string) => {
     const newModifiedLignes = new Map(modifiedLignes);
-    const currentValues = newModifiedLignes.get(ligneId) || { quantite: 0, prixUnitaire: 0 };
-    newModifiedLignes.set(ligneId, { ...currentValues, quantite: value === '' ? 0 : parseFloat(value) });
+    const current = newModifiedLignes.get(ligneId) || { quantite: 0, prixUnitaire: 0 };
+    newModifiedLignes.set(ligneId, { ...current, quantite: value === '' ? 0 : parseFloat(value) });
     setModifiedLignes(newModifiedLignes);
   };
 
   const handlePrixChange = (ligneId: number, value: string) => {
     const newModifiedLignes = new Map(modifiedLignes);
-    const currentValues = newModifiedLignes.get(ligneId) || { quantite: 0, prixUnitaire: 0 };
-    newModifiedLignes.set(ligneId, { ...currentValues, prixUnitaire: value === '' ? 0 : parseFloat(value) });
-    setModifiedLignes(newModifiedLignes);
-  };
-
-  const applyTarifST = (ligneId: number, tarifPrix: number) => {
-    const newModifiedLignes = new Map(modifiedLignes);
-    const currentValues = newModifiedLignes.get(ligneId) || { quantite: 0, prixUnitaire: tarifPrix };
-    newModifiedLignes.set(ligneId, { ...currentValues, prixUnitaire: tarifPrix });
+    const current = newModifiedLignes.get(ligneId) || { quantite: 0, prixUnitaire: 0 };
+    newModifiedLignes.set(ligneId, { ...current, prixUnitaire: value === '' ? 0 : parseFloat(value) });
     setModifiedLignes(newModifiedLignes);
   };
 
@@ -196,13 +193,11 @@ export default function SelectionPostesPage() {
         }),
       });
 
-      if (!response.ok) throw new Error('Erreur lors de la création de la commande sous-traitant');
-
+      if (!response.ok) throw new Error();
       const result = await response.json();
       toast.success('Commande sous-traitant créée avec succès');
       router.push(`/chantiers/${chantierId}/etats/soustraitants/${soustraitantId}/commande/${result.id}`);
-    } catch (error) {
-      console.error('Erreur:', error);
+    } catch {
       toast.error('Erreur lors de la création de la commande sous-traitant');
     } finally {
       setSubmitting(false);
@@ -213,21 +208,11 @@ export default function SelectionPostesPage() {
     let total = 0;
     selectedLignes.forEach((ligne) => {
       if (ligne.type === 'TITRE' || ligne.type === 'SOUS_TITRE') return;
-      const modifiedValues = modifiedLignes.get(ligne.id);
-      const quantite = modifiedValues?.quantite ?? ligne.quantite;
-      const prix = modifiedValues?.prixUnitaire ?? ligne.prixUnitaire;
-      total += quantite * prix;
+      const mod = modifiedLignes.get(ligne.id);
+      total += (mod?.quantite ?? ligne.quantite) * (mod?.prixUnitaire ?? ligne.prixUnitaire);
     });
     return total;
   };
-
-  const tarifsMatchCount = useMemo(() => {
-    if (!commande) return 0;
-    return commande.lignes.filter(l =>
-      l.type !== 'TITRE' && l.type !== 'SOUS_TITRE' && getTarifForLigne(l.article)
-    ).length;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commande, tarifsIndex]);
 
   if (loading) {
     return (
@@ -263,42 +248,35 @@ export default function SelectionPostesPage() {
             </div>
           </div>
 
-          {selectedLignes.size > 0 && (
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-gray-200 dark:bg-gray-800/80 dark:border-gray-700">
-              <div className="flex items-center space-x-4 text-sm">
-                <div className="flex items-center text-blue-600 dark:text-blue-400">
-                  <CheckCircleIcon className="h-5 w-5 mr-1" />
-                  <span className="font-semibold">{selectedLignes.size} poste{selectedLignes.size > 1 ? 's' : ''} sélectionné{selectedLignes.size > 1 ? 's' : ''}</span>
-                </div>
-                <div className="flex items-center text-green-600 dark:text-green-400">
-                  <CurrencyEuroIcon className="h-5 w-5 mr-1" />
-                  <span className="font-bold">{calculateTotal().toFixed(2)} €</span>
+          <div className="flex items-center gap-3">
+            {selectedLignes.size > 0 && (
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-gray-200 dark:bg-gray-800/80 dark:border-gray-700">
+                <div className="flex items-center space-x-4 text-sm">
+                  <div className="flex items-center text-blue-600 dark:text-blue-400">
+                    <CheckCircleIcon className="h-5 w-5 mr-1" />
+                    <span className="font-semibold">{selectedLignes.size} poste{selectedLignes.size > 1 ? 's' : ''} sélectionné{selectedLignes.size > 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="flex items-center text-green-600 dark:text-green-400">
+                    <CurrencyEuroIcon className="h-5 w-5 mr-1" />
+                    <span className="font-bold">{calculateTotal().toFixed(2)} €</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
 
-        {/* Bandeau info tarifs */}
-        {tarifs.length > 0 && commande && (
-          <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3">
-            <TagIcon className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div className="text-sm text-amber-800 dark:text-amber-300">
-              <span className="font-semibold">{tarifs.filter(t => t.type === 'LIGNE').length} tarif{tarifs.filter(t => t.type === 'LIGNE').length > 1 ? 's' : ''} sous-traitant disponible{tarifs.filter(t => t.type === 'LIGNE').length > 1 ? 's' : ''}</span>
-              {tarifsMatchCount > 0
-                ? ` — ${tarifsMatchCount} poste${tarifsMatchCount > 1 ? 's correspondent' : ' correspond'} (prix ST pré-rempli automatiquement).`
-                : ' — aucune correspondance avec les postes de cette commande.'}
-            </div>
+            <button
+              onClick={tarifsPanelOpen ? () => setTarifsPanelOpen(false) : openTarifsPanel}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-md ${
+                tarifsPanelOpen
+                  ? 'bg-blue-600 text-white shadow-inner'
+                  : 'bg-white/80 backdrop-blur-sm text-blue-700 dark:text-blue-300 dark:bg-gray-800/80 border border-blue-200 dark:border-blue-700 hover:bg-white dark:hover:bg-gray-700'
+              }`}
+            >
+              <ClipboardDocumentListIcon className="h-5 w-5" />
+              {tarifsPanelOpen ? 'Fermer tarifs' : 'Tarifs ST'}
+            </button>
           </div>
-        )}
-        {tarifs.length === 0 && (
-          <div className="flex items-start gap-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3">
-            <InformationCircleIcon className="h-5 w-5 text-gray-400 shrink-0 mt-0.5" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Aucun tarif sous-traitant enregistré. Vous pouvez en ajouter depuis la fiche du sous-traitant.
-            </p>
-          </div>
-        )}
+        </div>
 
         {/* Carte principale */}
         <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm dark:bg-gray-800/80">
@@ -310,7 +288,7 @@ export default function SelectionPostesPage() {
               <div>
                 <CardTitle className="text-xl font-bold">Postes disponibles — Commande client</CardTitle>
                 <p className="text-blue-100 text-sm mt-1">
-                  La colonne <span className="font-semibold">Tarif ST</span> affiche le prix issu du bordereau du sous-traitant
+                  Consultez le bordereau du sous-traitant avec le bouton <span className="font-semibold">Tarifs ST</span> en haut à droite
                 </p>
               </div>
             </div>
@@ -323,7 +301,7 @@ export default function SelectionPostesPage() {
                   <DocumentTextIcon className="h-8 w-8 text-red-500" />
                 </div>
                 <p className="text-red-600 dark:text-red-400 font-medium text-lg">Aucune commande client validée trouvée pour ce chantier</p>
-                <p className="text-gray-500 dark:text-gray-400 mt-2">Veuillez d'abord valider une commande client pour ce chantier</p>
+                <p className="text-gray-500 dark:text-gray-400 mt-2">Veuillez d&apos;abord valider une commande client pour ce chantier</p>
               </div>
             ) : (
               <>
@@ -338,7 +316,6 @@ export default function SelectionPostesPage() {
                         <col style={{ width: '68px' }} />
                         <col style={{ width: '110px' }} />
                         <col style={{ width: '130px' }} />
-                        <col style={{ width: '170px' }} />
                       </colgroup>
                       <thead>
                         <tr className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-b border-gray-200 dark:border-gray-600">
@@ -355,29 +332,13 @@ export default function SelectionPostesPage() {
                           <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                             <div className="flex items-center justify-end gap-1"><CurrencyEuroIcon className="h-3.5 w-3.5" />Prix unit.</div>
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">
-                            <div className="flex items-center justify-end gap-1 text-amber-600 dark:text-amber-400">
-                              <TagIcon className="h-3.5 w-3.5" />
-                              Tarif ST
-                            </div>
-                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {commande.lignes.map((ligne, index) => {
                           const isSection = ligne.type === 'TITRE' || ligne.type === 'SOUS_TITRE';
                           const isSelected = selectedLignes.has(ligne.id);
-                          const modifiedValues = modifiedLignes.get(ligne.id);
-                          const quantite = modifiedValues?.quantite ?? ligne.quantite;
-                          const prix = modifiedValues?.prixUnitaire ?? ligne.prixUnitaire;
-                          const tarif = !isSection ? getTarifForLigne(ligne.article) : null;
-
-                          // Calcul de la marge : (prixClient - prixST) / prixClient
-                          const tarifPrix = tarif?.prixUnitaire ?? null;
-                          const prixActuel = modifiedValues?.prixUnitaire ?? ligne.prixUnitaire;
-                          const margePercent = tarifPrix !== null && ligne.prixUnitaire > 0
-                            ? ((ligne.prixUnitaire - tarifPrix) / ligne.prixUnitaire) * 100
-                            : null;
+                          const mod = modifiedLignes.get(ligne.id);
 
                           return (
                             <tr
@@ -391,7 +352,6 @@ export default function SelectionPostesPage() {
                                 ${isSection ? 'bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-700/60 dark:to-slate-700/40' : ''}
                               `}
                             >
-                              {/* Checkbox */}
                               <td className="px-4 py-3">
                                 <label className="flex items-center cursor-pointer">
                                   <input
@@ -399,31 +359,22 @@ export default function SelectionPostesPage() {
                                     checked={isSelected}
                                     onChange={() => handleSelectLigne(ligne)}
                                     className="h-5 w-5 text-blue-600 border-2 border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
-                                    disabled={!commande}
                                   />
                                 </label>
                               </td>
 
-                              {/* Article */}
                               <td className="px-4 py-3">
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
                                   {ligne.article}
                                 </span>
                               </td>
 
-                              {/* Description */}
                               <td className="px-4 py-3">
                                 <div className={`font-medium ${isSection ? 'text-gray-900 dark:text-white uppercase text-xs tracking-wide' : 'text-gray-900 dark:text-gray-100'}`}>
                                   {ligne.description}
                                 </div>
-                                {tarif?.descriptif && tarif.descriptif !== ligne.description && !isSection && (
-                                  <div className="text-xs text-amber-600 dark:text-amber-400 mt-0.5 italic">
-                                    ST : {tarif.descriptif}
-                                  </div>
-                                )}
                               </td>
 
-                              {/* Type */}
                               <td className="px-4 py-3 text-center">
                                 {!isSection && (
                                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -436,85 +387,39 @@ export default function SelectionPostesPage() {
                                 )}
                               </td>
 
-                              {/* Unité */}
                               <td className="px-4 py-3 text-center">
                                 <span className="text-gray-600 dark:text-gray-300 font-medium text-sm">{ligne.unite}</span>
                               </td>
 
-                              {/* Quantité */}
                               <td className="px-4 py-3 text-right">
                                 {isSection ? (
                                   <span className="text-gray-400">—</span>
                                 ) : isSelected ? (
                                   <NumericInput
-                                    value={quantite}
+                                    value={mod?.quantite ?? ligne.quantite}
                                     onChangeNumber={val => handleQuantiteChange(ligne.id, String(val))}
                                     step="0.01"
                                     className="w-20 px-3 py-2 text-right border-2 border-blue-200 rounded-lg bg-white dark:bg-gray-700 dark:border-blue-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium"
-                                    disabled={!commande}
                                   />
                                 ) : (
                                   <span className="font-medium text-gray-900 dark:text-gray-100">{ligne.quantite}</span>
                                 )}
                               </td>
 
-                              {/* Prix unitaire (modifiable si sélectionné) */}
                               <td className="px-4 py-3 text-right">
                                 {isSection ? (
                                   <span className="text-gray-400">—</span>
                                 ) : isSelected ? (
                                   <NumericInput
-                                    value={prix}
+                                    value={mod?.prixUnitaire ?? ligne.prixUnitaire}
                                     onChangeNumber={val => handlePrixChange(ligne.id, String(val))}
                                     step="0.01"
                                     className="w-24 px-3 py-2 text-right border-2 border-blue-200 rounded-lg bg-white dark:bg-gray-700 dark:border-blue-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium"
-                                    disabled={!commande}
                                   />
                                 ) : (
                                   <span className="font-medium text-gray-900 dark:text-gray-100">
                                     {ligne.prixUnitaire.toFixed(2)} €
                                   </span>
-                                )}
-                              </td>
-
-                              {/* Tarif ST */}
-                              <td className="px-4 py-3 text-right">
-                                {isSection ? (
-                                  <span className="text-gray-400">—</span>
-                                ) : tarif && tarifPrix !== null ? (
-                                  <div className="flex flex-col items-end gap-1">
-                                    {/* Prix ST */}
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="font-semibold text-amber-700 dark:text-amber-400">
-                                        {tarifPrix.toFixed(2)} €
-                                      </span>
-                                      {/* Badge marge */}
-                                      {margePercent !== null && (
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                                          margePercent > 0
-                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                            : margePercent < 0
-                                              ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                                        }`}>
-                                          {margePercent > 0 ? '+' : ''}{margePercent.toFixed(0)}%
-                                        </span>
-                                      )}
-                                    </div>
-                                    {/* Bouton appliquer si sélectionné ET prix différent */}
-                                    {isSelected && Math.abs(prixActuel - tarifPrix) > 0.001 && (
-                                      <button
-                                        onClick={() => applyTarifST(ligne.id, tarifPrix)}
-                                        className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 transition-colors"
-                                        title="Appliquer le tarif ST"
-                                      >
-                                        <ArrowDownTrayIcon className="h-3 w-3" />
-                                        Appliquer
-                                      </button>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-gray-400 dark:text-gray-500 italic">Non référencé</span>
                                 )}
                               </td>
                             </tr>
@@ -573,6 +478,81 @@ export default function SelectionPostesPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Panneau latéral tarifs ST */}
+      {tarifsPanelOpen && (
+        <div className="fixed top-0 right-0 h-full w-80 z-[110] flex flex-col bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 shadow-2xl">
+          <div className="flex items-center justify-between px-4 py-3 bg-blue-600 text-white shrink-0">
+            <div className="min-w-0">
+              <p className="text-xs opacity-75">Liste de prix</p>
+              <p className="font-semibold text-sm truncate">{soustraitantNom || 'Sous-traitant'}</p>
+            </div>
+            <button onClick={() => setTarifsPanelOpen(false)} className="ml-2 p-1 rounded hover:bg-white/20 transition">
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={tarifsSearch}
+              onChange={e => setTarifsSearch(e.target.value)}
+              className="w-full text-sm px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {tarifsLoading ? (
+              <div className="flex items-center justify-center py-12 text-gray-400 text-sm">Chargement...</div>
+            ) : filteredTarifs.length === 0 ? (
+              <div className="flex items-center justify-center py-12 text-gray-400 text-sm">
+                {tarifsSearch ? 'Aucun résultat' : 'Aucune ligne de tarif'}
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {filteredTarifs.map(tarif => {
+                  if (tarif.type === 'TITRE') return (
+                    <div key={tarif.id} className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20">
+                      <p className="text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">{tarif.descriptif}</p>
+                    </div>
+                  );
+                  if (tarif.type === 'SOUS_TITRE') return (
+                    <div key={tarif.id} className="px-4 py-1.5 bg-gray-50 dark:bg-gray-800/50">
+                      <p className="text-xs font-semibold italic text-gray-500 dark:text-gray-400">{tarif.descriptif}</p>
+                    </div>
+                  );
+                  return (
+                    <div key={tarif.id} className="px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          {tarif.article && <p className="text-[10px] font-mono text-gray-400 mb-0.5">{tarif.article}</p>}
+                          <p className="text-sm text-gray-900 dark:text-white leading-snug">{tarif.descriptif}</p>
+                          {tarif.remarques && <p className="text-xs text-gray-400 mt-0.5 italic">{tarif.remarques}</p>}
+                        </div>
+                        <div className="text-right shrink-0">
+                          {tarif.prixUnitaire != null && (
+                            <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                              {tarif.prixUnitaire.toLocaleString('fr-FR')} €
+                            </p>
+                          )}
+                          {tarif.unite && <p className="text-xs text-gray-400">{tarif.unite}</p>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 shrink-0">
+            <p className="text-xs text-gray-400 text-center">
+              {tarifs.filter(t => t.type === 'LIGNE').length} articles dans la liste de prix
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
