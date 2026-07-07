@@ -21,7 +21,11 @@ import { PageHeader } from '@/components/PageHeader'
   ChevronDownIcon,
   ChevronUpDownIcon,
   EyeIcon,
-  CheckIcon
+  CheckIcon,
+  PaperAirplaneIcon,
+  XMarkIcon,
+  QrCodeIcon,
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
 import { SearchInput } from '@/components/ui'
 import { useNotification } from '@/hooks/useNotification'
@@ -44,6 +48,17 @@ interface SousTraitant {
     estSigne: boolean
     dateGeneration: string
   }[]
+}
+
+interface InviteResult {
+  id: string
+  nom: string
+  email: string | null
+  telephone: string | null
+  sent: boolean
+  hasPin: boolean
+  portalUrl: string
+  whatsappUrl: string | null
 }
 
 // Composant pour les en-têtes triables
@@ -170,6 +185,14 @@ export default function SousTraitantsPage() {
   const [ouvrierSortDirection, setOuvrierSortDirection] = useState<'asc' | 'desc'>('asc')
   const [statusMenuOpen, setStatusMenuOpen] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null)
+  // Invitation portail
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteSelected, setInviteSelected] = useState<Set<string>>(new Set())
+  const [invitePinStatus, setInvitePinStatus] = useState<Record<string, boolean>>({})
+  const [inviteLoadingPins, setInviteLoadingPins] = useState(false)
+  const [inviteSending, setInviteSending] = useState(false)
+  const [inviteResults, setInviteResults] = useState<InviteResult[] | null>(null)
+  const [inviteQrs, setInviteQrs] = useState<Record<string, string>>({})
 
   // Ouvriers internes affichés : on exclut les magasiniers pour éviter le doublon.
   // Voir docs/OUVRIERS_MAGASINIERS.md pour le contexte et les alternatives.
@@ -574,6 +597,91 @@ export default function SousTraitantsPage() {
     })
   }
 
+  // ---- Invitation portail ----
+  const openInviteModal = async () => {
+    setInviteResults(null)
+    setInviteQrs({})
+    // Pré-sélectionner les sous-traitants actifs ayant un email
+    const preselect = new Set(
+      sousTraitants.filter(st => (st.actif ?? true) && st.email).map(st => st.id)
+    )
+    setInviteSelected(preselect)
+    setInviteOpen(true)
+    // Charger l'état des codes PIN en parallèle
+    setInviteLoadingPins(true)
+    try {
+      const entries = await Promise.all(
+        sousTraitants.map(async (st) => {
+          try {
+            const res = await fetch(`/api/sous-traitants/${st.id}/pin`)
+            if (res.ok) {
+              const data = await res.json()
+              return [st.id, !!data.hasPin] as const
+            }
+          } catch {}
+          return [st.id, false] as const
+        })
+      )
+      setInvitePinStatus(Object.fromEntries(entries))
+    } finally {
+      setInviteLoadingPins(false)
+    }
+  }
+
+  const toggleInvite = (id: string) => {
+    setInviteSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const inviteSelectAll = () => setInviteSelected(new Set(sousTraitants.map(st => st.id)))
+  const inviteSelectActifs = () =>
+    setInviteSelected(new Set(sousTraitants.filter(st => st.actif ?? true).map(st => st.id)))
+  const inviteClear = () => setInviteSelected(new Set())
+
+  const sendInvitations = async () => {
+    const ids = Array.from(inviteSelected)
+    if (ids.length === 0) {
+      showNotification('Info', 'Sélectionnez au moins un sous-traitant', 'info')
+      return
+    }
+    setInviteSending(true)
+    try {
+      const res = await fetch('/api/sous-traitants/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ soustraitantIds: ids }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Erreur lors de l\'envoi')
+      }
+      const data = await res.json() as { results: InviteResult[] }
+      setInviteResults(data.results)
+      const nbSent = data.results.filter(r => r.sent).length
+      showNotification('Succès', `${nbSent} invitation(s) envoyée(s) par email`, 'success')
+      // Générer les QR codes des liens portail
+      try {
+        const qrMod = await import('qrcode')
+        const QRCode = (qrMod as unknown as { default?: typeof qrMod }).default ?? qrMod
+        const qrEntries = await Promise.all(
+          data.results.map(async (r) => {
+            const dataUrl = await QRCode.toDataURL(r.portalUrl, { width: 220, margin: 1 })
+            return [r.id, dataUrl] as const
+          })
+        )
+        setInviteQrs(Object.fromEntries(qrEntries))
+      } catch {}
+    } catch (e) {
+      showNotification('Erreur', e instanceof Error ? e.message : 'Erreur réseau', 'error')
+    } finally {
+      setInviteSending(false)
+    }
+  }
+
   // Calculs pour les statistiques
   const totalSousTraitants = sousTraitants.length
   const totalOuvriers = sousTraitants.reduce((total, st) => total + (st._count?.ouvriers || 0), 0)
@@ -655,14 +763,25 @@ export default function SousTraitantsPage() {
         gradientColor="from-blue-600/10 via-indigo-600/10 to-purple-700/10"
         stats={statsCards}
         actions={
-          <Link
-            href="/sous-traitants/nouveau"
-            className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-semibold"
-          >
-            <PlusIcon className="h-4 w-4 mr-1.5" />
-            <span className="hidden sm:inline">Nouveau sous-traitant</span>
-            <span className="sm:hidden">Nouveau</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openInviteModal}
+              className="inline-flex items-center px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-lg shadow-sm hover:bg-blue-50 dark:hover:bg-gray-700 transition-all duration-200 text-sm font-semibold"
+            >
+              <PaperAirplaneIcon className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Inviter au portail</span>
+              <span className="sm:hidden">Inviter</span>
+            </button>
+            <Link
+              href="/sous-traitants/nouveau"
+              className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-semibold"
+            >
+              <PlusIcon className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Nouveau sous-traitant</span>
+              <span className="sm:hidden">Nouveau</span>
+            </Link>
+          </div>
         }
       />
 
@@ -1829,6 +1948,133 @@ export default function SousTraitantsPage() {
               >
                 Fermer
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale d'invitation au portail */}
+      {inviteOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            {/* En-tête */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <PaperAirplaneIcon className="h-6 w-6" />
+                <div>
+                  <h3 className="text-lg font-bold">Inviter au portail sous-traitant</h3>
+                  <p className="text-xs text-blue-100">Un rappel par email avec le lien (sans le code PIN)</p>
+                </div>
+              </div>
+              <button onClick={() => setInviteOpen(false)} className="p-1 rounded hover:bg-white/20 transition">
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Corps */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {!inviteResults ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <button onClick={inviteSelectAll} className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">Tout cocher</button>
+                    <button onClick={inviteSelectActifs} className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">Cocher les actifs</button>
+                    <button onClick={inviteClear} className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">Tout décocher</button>
+                    <span className="ml-auto text-sm font-semibold text-blue-600 dark:text-blue-400">{inviteSelected.size} sélectionné(s)</span>
+                  </div>
+
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-xl divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
+                    {sousTraitants.map((st) => {
+                      const checked = inviteSelected.has(st.id)
+                      const hasPin = invitePinStatus[st.id]
+                      const noEmail = !st.email
+                      return (
+                        <label key={st.id} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
+                          <input type="checkbox" checked={checked} onChange={() => toggleInvite(st.id)} className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-gray-900 dark:text-gray-100 truncate">{st.nom}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{st.email || 'Pas d\'email'}{st.telephone ? ` · ${st.telephone}` : ''}</div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {!inviteLoadingPins && hasPin === false && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">pas encore de code</span>
+                            )}
+                            {noEmail && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">sans email</span>
+                            )}
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                    Les sous-traitants « pas encore de code » recevront le lien mais devront d&apos;abord obtenir un code PIN (fiche sous-traitant). Ceux « sans email » n&apos;auront pas d&apos;envoi automatique — utilisez WhatsApp ou le QR code affichés après l&apos;envoi.
+                  </p>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  {inviteResults.map((r) => (
+                    <div key={r.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-900 dark:text-gray-100 truncate">{r.nom}</span>
+                          {r.sent ? (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 inline-flex items-center gap-1"><CheckIcon className="h-3 w-3" />Email envoyé</span>
+                          ) : r.email ? (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Échec email</span>
+                          ) : (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">Sans email</span>
+                          )}
+                          {!r.hasPin && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">à définir : code PIN</span>
+                          )}
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {r.whatsappUrl && (
+                            <a href={r.whatsappUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition">
+                              <ChatBubbleLeftRightIcon className="h-4 w-4" />WhatsApp
+                            </a>
+                          )}
+                          <button
+                            onClick={() => { navigator.clipboard?.writeText(r.portalUrl); showNotification('Copié', 'Lien copié dans le presse-papier', 'success') }}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                          >
+                            Copier le lien
+                          </button>
+                        </div>
+                      </div>
+                      {inviteQrs[r.id] && (
+                        <div className="shrink-0 text-center">
+                          {/* QR code généré à la volée (data URL) */}
+                          <img src={inviteQrs[r.id]} alt={`QR ${r.nom}`} className="h-24 w-24 rounded-lg border border-gray-200 dark:border-gray-700" />
+                          <div className="text-[10px] text-gray-400 mt-1 flex items-center justify-center gap-1"><QrCodeIcon className="h-3 w-3" />Scanner</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Pied */}
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-2">
+              {!inviteResults ? (
+                <>
+                  <button onClick={() => setInviteOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">Annuler</button>
+                  <button
+                    onClick={sendInvitations}
+                    disabled={inviteSending || inviteSelected.size === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-700 rounded-lg hover:from-blue-700 hover:to-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {inviteSending ? (
+                      <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />Envoi...</>
+                    ) : (
+                      <><PaperAirplaneIcon className="h-4 w-4" />Inviter ({inviteSelected.size})</>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setInviteOpen(false)} className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-700 rounded-lg hover:from-blue-700 hover:to-indigo-800">Terminé</button>
+              )}
             </div>
           </div>
         </div>

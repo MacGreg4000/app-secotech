@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftIcon, LockClosedIcon, CalendarIcon, ClipboardDocumentListIcon, WrenchScrewdriverIcon, DocumentPlusIcon, ArrowRightIcon, BuildingOfficeIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline'
 import { PortalI18nProvider, usePortalI18n } from '../../i18n'
-import Link from 'next/link'
 
 function InnerPortail(props: { params: { type: 'ouvrier'|'soustraitant'; actorId: string } }) {
   const { type, actorId } = props.params
@@ -152,7 +151,7 @@ function InnerPortail(props: { params: { type: 'ouvrier'|'soustraitant'; actorId
               <ArrowLeftIcon className="h-5 w-5 mr-1"/>{t('logout')}
             </button>
             <div className="flex items-center gap-2">
-              <div className="text-sm text-white/80">{type}</div>
+              <div className="text-sm text-white/80">{type === 'soustraitant' ? t('space_soustraitant') : t('portal_title_ouvrier')}</div>
               <select value={lang} onChange={(e)=> setLang(e.target.value as 'fr'|'en'|'pt'|'ro')} className="ml-2 bg-white/90 text-gray-900 border-0 rounded px-2 py-1 text-sm">
                 <option value="fr">FR</option>
                 <option value="en">EN</option>
@@ -162,117 +161,105 @@ function InnerPortail(props: { params: { type: 'ouvrier'|'soustraitant'; actorId
             </div>
           </div>
         </div>
-        {/* Identité acteur connecté */}
+        {/* Identité acteur connecté + bienvenue */}
         <ActorHeader type={type} actorId={actorId} />
 
-        {/* Cartes rapides */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Bouton Soumettre un métré (tout en haut, visible pour sous-traitant uniquement) */}
-          {type === 'soustraitant' && (
-            <button onClick={() => router.push(`/public/portail/${type}/${actorId}/metres/nouveau`)} className="bg-white rounded-xl p-4 shadow flex items-center justify-between border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
-              <div className="flex items-center">
-                <div className="h-10 w-10 rounded-full bg-yellow-50 text-yellow-700 flex items-center justify-center mr-3">
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        {/* Section ENVOYER */}
+        <div>
+          <h2 className="px-1 mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">{t('section_send')}</h2>
+          <div className="space-y-3">
+            {/* CTA principal: Soumettre un métré (sous-traitant) */}
+            {type === 'soustraitant' && (
+              <button onClick={() => router.push(`/public/portail/${type}/${actorId}/metres/nouveau`)} className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl p-4 shadow-lg flex items-center justify-between hover:shadow-xl active:scale-[0.99] transition">
+                <div className="flex items-center">
+                  <div className="h-11 w-11 rounded-full bg-white/20 flex items-center justify-center mr-3">
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                  </div>
+                  <div className="font-bold text-base">{t('submit_metre')}</div>
                 </div>
-                <div className="font-semibold text-gray-800">{t('submit_metre')}</div>
-              </div>
-              <ArrowRightIcon className="h-4 w-4 text-gray-400"/>
-            </button>
-          )}
-          {/* En haut à gauche: Mon planning */}
-          <button onClick={() => router.push(`/public/portail/${type}/${actorId}/planning`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
-            <div className="h-10 w-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center">
-              <CalendarIcon className="h-5 w-5"/>
+                <ArrowRightIcon className="h-5 w-5 text-white/80"/>
+              </button>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Bon de régie */}
+              <button onClick={() => router.push(`/public/portail/${type}/${actorId}/bon-regie/nouveau`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
+                <div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <DocumentPlusIcon className="h-5 w-5"/>
+                </div>
+                <div className="mt-2 text-sm font-semibold text-gray-800 text-center">{t('new_bon_regie')}</div>
+              </button>
+              {/* Photos */}
+              <button onClick={() => router.push(`/public/portail/${type}/${actorId}/photos`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
+                <div className="h-10 w-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div className="mt-2 text-sm font-semibold text-gray-800 text-center">{t('photos_send')}</div>
+              </button>
+              {/* Journal - ouvriers internes */}
+              {type === 'ouvrier' && (
+                <button onClick={() => router.push(`/public/portail/${type}/${actorId}/journal`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
+                  <div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-gray-800 text-center">{t('journal')}</div>
+                </button>
+              )}
+              {/* Documents - ouvriers internes */}
+              {type === 'ouvrier' && (
+                <button onClick={() => router.push(`/public/portail/${type}/${actorId}/documents/upload`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
+                  <div className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <DocumentArrowUpIcon className="h-5 w-5" />
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-gray-800 text-center">Envoyer un document</div>
+                </button>
+              )}
             </div>
-            <div className="mt-2 text-sm font-semibold text-gray-800">{t('my_planning')}</div>
-            <ArrowRightIcon className="h-4 w-4 text-gray-400 mt-1"/>
-          </button>
-          {/* En haut à droite: Bon régie */}
-          <button onClick={() => router.push(`/public/portail/${type}/${actorId}/bon-regie/nouveau`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
-            <div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <DocumentPlusIcon className="h-5 w-5"/>
-            </div>
-            <div className="mt-2 text-sm font-semibold text-gray-800">{t('new_bon_regie')}</div>
-            <ArrowRightIcon className="h-4 w-4 text-gray-400 mt-1"/>
-          </button>
-          {/* En bas à gauche: Réception */}
-          <button onClick={() => router.push(`/public/portail/${type}/${actorId}/receptions`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
-            <div className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-              <ClipboardDocumentListIcon className="h-5 w-5"/>
-            </div>
-            <div className="mt-2 text-sm font-semibold text-gray-800">{t('receptions')}</div>
-            <ArrowRightIcon className="h-4 w-4 text-gray-400 mt-1"/>
-          </button>
-          {/* En bas à droite: Ticket SAV */}
-          <button onClick={() => router.push(`/public/portail/${type}/${actorId}/sav`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
-            <div className="h-10 w-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <WrenchScrewdriverIcon className="h-5 w-5"/>
-            </div>
-            <div className="mt-2 text-sm font-semibold text-gray-800">{t('sav_tickets')}</div>
-            <ArrowRightIcon className="h-4 w-4 text-gray-400 mt-1"/>
-          </button>
-          {/* Journal - Seulement pour les ouvriers internes */}
-          {type === 'ouvrier' && (
-            <button onClick={() => router.push(`/public/portail/${type}/${actorId}/journal`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
-              <div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div className="mt-2 text-sm font-semibold text-gray-800">{t('journal')}</div>
-              <ArrowRightIcon className="h-4 w-4 text-gray-400 mt-1"/>
-            </button>
-          )}
-          {/* Consultation des chantiers */}
-          <button onClick={() => router.push(`/public/portail/${type}/${actorId}/chantiers`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
-            <div className="h-10 w-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <BuildingOfficeIcon className="h-5 w-5"/>
-            </div>
-            <div className="mt-2 text-sm font-semibold text-gray-800">{t('chantiers')}</div>
-            <ArrowRightIcon className="h-4 w-4 text-gray-400 mt-1"/>
-          </button>
+          </div>
         </div>
 
-        {/* Carte Upload Photos */}
-        <div className="bg-white rounded-xl p-4 shadow border border-gray-100">
-          <button onClick={() => router.push(`/public/portail/${type}/${actorId}/photos`)} className="flex items-center justify-between hover:bg-gray-50 rounded-lg p-3 transition-colors w-full text-left">
-            <div className="flex items-center">
-              <div className="h-10 w-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center mr-3">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+        {/* Section CONSULTER */}
+        <div>
+          <h2 className="px-1 mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">{t('section_consult')}</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Planning */}
+            <button onClick={() => router.push(`/public/portail/${type}/${actorId}/planning`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
+              <div className="h-10 w-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center">
+                <CalendarIcon className="h-5 w-5"/>
               </div>
-              <div>
-                <div className="font-semibold text-gray-800">{t('photos_send')}</div>
-                <div className="text-sm text-gray-500">{t('photos_subtitle')}</div>
+              <div className="mt-2 text-sm font-semibold text-gray-800 text-center">{t('my_planning')}</div>
+            </button>
+            {/* Chantiers */}
+            <button onClick={() => router.push(`/public/portail/${type}/${actorId}/chantiers`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
+              <div className="h-10 w-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <BuildingOfficeIcon className="h-5 w-5"/>
               </div>
-            </div>
-            <ArrowRightIcon className="h-4 w-4 text-gray-400"/>
-          </button>
-        </div>
-
-        {/* Carte Upload Documents - Seulement pour les ouvriers internes */}
-        {type === 'ouvrier' && (
-          <div className="bg-white rounded-xl p-4 shadow border border-gray-100">
-            <button onClick={() => router.push(`/public/portail/${type}/${actorId}/documents/upload`)} className="flex items-center justify-between hover:bg-gray-50 rounded-lg p-3 transition-colors w-full text-left">
-              <div className="flex items-center">
-                <div className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mr-3">
-                  <DocumentArrowUpIcon className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="font-semibold text-gray-800">Envoyer un document</div>
-                  <div className="text-sm text-gray-500">Facture ou document comptable</div>
-                </div>
+              <div className="mt-2 text-sm font-semibold text-gray-800 text-center">{t('chantiers')}</div>
+            </button>
+            {/* Réceptions */}
+            <button onClick={() => router.push(`/public/portail/${type}/${actorId}/receptions`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
+              <div className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                <ClipboardDocumentListIcon className="h-5 w-5"/>
               </div>
-              <ArrowRightIcon className="h-4 w-4 text-gray-400"/>
+              <div className="mt-2 text-sm font-semibold text-gray-800 text-center">{t('receptions')}</div>
+            </button>
+            {/* SAV */}
+            <button onClick={() => router.push(`/public/portail/${type}/${actorId}/sav`)} className="bg-white rounded-xl p-4 shadow flex flex-col items-center justify-center border border-gray-100 hover:shadow-md active:scale-[0.99] transition">
+              <div className="h-10 w-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <WrenchScrewdriverIcon className="h-5 w-5"/>
+              </div>
+              <div className="mt-2 text-sm font-semibold text-gray-800 text-center">{t('sav_tickets')}</div>
             </button>
           </div>
-        )}
+        </div>
 
-        {/* Encart: Mes métrés soumis */}
+        {/* Encart: Mes métrés soumis (suivi) */}
         {type === 'soustraitant' && (
-          <MesMetres actorId={actorId} />
+          <MesMetres type={type} actorId={actorId} />
         )}
       </div>
     </div>
@@ -289,6 +276,7 @@ export default function PortailPublicPage(props: { params: Promise<{ type: 'ouvr
 }
 
 function ActorHeader({ type, actorId }: { type: 'ouvrier'|'soustraitant'; actorId: string }) {
+  const { t } = usePortalI18n()
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
   const [role, setRole] = useState('')
@@ -310,55 +298,71 @@ function ActorHeader({ type, actorId }: { type: 'ouvrier'|'soustraitant'; actorI
   // Avatar avec initiales
   const initials = name.split(' ').map(p=>p[0]).filter(Boolean).slice(0,2).join('').toUpperCase()
   return (
-    <div className="bg-white rounded-2xl p-4 shadow flex items-center gap-3 border border-gray-100">
-      <div className="h-10 w-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
-        {initials || '•'}
+    <div className="bg-white rounded-2xl p-4 shadow border border-gray-100">
+      <div className="flex items-center gap-3">
+        <div className="h-11 w-11 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold shrink-0">
+          {initials || '•'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-gray-900 truncate">{t('welcome_greeting')} {name}</div>
+          <div className="text-gray-500 text-xs">{role}</div>
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-gray-900 truncate">{name}</div>
-        <div className="text-gray-500 text-xs">{role}</div>
-      </div>
+      {type === 'soustraitant' && (
+        <p className="mt-3 text-sm text-gray-500 leading-snug">{t('portal_intro')}</p>
+      )}
     </div>
   )
 }
 
-function MesMetres({ actorId }: { actorId: string }) {
+// Correspondance statut métré -> libellé i18n + couleur du badge
+const METRE_STATUS_STYLES: Record<string, { key: string; cls: string }> = {
+  BROUILLON: { key: 'metre_status_brouillon', cls: 'bg-gray-100 text-gray-700 border-gray-200' },
+  SOUMIS: { key: 'metre_status_soumis', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+  VALIDE: { key: 'metre_status_valide', cls: 'bg-green-100 text-green-700 border-green-200' },
+  PARTIELLEMENT_VALIDE: { key: 'metre_status_partiel', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+  REJETE: { key: 'metre_status_rejete', cls: 'bg-red-100 text-red-700 border-red-200' },
+}
+
+function MesMetres({ type, actorId }: { type: 'ouvrier'|'soustraitant'; actorId: string }) {
   const { t } = usePortalI18n()
   const [items, setItems] = useState<{ id: string; statut: string; createdAt: string; chantier: { chantierId: string; nomChantier: string } }[]>([])
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/metres', { cache: 'no-store' })
+        const res = await fetch(`/api/public/portail/${type}/${actorId}/metres`, { credentials: 'include', cache: 'no-store' })
         const json = await res.json()
-        if (res.ok && Array.isArray(json?.data)) {
-          setItems(json.data.filter((m: { soustraitant?: { id?: string } }) => m?.soustraitant?.id === actorId))
+        if (res.ok && Array.isArray(json)) {
+          setItems(json)
         }
       } catch {
         setItems([])
       }
     })()
-  }, [actorId])
+  }, [type, actorId])
   return (
     <div className="bg-white rounded-xl p-4 shadow border border-gray-100">
       <div className="flex items-center justify-between mb-2">
         <div className="font-semibold text-gray-800">{t('my_submitted_metres')}</div>
-        <Link href="#" onClick={(e)=>{e.preventDefault();}} className="text-sm text-gray-500">&nbsp;</Link>
       </div>
       {items.length === 0 ? (
         <div className="text-sm text-gray-500">{t('none')}</div>
       ) : (
         <ul className="divide-y divide-gray-200">
-          {items.map((m) => (
-            <li key={m.id} className="py-2 flex items-center justify-between">
-              <div>
-                <div className="font-medium text-gray-800">{m.chantier.nomChantier}</div>
-                <div className="text-xs text-gray-500">{new Date(m.createdAt).toLocaleDateString('fr-FR')}</div>
-              </div>
-              <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 border">
-                {m.statut}
-              </span>
-            </li>
-          ))}
+          {items.map((m) => {
+            const style = METRE_STATUS_STYLES[m.statut] ?? { key: '', cls: 'bg-gray-100 text-gray-700 border-gray-200' }
+            return (
+              <li key={m.id} className="py-2 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-medium text-gray-800 truncate">{m.chantier.nomChantier}</div>
+                  <div className="text-xs text-gray-500">{new Date(m.createdAt).toLocaleDateString('fr-FR')}</div>
+                </div>
+                <span className={`text-xs px-2 py-1 rounded-full border shrink-0 ${style.cls}`}>
+                  {style.key ? t(style.key) : m.statut}
+                </span>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>

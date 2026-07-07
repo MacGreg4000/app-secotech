@@ -14,6 +14,36 @@ interface MetreLineInput {
   estSupplement?: boolean
 }
 
+// GET: liste des métrés soumis par le sous-traitant connecté (uniquement les siens)
+export async function GET(request: Request, props: { params: Promise<{ type: 'ouvrier'|'soustraitant'; actorId: string }> }) {
+  const { type, actorId } = await props.params
+  if (type !== 'soustraitant') {
+    return NextResponse.json({ error: 'Type non supporté' }, { status: 400 })
+  }
+
+  const session = readPortalSessionFromCookie(request.headers.get('cookie'))
+  if (!session || session.t !== 'SOUSTRAITANT' || session.id !== actorId) {
+    return unauthorized()
+  }
+
+  try {
+    const metres = await prisma.metreSoustraitant.findMany({
+      where: { soustraitantId: actorId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        statut: true,
+        createdAt: true,
+        chantier: { select: { chantierId: true, nomChantier: true } },
+      },
+    })
+    return NextResponse.json(metres)
+  } catch (error) {
+    console.error('Erreur récupération métrés portail:', error)
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}
+
 // POST: créer/soumettre un métré
 // Body: { chantierId?, freeChantierNom?, commandeId?, statut?, commentaire?, piecesJointes?: string[], lignes: [...] }
 export async function POST(request: Request, props: { params: Promise<{ type: 'ouvrier'|'soustraitant'; actorId: string }> }) {
