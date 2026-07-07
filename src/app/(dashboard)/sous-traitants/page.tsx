@@ -611,7 +611,7 @@ export default function SousTraitantsPage() {
     setInviteLoadingPins(true)
     try {
       const entries = await Promise.all(
-        sousTraitants.map(async (st) => {
+        sousTraitants.filter(st => st.actif ?? true).map(async (st) => {
           try {
             const res = await fetch(`/api/sous-traitants/${st.id}/pin`)
             if (res.ok) {
@@ -637,8 +637,7 @@ export default function SousTraitantsPage() {
     })
   }
 
-  const inviteSelectAll = () => setInviteSelected(new Set(sousTraitants.map(st => st.id)))
-  const inviteSelectActifs = () =>
+  const inviteSelectAll = () =>
     setInviteSelected(new Set(sousTraitants.filter(st => st.actif ?? true).map(st => st.id)))
   const inviteClear = () => setInviteSelected(new Set())
 
@@ -1977,13 +1976,12 @@ export default function SousTraitantsPage() {
                 <>
                   <div className="flex flex-wrap items-center gap-2 mb-4">
                     <button onClick={inviteSelectAll} className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">Tout cocher</button>
-                    <button onClick={inviteSelectActifs} className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">Cocher les actifs</button>
                     <button onClick={inviteClear} className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">Tout décocher</button>
                     <span className="ml-auto text-sm font-semibold text-blue-600 dark:text-blue-400">{inviteSelected.size} sélectionné(s)</span>
                   </div>
 
                   <div className="border border-gray-200 dark:border-gray-700 rounded-xl divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
-                    {sousTraitants.map((st) => {
+                    {sousTraitants.filter(st => st.actif ?? true).map((st) => {
                       const checked = inviteSelected.has(st.id)
                       const hasPin = invitePinStatus[st.id]
                       const noEmail = !st.email
