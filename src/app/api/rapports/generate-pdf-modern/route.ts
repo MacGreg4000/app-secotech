@@ -6,6 +6,13 @@ import { PDFGenerator } from '@/lib/pdf/pdf-generator'
 import { generateRapportHTML, type RapportData } from '@/lib/pdf/templates/rapport-template'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
+import sharp from 'sharp'
+
+// Dimension max et qualité des photos embarquées dans le PDF.
+// Un rapport A4 n'a pas besoin du 1920px d'origine : on réduit fortement
+// le poids pour éviter la saturation mémoire de Puppeteer et alléger le PDF.
+const PDF_PHOTO_MAX_DIM = 1200
+const PDF_PHOTO_QUALITY = 70
 
 export const dynamic = 'force-dynamic'
 
@@ -59,21 +66,32 @@ export async function POST(request: Request) {
       console.log(`📋 URLs reçues:`, photos.map((p: { preview?: string }) => p.preview))
     }
     
-    // Convertir les photos en base64
+    // Convertir les photos en base64 (redimensionnées pour alléger le PDF)
     const photosWithBase64 = await Promise.all(
       (photos || []).map(async (photo: { url: string; caption?: string; preview?: string }) => {
         try {
           console.log(`🔍 Traitement photo: ${photo.preview}`)
-          // Si la photo a déjà une URL du serveur, la convertir en base64
+          // Si la photo a déjà une URL du serveur, la redimensionner puis la convertir en base64
           if (photo.preview && photo.preview.startsWith('/uploads/')) {
             const imagePath = join(process.cwd(), 'public', photo.preview)
             const imageBuffer = await readFile(imagePath)
-            const extension = photo.preview.split('.').pop()?.toLowerCase() || 'jpg'
-            const mimeType = extension === 'png' ? 'image/png' : 
-                            extension === 'webp' ? 'image/webp' :
-                            'image/jpeg'
-            const base64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`
-            console.log(`✅ Photo convertie en base64: ${photo.preview}`)
+            let outputBuffer: Buffer = imageBuffer
+            let mimeType = 'image/jpeg'
+            try {
+              // Réduire à PDF_PHOTO_MAX_DIM max (sans agrandir) et recompresser en JPEG
+              outputBuffer = await sharp(imageBuffer)
+                .rotate() // respecter l'orientation EXIF (photos de téléphone)
+                .resize(PDF_PHOTO_MAX_DIM, PDF_PHOTO_MAX_DIM, { fit: 'inside', withoutEnlargement: true })
+                .jpeg({ quality: PDF_PHOTO_QUALITY })
+                .toBuffer()
+            } catch (resizeErr) {
+              // Si sharp échoue (format exotique), on garde l'image d'origine
+              console.warn(`⚠️ Redimensionnement impossible pour ${photo.preview}, image d'origine conservée:`, resizeErr)
+              const extension = photo.preview.split('.').pop()?.toLowerCase() || 'jpg'
+              mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg'
+            }
+            const base64 = `data:${mimeType};base64,${outputBuffer.toString('base64')}`
+            console.log(`✅ Photo prête (${Math.round(outputBuffer.length / 1024)} Ko): ${photo.preview}`)
             return {
               ...photo,
               preview: base64

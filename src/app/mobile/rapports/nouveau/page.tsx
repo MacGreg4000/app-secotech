@@ -283,9 +283,24 @@ export default function MobileNouveauRapportPage() {
     setErrorMessage(null)
     setSaving(true)
 
+    // Extrait un message d'erreur lisible depuis une réponse serveur
+    const extractError = async (response: Response, fallback: string): Promise<string> => {
+      try {
+        const data = await response.json()
+        if (data?.error) return `${fallback} : ${data.error}`
+      } catch {
+        try {
+          const text = await response.text()
+          if (text) return `${fallback} (${response.status}) : ${text.slice(0, 200)}`
+        } catch {}
+      }
+      return `${fallback} (${response.status})`
+    }
+
     try {
       // Uploader les photos d'abord et mapper avec leurs annotations
       const uploadedPhotos: Array<{ url: string; annotation: string }> = []
+      let photosEnEchec = 0
       for (const photo of photos) {
         const formData = new FormData()
         formData.append('file', photo.file)
@@ -304,7 +319,15 @@ export default function MobileNouveauRapportPage() {
             url: data.url || data.documentUrl,
             annotation: photo.annotation || '',
           })
+        } else {
+          photosEnEchec++
+          console.error('Échec upload photo:', await extractError(response, 'upload photo'))
         }
+      }
+
+      // Si toutes les photos ont échoué alors qu'il y en avait, prévenir explicitement
+      if (photos.length > 0 && uploadedPhotos.length === 0) {
+        throw new Error(`Impossible d'envoyer les photos (${photosEnEchec} en échec). Vérifiez votre connexion et réessayez.`)
       }
 
       // Générer le PDF du rapport
@@ -329,7 +352,7 @@ export default function MobileNouveauRapportPage() {
       })
 
       if (!pdfResponse.ok) {
-        throw new Error('Erreur lors de la génération du PDF')
+        throw new Error(await extractError(pdfResponse, 'Génération du PDF'))
       }
 
       const pdfBlob = await pdfResponse.blob()
@@ -352,13 +375,13 @@ export default function MobileNouveauRapportPage() {
       )
 
       if (!uploadResponse.ok) {
-        throw new Error('Erreur lors de l\'upload du rapport')
+        throw new Error(await extractError(uploadResponse, 'Enregistrement du rapport'))
       }
 
       router.push('/mobile/documents')
     } catch (error) {
       console.error('Erreur:', error)
-      setErrorMessage('Erreur lors de l\'enregistrement du rapport')
+      setErrorMessage(error instanceof Error ? error.message : 'Erreur lors de l\'enregistrement du rapport')
     } finally {
       setSaving(false)
     }
