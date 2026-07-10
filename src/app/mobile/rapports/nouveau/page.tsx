@@ -7,6 +7,7 @@ import { compressImages } from '@/lib/utils/image-compression'
 import {
   ArrowLeftIcon,
   CameraIcon,
+  PhotoIcon,
   XMarkIcon,
   UserGroupIcon,
   DocumentTextIcon,
@@ -150,7 +151,7 @@ export default function MobileNouveauRapportPage() {
           file,
           preview: URL.createObjectURL(file),
           annotation: '',
-          tags: ['Rapport'],
+          tags: ['Général'],
         }
         setPhotos((prev) => [...prev, photo])
       })
@@ -163,7 +164,7 @@ export default function MobileNouveauRapportPage() {
           file,
           preview: URL.createObjectURL(file),
           annotation: '',
-          tags: ['Rapport'],
+          tags: ['Général'],
         }
         setPhotos((prev) => [...prev, photo])
       })
@@ -298,15 +299,18 @@ export default function MobileNouveauRapportPage() {
     }
 
     try {
-      // Uploader les photos d'abord et mapper avec leurs annotations
-      const uploadedPhotos: Array<{ url: string; annotation: string }> = []
+      // Uploader les photos d'abord. On porte l'annotation ET les tags DANS
+      // uploadedPhotos pour ne plus dépendre d'une correspondance par index
+      // (qui se décalait si un upload échouait).
+      const uploadedPhotos: Array<{ url: string; annotation: string; tags: string[] }> = []
       let photosEnEchec = 0
       for (const photo of photos) {
+        const photoTags = photo.tags.length > 0 ? photo.tags : ['Général']
         const formData = new FormData()
         formData.append('file', photo.file)
         formData.append('chantierId', selectedChantier.chantierId)
         formData.append('annotation', photo.annotation || '')
-        formData.append('tags', JSON.stringify(photo.tags.length > 0 ? photo.tags : ['Rapport']))
+        formData.append('tags', JSON.stringify(photoTags))
 
         const response = await fetch('/api/rapports/upload-photo', {
           method: 'POST',
@@ -318,6 +322,7 @@ export default function MobileNouveauRapportPage() {
           uploadedPhotos.push({
             url: data.url || data.documentUrl,
             annotation: photo.annotation || '',
+            tags: photoTags,
           })
         } else {
           photosEnEchec++
@@ -330,7 +335,7 @@ export default function MobileNouveauRapportPage() {
         throw new Error(`Impossible d'envoyer les photos (${photosEnEchec} en échec). Vérifiez votre connexion et réessayez.`)
       }
 
-      // Générer le PDF du rapport
+      // Générer le PDF du rapport (le template lit `annotation`, pas `caption`)
       const pdfResponse = await fetch('/api/rapports/generate-pdf-modern', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -339,15 +344,12 @@ export default function MobileNouveauRapportPage() {
           date,
           notes: notes,
           personnes,
-          photos: uploadedPhotos.map((p, index) => {
-            const photo = photos[index]
-            return {
-              url: p.url,
-              preview: p.url,
-              caption: p.annotation,
-              tags: photo?.tags || ['Rapport'],
-            }
-          }),
+          photos: uploadedPhotos.map((p) => ({
+            url: p.url,
+            preview: p.url,
+            annotation: p.annotation,
+            tags: p.tags,
+          })),
         }),
       })
 
@@ -392,7 +394,7 @@ export default function MobileNouveauRapportPage() {
   }
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-28">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 text-white">
         <div className="max-w-md mx-auto px-4 py-6">
@@ -800,6 +802,36 @@ export default function MobileNouveauRapportPage() {
           </button>
         </form>
       </div>
+
+      {/* Barre fixe « ajouter une photo » — toujours accessible dès qu'une photo
+          existe, pour ne plus avoir à remonter jusqu'au bouton du haut. */}
+      {photos.length > 0 && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur px-4 pt-3"
+          style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+        >
+          <div className="max-w-md mx-auto flex gap-3">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={compressing}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-medium hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50"
+            >
+              <CameraIcon className="h-5 w-5" />
+              <span>Photo</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={compressing}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 border-2 border-blue-200 text-blue-600 rounded-xl text-sm font-medium hover:bg-blue-100 disabled:opacity-50"
+            >
+              <PhotoIcon className="h-5 w-5" />
+              <span>Galerie</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

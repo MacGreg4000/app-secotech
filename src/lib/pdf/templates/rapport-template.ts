@@ -1,3 +1,5 @@
+import { tagsInclude } from '@/lib/utils/tags'
+
 export interface RapportData {
   chantier: {
     id: number
@@ -33,11 +35,11 @@ export function generateRapportHTML(data: RapportData): string {
   
   // Filtrer les notes et photos selon le tagFilter
   const notesToInclude = tagFilter && tagFilter !== 'Tous'
-    ? notes.filter(note => note.tags.includes(tagFilter))
+    ? notes.filter(note => tagsInclude(note.tags, tagFilter))
     : notes
-    
+
   const photosToInclude = tagFilter && tagFilter !== 'Tous'
-    ? photos.filter(photo => photo.tags && photo.tags.includes(tagFilter))
+    ? photos.filter(photo => tagsInclude(photo.tags, tagFilter))
     : photos
 
   return `

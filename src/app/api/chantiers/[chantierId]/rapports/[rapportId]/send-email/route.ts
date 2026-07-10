@@ -61,7 +61,10 @@ export async function POST(
       }
     })
 
-    if (!rapport || rapport.type !== 'rapport-visite') {
+    // Accepter tous les types de rapport de visite : mobile (`rapport-visite`),
+    // général desktop (`rapport-visite-general`) et variantes par tag
+    // (`rapport-visite-tag-*`).
+    if (!rapport || typeof rapport.type !== 'string' || !rapport.type.startsWith('rapport-visite')) {
       return NextResponse.json({ error: 'Rapport non trouvé' }, { status: 404 })
     }
 

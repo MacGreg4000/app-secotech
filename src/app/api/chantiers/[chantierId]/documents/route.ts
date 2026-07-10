@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma/client'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { notifier } from '@/lib/services/notificationService'
+import { dedupeTags } from '@/lib/utils/tags'
 
 // Type JSON local pour éviter la dépendance aux types Prisma
 type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[]
@@ -156,13 +157,20 @@ export async function POST(request: Request, props: { params: Promise<{ chantier
     // Pour la simplicité avec FormData, nous allons attendre une chaîne de tags séparés par des virgules, ou un champ 'tags' par tag.
     // Alternative: si le client envoie un JSON dans un champ "documentData", ce serait plus propre.
     // Pour l'instant, on s'attend à ce que le client envoie un string JSON dans formData.get('tagsJsonString')
-    const tagsJsonString = formData.get('tagsJsonString') as string | null;
+    // Les tags de la relation many-to-many peuvent arriver soit dans
+    // `tagsJsonString` (ancien nom), soit dans `tags` (nom réellement envoyé
+    // par les pages). On lit les deux. Pour les PDF de rapport, on n'alimente
+    // PAS la relation depuis la liste de tags disponibles (géré via metadata) —
+    // seuls les documents photo/pièces jointes utilisent la relation ici.
+    const isRapportDoc = typeof documentType === 'string' && documentType.startsWith('rapport-visite')
+    const rawTagsField = (formData.get('tagsJsonString') as string | null)
+      ?? (isRapportDoc ? null : (formData.get('tags') as string | null))
     let tagsToConnect: { nom: string }[] = [];
-    if (tagsJsonString) {
+    if (rawTagsField) {
       try {
-        const tagNames = JSON.parse(tagsJsonString) as string[];
+        const tagNames = JSON.parse(rawTagsField) as string[];
         if (Array.isArray(tagNames) && tagNames.length > 0) {
-          tagsToConnect = tagNames.map(nom => ({ nom }));
+          tagsToConnect = dedupeTags(tagNames).map(nom => ({ nom }));
         }
       } catch (e) {
         console.error("Erreur lors du parsing du JSON des tags:", e);

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma/client'
 import { unlink, mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
+import { dedupeTags } from '@/lib/utils/tags'
 
 // Définir un type qui inclut metadata
 interface DocumentWithMetadata {
@@ -63,11 +64,17 @@ export async function GET(
     // Traiter le document comme ayant potentiellement une propriété metadata
     const document = documentResult as unknown as DocumentWithMetadata;
 
-    // Pour les rapports de visite, essayer de récupérer les métadonnées supplémentaires
-    if (document.type === 'rapport-visite') {
+    // Pour les rapports de visite (général, variantes par tag, ou mobile),
+    // renvoyer les métadonnées sous forme d'OBJET afin que l'édition puisse
+    // recharger notes/photos/personnes/tags de façon fiable.
+    if (typeof document.type === 'string' && document.type.startsWith('rapport-visite')) {
       try {
-        // Vérifier si le document a des métadonnées JSON stockées
-        const metadata = document.metadata ? JSON.parse(document.metadata) : null;
+        // Tolérant : la colonne peut contenir un objet (nouveau) ou une chaîne
+        // (legacy double-encodée). On normalise en objet.
+        const rawMeta: unknown = document.metadata
+        const metadata = typeof rawMeta === 'string'
+          ? (rawMeta ? JSON.parse(rawMeta) : null)
+          : (rawMeta ?? null);
         
         // S'il y a des métadonnées et des photos, vérifier que les photos existent bien
         if (metadata && metadata.photos && Array.isArray(metadata.photos)) {
@@ -144,7 +151,7 @@ export async function PUT(
     const { metadata: newMetadata, estPlan: newEstPlan, tags: newTagNames } = body
 
     // Préparer les données pour la mise à jour
-    const updateData: { metadata?: string; estPlan?: boolean; tags?: unknown; updatedAt: Date } = {
+    const updateData: { metadata?: unknown; estPlan?: boolean; tags?: unknown; updatedAt: Date } = {
       updatedAt: new Date(),
     };
 
@@ -157,7 +164,7 @@ export async function PUT(
       // newTagNames est un tableau de noms de tags, ex: ["Contrat", "Plans"]
       updateData.tags = {
         set: [], // Déconnecte tous les tags existants
-        connectOrCreate: newTagNames.map(nom => ({
+        connectOrCreate: dedupeTags(newTagNames).map(nom => ({
           where: { nom },
           create: { nom },
         }))
@@ -165,7 +172,10 @@ export async function PUT(
     }
 
     if (newMetadata) {
-      updateData.metadata = JSON.stringify(newMetadata);
+      // Stocker l'objet directement dans la colonne Json (Prisma se charge de
+      // la sérialisation). NE PAS re-JSON.stringify sinon on double-encode et la
+      // relecture renvoie une chaîne au lieu d'un objet.
+      updateData.metadata = newMetadata;
       // Si des photos sont incluses, les sauvegarder physiquement
       if (newMetadata.photos && Array.isArray(newMetadata.photos)) {
         const photoDir = join(PHOTOS_BASE_PATH, params.chantierId, params.documentId);
