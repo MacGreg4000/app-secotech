@@ -604,6 +604,9 @@ model Chantier {
   // Métrés sur plan
   metresPlan               MetrePlan[]
 
+  // Rapports de visite (modèle durable)
+  rapports                 Rapport[]
+
   @@index([clientId])
   @@index([contactId])
 }
@@ -653,14 +656,80 @@ model Document {
   updatedAt        DateTime            @updatedAt
   metadata         Json?
   estPlan          Boolean             @default(false)
+  // Lien optionnel vers un rapport de visite (modèle durable). Les documents
+  // legacy (avant migration) gardent rapportId = null.
+  rapportId        String?
+  // Clé de tag normalisée pour les variantes rapport-visite-tag-* (retrouver
+  // le tag d'origine de façon fiable, sans reparser le nom de fichier).
+  tagKey           String?
   chantier         Chantier?           @relation(fields: [chantierId], references: [chantierId], onDelete: Cascade)
   User             User                @relation(fields: [createdBy], references: [id])
+  rapport          Rapport?            @relation("RapportDocuments", fields: [rapportId], references: [id], onDelete: SetNull)
   remarquesSurPlan RemarqueReception[] @relation("RemarqueSurPlan")
   tags             Tag[]               @relation("DocumentTags")
 
   @@index([chantierId])
   @@index([createdBy])
+  @@index([rapportId])
   @@map("Document")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rapports de visite — modèle durable
+// Un rapport porte ses notes et photos en base (édition fiable). Les PDF générés
+// (général + variantes par tag) restent des `Document` liés via Document.rapportId.
+// ─────────────────────────────────────────────────────────────────────────────
+model Rapport {
+  id          String         @id @default(cuid())
+  chantierId  String
+  date        DateTime
+  createdBy   String
+  // Personnes présentes : [{ id, nom, fonction }]
+  personnes   Json?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  chantier    Chantier       @relation(fields: [chantierId], references: [chantierId], onDelete: Cascade)
+  auteur      User           @relation(fields: [createdBy], references: [id])
+  notes       RapportNote[]
+  photos      RapportPhoto[]
+  documents   Document[]     @relation("RapportDocuments")
+
+  @@index([chantierId])
+  @@index([createdBy])
+  @@map("rapport")
+}
+
+model RapportNote {
+  id         String   @id @default(cuid())
+  rapportId  String
+  contenu    String   @db.Text
+  // Tags canoniques : string[]
+  tags       Json?
+  ordre      Int      @default(0)
+
+  rapport    Rapport  @relation(fields: [rapportId], references: [id], onDelete: Cascade)
+
+  @@index([rapportId])
+  @@map("rapport_note")
+}
+
+model RapportPhoto {
+  id          String   @id @default(cuid())
+  rapportId   String
+  // URL durable (/uploads/rapports/<rapportId>/photo_N.<ext>)
+  url         String
+  annotation  String?  @db.Text
+  // Tags canoniques : string[]
+  tags        Json?
+  ordre       Int      @default(0)
+  // Lien optionnel vers le Document photo-chantier correspondant
+  documentId  Int?
+
+  rapport     Rapport  @relation(fields: [rapportId], references: [id], onDelete: Cascade)
+
+  @@index([rapportId])
+  @@map("rapport_photo")
 }
 
 model DossierTechnique {
@@ -959,6 +1028,7 @@ model User {
   updatedAt          DateTime
   name               String?
   Document           Document[]
+  rapports           Rapport[]
   Note               Note[]
   admintask          admintask[]
   sentMessages       ChatMessage[]
