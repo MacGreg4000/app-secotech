@@ -10,18 +10,18 @@ export interface RapportData {
   }
   date: string
   personnes: Array<{
-    id: string
+    id?: string
     nom: string
     fonction: string
   }>
   notes: Array<{
-    id: string
+    id?: string
     contenu: string
     tags: string[]
   }>
   photos: Array<{
-    id: string
-    file: File | null
+    id?: string
+    file?: File | null
     preview: string
     annotation: string
     tags: string[]
