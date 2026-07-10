@@ -107,16 +107,20 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Retourner l'URL publique (celle du dossier temporaire pour le PDF)
-    const publicUrl = `/uploads/rapports-temp/${chantierId}/${filename}`
+    // On renvoie l'URL DURABLE (dossier documents) comme `url` : c'est elle qui
+    // sera mémorisée dans le rapport, afin que les photos restent visibles en
+    // édition. L'URL temporaire est conservée séparément (compat éventuelle).
+    const tempUrl = `/uploads/rapports-temp/${chantierId}/${filename}`
 
-    console.log(`📸 Photo uploadée: ${publicUrl}`)
+    console.log(`📸 Photo uploadée (durable): ${documentUrl}`)
     console.log(`📝 Document créé en BDD: ID=${document.id}, type=${document.type}, url=${document.url}`)
 
     return NextResponse.json({
-      url: publicUrl,
+      url: documentUrl,
+      documentId: document.id,
       filename,
-      documentUrl
+      documentUrl,
+      tempUrl
     })
   } catch (error) {
     console.error('❌ Erreur lors de l\'upload de la photo:', error)

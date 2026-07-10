@@ -1254,17 +1254,17 @@ export default function NouveauRapportPage(props: { params: Promise<{ chantierId
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-rose-100 dark:from-gray-900 dark:via-gray-850 dark:to-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <div className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-2 border-white/50 dark:border-gray-700/50 rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/80 via-orange-600/80 to-red-700/80 dark:from-orange-500/35 dark:via-orange-600/35 dark:to-red-700/35" />
+        <div className="relative rounded-2xl shadow-sm overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-700 dark:from-blue-700 dark:to-indigo-800" />
           <div className="relative z-10 p-4 sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <Link
                     href={`/chantiers/${params.chantierId}/rapports`}
-                    className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/40 bg-white/20 backdrop-blur-sm text-white shadow-sm shadow-orange-900/30 hover:bg-white/30 transition"
+                    className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/40 bg-white/20 backdrop-blur-sm text-white shadow-sm hover:bg-white/30 transition"
                   >
                     <ArrowLeftIcon className="h-4 w-4" />
                     <span className="text-sm font-semibold">Retour</span>
@@ -1341,7 +1341,7 @@ export default function NouveauRapportPage(props: { params: Promise<{ chantierId
         {loading ? (
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-gray-600 dark:text-gray-400">Chargement du chantier...</p>
             </div>
           </div>
@@ -1393,8 +1393,8 @@ export default function NouveauRapportPage(props: { params: Promise<{ chantierId
               title="Personnes présentes"
               icon={<UserGroupIcon className="h-6 w-6 text-white" />}
               defaultOpen={false}
-              gradientFrom="from-teal-600"
-              gradientTo="to-teal-700"
+              gradientFrom="from-slate-600"
+              gradientTo="to-slate-700"
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormInput
@@ -1418,7 +1418,7 @@ export default function NouveauRapportPage(props: { params: Promise<{ chantierId
                     type="button"
                     onClick={handleAddPersonne}
                     disabled={!nouveauNom.trim()}
-                    className="w-full bg-teal-600 text-white px-4 py-3 rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                   >
                     <PlusIcon className="h-5 w-5 mr-2" />
                     Ajouter
@@ -1454,8 +1454,8 @@ export default function NouveauRapportPage(props: { params: Promise<{ chantierId
               title="Gestion des tags"
               icon={<TagIcon className="h-6 w-6 text-white" />}
               defaultOpen={false}
-              gradientFrom="from-indigo-600"
-              gradientTo="to-indigo-700"
+              gradientFrom="from-slate-600"
+              gradientTo="to-slate-700"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormInput
@@ -1514,8 +1514,8 @@ export default function NouveauRapportPage(props: { params: Promise<{ chantierId
               title="Notes et observations"
               icon={<DocumentTextIcon className="h-6 w-6 text-white" />}
               defaultOpen={false}
-              gradientFrom="from-amber-600"
-              gradientTo="to-amber-700"
+              gradientFrom="from-slate-600"
+              gradientTo="to-slate-700"
             >
               <div className="space-y-4">
                 <FormTextarea
@@ -1540,8 +1540,8 @@ export default function NouveauRapportPage(props: { params: Promise<{ chantierId
                         onClick={() => handleSelectNoteTag(tag)}
                         className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
                           ${noteTags.includes(tag) 
-                            ? 'bg-orange-600 text-white shadow-md' 
-                            : 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-900/60'
+                            ? 'bg-blue-600 text-white shadow-md' 
+                            : 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/60'
                           }`}
                       >
                         {tag}
@@ -1554,7 +1554,7 @@ export default function NouveauRapportPage(props: { params: Promise<{ chantierId
                   type="button"
                   onClick={handleAddNote}
                   disabled={!nouvelleNote.trim()}
-                  className="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
                 >
                   <PlusIcon className="h-5 w-5 mr-2" />
                   Ajouter la note
@@ -1591,13 +1591,13 @@ export default function NouveauRapportPage(props: { params: Promise<{ chantierId
                         {note.tags.map(tag => (
                           <span 
                             key={tag}
-                            className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+                            className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
                           >
                             {tag}
                             <button
                               type="button"
                               onClick={() => handleRemoveNoteTag(note.id, tag)}
-                              className="ml-1 text-orange-600 hover:text-orange-800 dark:text-orange-300 dark:hover:text-orange-100"
+                              className="ml-1 text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-100"
                             >
                               <XMarkIcon className="h-3 w-3" />
                             </button>
@@ -1633,8 +1633,8 @@ export default function NouveauRapportPage(props: { params: Promise<{ chantierId
               title="Photos du chantier"
               icon={<PhotoIcon className="h-6 w-6 text-white" />}
               defaultOpen={false}
-              gradientFrom="from-sky-600"
-              gradientTo="to-sky-700"
+              gradientFrom="from-slate-600"
+              gradientTo="to-slate-700"
             >
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
