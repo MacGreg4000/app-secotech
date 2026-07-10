@@ -1,6 +1,7 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { compressImages } from '@/lib/utils/image-compression'
 import {
   DocumentTextIcon,
   BuildingOffice2Icon,
@@ -9,7 +10,8 @@ import {
   CalendarIcon,
   ClipboardDocumentListIcon,
   XMarkIcon,
-  CheckIcon
+  CheckIcon,
+  PhotoIcon
 } from '@heroicons/react/24/outline'
 
 interface QuickAction {
@@ -37,9 +39,11 @@ export default function QuickActionsWidget() {
   const [description, setDescription] = useState('')
   const [dateExecution, setDateExecution] = useState(() => new Date().toISOString().slice(0, 10))
   const [magasinierId, setMagasinierId] = useState('')
+  const [photos, setPhotos] = useState<Array<{ file: File; preview: string }>>([])
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Charger les magasiniers à l'ouverture de la modale
   useEffect(() => {
@@ -54,6 +58,13 @@ export default function QuickActionsWidget() {
     }
   }, [tacheModalOpen, magasiniers.length])
 
+  const clearPhotos = () => {
+    setPhotos(prev => {
+      prev.forEach(p => URL.revokeObjectURL(p.preview))
+      return []
+    })
+  }
+
   const openTacheModal = () => {
     setTitre('')
     setDescription('')
@@ -61,7 +72,41 @@ export default function QuickActionsWidget() {
     setMagasinierId(magasiniers.length === 1 ? magasiniers[0].id : '')
     setError('')
     setSuccess(false)
+    clearPhotos()
     setTacheModalOpen(true)
+  }
+
+  const closeTacheModal = () => {
+    clearPhotos()
+    setTacheModalOpen(false)
+  }
+
+  const handleAddPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'))
+    if (files.length === 0) return
+    try {
+      const compressed = await compressImages(files, 1600, 1600, 0.75)
+      setPhotos(prev => [
+        ...prev,
+        ...compressed.map(file => ({ file, preview: URL.createObjectURL(file) }))
+      ])
+    } catch {
+      // Repli : ajouter les fichiers d'origine si la compression échoue
+      setPhotos(prev => [
+        ...prev,
+        ...files.map(file => ({ file, preview: URL.createObjectURL(file) }))
+      ])
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => {
+      const target = prev[index]
+      if (target) URL.revokeObjectURL(target.preview)
+      return prev.filter((_, i) => i !== index)
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,14 +116,25 @@ export default function QuickActionsWidget() {
     setSubmitting(true)
     setError('')
     try {
-      const res = await fetch('/api/logistique/taches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titre: titre.trim(), description: description.trim() || undefined, dateExecution, magasinierId })
-      })
+      let res: Response
+      if (photos.length > 0) {
+        const formData = new FormData()
+        formData.append('titre', titre.trim())
+        if (description.trim()) formData.append('description', description.trim())
+        formData.append('dateExecution', dateExecution)
+        formData.append('magasinierId', magasinierId)
+        photos.forEach(p => formData.append('photos', p.file))
+        res = await fetch('/api/logistique/taches', { method: 'POST', body: formData })
+      } else {
+        res = await fetch('/api/logistique/taches', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ titre: titre.trim(), description: description.trim() || undefined, dateExecution, magasinierId })
+        })
+      }
       if (!res.ok) throw new Error('Erreur serveur')
       setSuccess(true)
-      setTimeout(() => setTacheModalOpen(false), 1200)
+      setTimeout(() => closeTacheModal(), 1200)
     } catch {
       setError('Erreur lors de la création. Réessayez.')
     } finally {
@@ -230,7 +286,7 @@ export default function QuickActionsWidget() {
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">Nouvelle tâche magasinier</h2>
               </div>
               <button
-                onClick={() => setTacheModalOpen(false)}
+                onClick={closeTacheModal}
                 className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
                 <XMarkIcon className="h-5 w-5" />
@@ -296,6 +352,45 @@ export default function QuickActionsWidget() {
                     </div>
                   </div>
 
+                  {/* Photos (optionnel) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Photos (optionnel)</label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleAddPhotos}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-green-500 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                    >
+                      <PhotoIcon className="h-5 w-5" />
+                      <span className="text-sm font-medium">Ajouter des photos</span>
+                    </button>
+                    {photos.length > 0 && (
+                      <div className="mt-3 grid grid-cols-4 gap-2">
+                        {photos.map((p, index) => (
+                          <div key={p.preview} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                            {/* Aperçu local (object URL) */}
+                            <img src={p.preview} alt={`Photo ${index + 1}`} className="h-full w-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removePhoto(index)}
+                              className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                              aria-label="Supprimer la photo"
+                            >
+                              <XMarkIcon className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   {error && (
                     <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">{error}</p>
                   )}
@@ -304,7 +399,7 @@ export default function QuickActionsWidget() {
                   <div className="flex gap-3 pt-2">
                     <button
                       type="button"
-                      onClick={() => setTacheModalOpen(false)}
+                      onClick={closeTacheModal}
                       className="flex-1 px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
                       Annuler
