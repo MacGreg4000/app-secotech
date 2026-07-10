@@ -172,10 +172,20 @@ export async function PUT(
     }
 
     if (newMetadata) {
-      // Stocker l'objet directement dans la colonne Json (Prisma se charge de
-      // la sérialisation). NE PAS re-JSON.stringify sinon on double-encode et la
-      // relecture renvoie une chaîne au lieu d'un objet.
-      updateData.metadata = newMetadata;
+      // FUSIONNER dans les métadonnées existantes plutôt que de tout remplacer.
+      // Sans ça, un PUT partiel (ex: { rapportVariantesIds }) écraserait les
+      // photos/notes/personnes déjà enregistrées → rapport vide en édition.
+      let existingMeta: Record<string, unknown> = {}
+      try {
+        const raw: unknown = document.metadata
+        const parsed = typeof raw === 'string' ? (raw ? JSON.parse(raw) : {}) : (raw ?? {})
+        if (parsed && typeof parsed === 'object') existingMeta = parsed as Record<string, unknown>
+      } catch {
+        existingMeta = {}
+      }
+      // Stocker l'objet directement dans la colonne Json (Prisma sérialise).
+      // NE PAS re-JSON.stringify sinon on double-encode.
+      updateData.metadata = { ...existingMeta, ...(newMetadata as Record<string, unknown>) };
       // Si des photos sont incluses, les sauvegarder physiquement
       if (newMetadata.photos && Array.isArray(newMetadata.photos)) {
         const photoDir = join(PHOTOS_BASE_PATH, params.chantierId, params.documentId);
