@@ -141,26 +141,28 @@ export default function MetresPage() {
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
           {/* Filtres */}
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Filtrer par statut :
-              </label>
-              <select
-                value={filterStatut}
-                onChange={(e) => setFilterStatut(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="TOUS">Tous</option>
-                <option value="SOUMIS">Soumis</option>
-                <option value="PARTIELLEMENT_VALIDE">Partiellement validés</option>
-                <option value="VALIDE">Validés</option>
-                <option value="REJETE">Rejetés</option>
-                <option value="BROUILLON">Brouillons</option>
-              </select>
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0">
+                  Filtrer par statut :
+                </label>
+                <select
+                  value={filterStatut}
+                  onChange={(e) => setFilterStatut(e.target.value)}
+                  className="flex-1 sm:flex-initial px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="TOUS">Tous</option>
+                  <option value="SOUMIS">Soumis</option>
+                  <option value="PARTIELLEMENT_VALIDE">Partiellement validés</option>
+                  <option value="VALIDE">Validés</option>
+                  <option value="REJETE">Rejetés</option>
+                  <option value="BROUILLON">Brouillons</option>
+                </select>
+              </div>
               <button
                 onClick={loadMetres}
-                className="ml-auto px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                className="self-start sm:self-auto sm:ml-auto px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
               >
                 Actualiser
               </button>
@@ -194,53 +196,50 @@ export default function MetresPage() {
               filteredMetres.map((metre) => (
                 <div
                   key={metre.id}
-                  className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  className="px-4 sm:px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
-                            {metre.chantier.nomChantier}
-                          </h3>
-                          <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                            <span className="flex items-center gap-1">
-                              <span className="font-medium">Sous-traitant :</span>
-                              {metre.soustraitant.nom}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <span className="font-medium">Date :</span>
-                              {new Date(metre.createdAt).toLocaleDateString('fr-FR', {
-                                day: 'numeric',
-                                month: 'long',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </span>
-                          </div>
-                          {metre.commentaire && (
-                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                              {metre.commentaire}
-                            </p>
-                          )}
-                        </div>
-                        <span className={`px-3 py-1 rounded-lg text-xs font-semibold border ${getStatutBadgeClass(metre.statut)}`}>
+                      <div className="flex items-start justify-between gap-2 sm:items-center">
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+                          {metre.chantier.nomChantier}
+                        </h3>
+                        <span className={`shrink-0 px-3 py-1 rounded-lg text-xs font-semibold border ${getStatutBadgeClass(metre.statut)}`}>
                           {getStatutLabel(metre.statut)}
                         </span>
                       </div>
+                      <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4 text-sm text-gray-500 dark:text-gray-400">
+                        <span>
+                          <span className="font-medium">Sous-traitant :</span> {metre.soustraitant.nom}
+                        </span>
+                        <span>
+                          <span className="font-medium">Date :</span>{' '}
+                          {new Date(metre.createdAt).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      {metre.commentaire && (
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                          {metre.commentaire}
+                        </p>
+                      )}
                     </div>
-                    <div className="ml-4 flex-shrink-0 flex gap-2">
+                    <div className="flex gap-2 sm:ml-4 sm:shrink-0">
                       <Link
                         href={`/metres/${metre.id}`}
-                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm font-semibold"
+                        className="inline-flex flex-1 sm:flex-initial items-center justify-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm font-semibold"
                       >
                         <EyeIcon className="h-4 w-4 mr-2" />
                         Consulter
                       </Link>
                       <Link
                         href={`/chantiers/${metre.chantier.chantierId}`}
-                        className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm text-sm font-medium"
+                        className="inline-flex flex-1 sm:flex-initial items-center justify-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm text-sm font-medium"
                       >
                         Chantier
                       </Link>
