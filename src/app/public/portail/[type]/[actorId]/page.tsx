@@ -326,6 +326,7 @@ const METRE_STATUS_STYLES: Record<string, { key: string; cls: string }> = {
 
 function MesMetres({ type, actorId }: { type: 'ouvrier'|'soustraitant'; actorId: string }) {
   const { t } = usePortalI18n()
+  const router = useRouter()
   const [items, setItems] = useState<{ id: string; statut: string; createdAt: string; chantier: { chantierId: string; nomChantier: string } }[]>([])
   useEffect(() => {
     (async () => {
@@ -352,14 +353,19 @@ function MesMetres({ type, actorId }: { type: 'ouvrier'|'soustraitant'; actorId:
           {items.map((m) => {
             const style = METRE_STATUS_STYLES[m.statut] ?? { key: '', cls: 'bg-gray-100 text-gray-700 border-gray-200' }
             return (
-              <li key={m.id} className="py-2 flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-medium text-gray-800 truncate">{m.chantier.nomChantier}</div>
-                  <div className="text-xs text-gray-500">{new Date(m.createdAt).toLocaleDateString('fr-FR')}</div>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full border shrink-0 ${style.cls}`}>
-                  {style.key ? t(style.key) : m.statut}
-                </span>
+              <li key={m.id}>
+                <button
+                  onClick={() => router.push(`/public/portail/${type}/${actorId}/metres/${m.id}`)}
+                  className="w-full py-2 flex items-center justify-between gap-2 text-left hover:bg-gray-50 rounded-lg px-1 -mx-1 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium text-gray-800 truncate">{m.chantier.nomChantier}</div>
+                    <div className="text-xs text-gray-500">{new Date(m.createdAt).toLocaleDateString('fr-FR')}</div>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full border shrink-0 ${style.cls}`}>
+                    {style.key ? t(style.key) : m.statut}
+                  </span>
+                </button>
               </li>
             )
           })}

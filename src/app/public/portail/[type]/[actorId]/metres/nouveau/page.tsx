@@ -94,15 +94,22 @@ function NouveauMetrePage({ params }: { params: { type: 'ouvrier'|'soustraitant'
     setLignes(prev => [...prev, { description: '', unite: 'U', prixUnitaire: 0, quantite: 0, estSupplement: true }])
   }
 
+  const removeLine = (idx: number) => {
+    setLignes(prev => prev.filter((_, i) => i !== idx))
+  }
+
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return
     setFiles(Array.from(e.target.files))
   }
 
-  const submit = async () => {
+  const [savingDraft, setSavingDraft] = useState(false)
+
+  const submit = async (statut: 'SOUMIS' | 'BROUILLON' = 'SOUMIS') => {
     try {
       setError(null)
-      setLoading(true)
+      if (statut === 'BROUILLON') setSavingDraft(true)
+      else setLoading(true)
 
       // Convertir les fichiers en base64 (data URLs)
       const piecesJointes: string[] = []
@@ -126,7 +133,7 @@ function NouveauMetrePage({ params }: { params: { type: 'ouvrier'|'soustraitant'
         chantierId?: string
       } = {
         commandeId,
-        statut: 'SOUMIS',
+        statut,
         commentaire,
         lignes,
         piecesJointes
@@ -152,6 +159,7 @@ function NouveauMetrePage({ params }: { params: { type: 'ouvrier'|'soustraitant'
       setError('Soumission impossible. Vérifiez vos données.')
     } finally {
       setLoading(false)
+      setSavingDraft(false)
     }
   }
 
@@ -219,6 +227,7 @@ function NouveauMetrePage({ params }: { params: { type: 'ouvrier'|'soustraitant'
                   <th className="p-2 text-xs font-medium text-gray-700">{t('table_unit_price')}</th>
                   <th className="p-2 text-xs font-medium text-gray-700">{t('table_quantity')}</th>
                   <th className="p-2 text-xs font-medium text-gray-700">{t('table_total')}</th>
+                  <th className="p-2 w-10"></th>
                 </tr>
               </thead>
               <tbody>
@@ -260,6 +269,11 @@ function NouveauMetrePage({ params }: { params: { type: 'ouvrier'|'soustraitant'
                       }} />
                     </td>
                     <td className="p-2 w-24 text-right text-sm font-medium text-gray-900">{(l.prixUnitaire * (l.quantite||0)).toFixed(2)} €</td>
+                    <td className="p-2 w-10 text-center">
+                      {l.estSupplement && (
+                        <button onClick={() => removeLine(idx)} className="text-red-600 hover:text-red-800 text-xs font-medium" title={t('remove_line')}>✕</button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -285,9 +299,12 @@ function NouveauMetrePage({ params }: { params: { type: 'ouvrier'|'soustraitant'
 
           {error && <div className="mt-4 text-sm text-red-600 bg-red-50 p-3 rounded-lg">{t('submit_error')}</div>}
 
-          <div className="mt-6 flex items-center gap-3">
-            <button disabled={(freeMode ? false : !chantierId) || loading || lignes.length===0} onClick={submit} className="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50 hover:bg-blue-700 transition-colors">
+          <div className="mt-6 flex items-center gap-3 flex-wrap">
+            <button disabled={(freeMode ? false : !chantierId) || loading || savingDraft || lignes.length===0} onClick={() => submit('SOUMIS')} className="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50 hover:bg-blue-700 transition-colors">
               {loading? t('sending') : t('submit')}
+            </button>
+            <button disabled={(freeMode ? false : !chantierId) || loading || savingDraft || lignes.length===0} onClick={() => submit('BROUILLON')} className="px-4 py-2 rounded-lg border border-blue-300 bg-white text-blue-700 disabled:opacity-50 hover:bg-blue-50 transition-colors">
+              {savingDraft? t('saving_draft') : t('save_draft')}
             </button>
             <button onClick={()=>router.back()} className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors">{t('cancel')}</button>
           </div>

@@ -35,7 +35,13 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     estimated_total: "Total estimé",
     submit: "Soumettre",
     sending: "Envoi...",
-    
+    save_draft: "Enregistrer comme brouillon",
+    saving_draft: "Enregistrement...",
+    remove_line: "Supprimer",
+    edit_metre: "Modifier le métré",
+    locked_metre_message: "Ce métré a été traité par l'équipe et ne peut plus être modifié.",
+    resubmit: "Soumettre à nouveau",
+
     table_description: "Description",
     table_unit: "Unité",
     table_unit_price: "PU",
@@ -185,7 +191,13 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     estimated_total: "Estimated total",
     submit: "Submit",
     sending: "Sending...",
-    
+    save_draft: "Save as draft",
+    saving_draft: "Saving...",
+    remove_line: "Remove",
+    edit_metre: "Edit measurement",
+    locked_metre_message: "This measurement has been processed by the team and can no longer be edited.",
+    resubmit: "Resubmit",
+
     table_description: "Description",
     table_unit: "Unit",
     table_unit_price: "Unit price",
@@ -334,7 +346,13 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     estimated_total: "Total estimado",
     submit: "Submeter",
     sending: "A enviar...",
-    
+    save_draft: "Guardar como rascunho",
+    saving_draft: "A guardar...",
+    remove_line: "Remover",
+    edit_metre: "Editar medição",
+    locked_metre_message: "Esta medição já foi tratada pela equipa e já não pode ser editada.",
+    resubmit: "Submeter novamente",
+
     table_description: "Descrição",
     table_unit: "Unidade",
     table_unit_price: "PU",
@@ -483,7 +501,13 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     estimated_total: "Total estimat",
     submit: "Trimite",
     sending: "Se trimite...",
-    
+    save_draft: "Salvează ca ciornă",
+    saving_draft: "Se salvează...",
+    remove_line: "Elimină",
+    edit_metre: "Editează metrajul",
+    locked_metre_message: "Acest metraj a fost procesat de echipă și nu mai poate fi editat.",
+    resubmit: "Retrimite",
+
     table_description: "Descriere",
     table_unit: "Unitate",
     table_unit_price: "PU",
