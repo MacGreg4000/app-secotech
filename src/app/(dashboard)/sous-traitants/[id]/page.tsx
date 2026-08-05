@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import {
-  EyeIcon,
+  ArrowLeftIcon,
   PencilSquareIcon,
   EnvelopeIcon,
   PhoneIcon,
@@ -25,7 +25,6 @@ import {
   ArrowsRightLeftIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
-import { Button } from '@/components/ui'
 import { useNotification } from '@/hooks/useNotification'
 import LigneTarif, { LigneTarifData } from '@/components/tarifs/LigneTarif'
 
@@ -332,31 +331,31 @@ export default function SousTraitantConsultationPage(
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-6">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-2 border-white/50 dark:border-gray-700/50 rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/60 via-indigo-700/60 to-purple-800/60 dark:from-blue-600/30 dark:via-indigo-700/30 dark:to-purple-800/30"></div>
-
+          <div className="relative rounded-2xl shadow-sm overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-700 dark:from-blue-700 dark:to-indigo-800" />
             <div className="relative z-10 p-4 sm:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-col gap-3">
-                  <div className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full shadow-lg ring-2 ring-white/30">
-                    <EyeIcon className="w-6 h-6 mr-3 text-blue-900 dark:text-white" />
-                    <h1 className="text-xl font-bold text-blue-900 dark:text-white">
-                      Consulter le Sous-Traitant
-                    </h1>
+                <div className="flex items-center gap-3 min-w-0">
+                  <Link
+                    href="/sous-traitants"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/15 hover:bg-white/25 border border-white/25 text-white text-sm font-semibold transition-colors shrink-0"
+                  >
+                    <ArrowLeftIcon className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sous-traitants</span>
+                  </Link>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-wide text-blue-100">Fiche sous-traitant</p>
+                    <h1 className="text-xl sm:text-2xl font-bold text-white truncate">{sousTraitant.nom}</h1>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-white/30 backdrop-blur-sm text-blue-900 dark:text-white shadow-sm text-xs sm:text-sm font-semibold inline-flex w-max">
-                    {sousTraitant.nom}
-                  </span>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <Button
-                    variant="outline"
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
                     onClick={() => router.push(`/sous-traitants/${params.id}/edit`)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white/30 backdrop-blur-sm rounded-lg text-sm font-semibold shadow-lg hover:bg-white/40 transition-all duration-200 text-blue-900 dark:text-white border-white/50"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-blue-700 hover:bg-blue-50 text-sm font-semibold shadow-sm transition-colors"
                   >
                     <PencilSquareIcon className="h-5 w-5" />
                     Éditer
-                  </Button>
+                  </button>
                 </div>
               </div>
             </div>
@@ -370,9 +369,11 @@ export default function SousTraitantConsultationPage(
             {/* Informations générales */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-700 text-white rounded-full shadow-lg ring-2 ring-blue-200 dark:ring-blue-700">
-                  <InformationCircleIcon className="w-5 h-5 mr-2" />
-                  <span className="font-bold text-lg">Informations du sous-traitant</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                    <InformationCircleIcon className="w-5 h-5" />
+                  </div>
+                  <span className="font-semibold text-lg text-gray-900 dark:text-white">Informations du sous-traitant</span>
                 </div>
               </div>
               <div className="p-6 space-y-6">
@@ -492,9 +493,11 @@ export default function SousTraitantConsultationPage(
             {sousTraitant.ouvriers && sousTraitant.ouvriers.length > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                  <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-700 text-white rounded-full shadow-lg ring-2 ring-blue-200 dark:ring-blue-700">
-                    <UserGroupIcon className="w-5 h-5 mr-2" />
-                    <span className="font-bold text-lg">Ouvriers ({sousTraitant.ouvriers.length})</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                      <UserGroupIcon className="w-5 h-5" />
+                    </div>
+                    <span className="font-semibold text-lg text-gray-900 dark:text-white">Ouvriers ({sousTraitant.ouvriers.length})</span>
                   </div>
                 </div>
                 <div className="p-6">
@@ -512,12 +515,14 @@ export default function SousTraitantConsultationPage(
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
                 <div className="flex items-center justify-between">
-                  <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-white rounded-full shadow-lg ring-2 ring-amber-200 dark:ring-amber-700">
-                    <CurrencyEuroIcon className="w-5 h-5 mr-2" />
-                    <span className="font-bold text-lg">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                      <CurrencyEuroIcon className="w-5 h-5" />
+                    </div>
+                    <span className="font-semibold text-lg text-gray-900 dark:text-white">
                       Liste de prix
                       {lignesTarif.filter(l => l.type === 'LIGNE').length > 0 && (
-                        <span className="ml-2 text-amber-100 font-normal text-sm">
+                        <span className="ml-2 text-gray-400 dark:text-gray-500 font-normal text-sm">
                           ({lignesTarif.filter(l => l.type === 'LIGNE').length} poste{lignesTarif.filter(l => l.type === 'LIGNE').length > 1 ? 's' : ''})
                         </span>
                       )}
@@ -541,14 +546,14 @@ export default function SousTraitantConsultationPage(
                     </button>
                     <button
                       onClick={() => addLigneTarif('TITRE')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                     >
                       <Bars3Icon className="h-3.5 w-3.5" />
                       Titre
                     </button>
                     <button
                       onClick={() => addLigneTarif('LIGNE')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
                     >
                       <PlusIcon className="h-3.5 w-3.5" />
                       Ligne
@@ -560,7 +565,7 @@ export default function SousTraitantConsultationPage(
               <div className="overflow-x-auto">
                 {loadingTarif ? (
                   <div className="p-8 text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500 mx-auto" />
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
                   </div>
                 ) : lignesTarif.length === 0 ? (
                   <div className="p-10 text-center text-gray-400 dark:text-gray-500">
@@ -571,7 +576,7 @@ export default function SousTraitantConsultationPage(
                   <DndProvider backend={HTML5Backend}>
                     <table className="min-w-full">
                       <thead>
-                        <tr className="bg-amber-50/60 dark:bg-amber-900/10 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <tr className="bg-gray-50 dark:bg-gray-700/40 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           <th className="px-2 py-2 w-8" />
                           <th className="px-2 py-2 w-28 text-left">Article</th>
                           <th className="px-2 py-2 text-left">Descriptif</th>
@@ -602,9 +607,11 @@ export default function SousTraitantConsultationPage(
             {/* Conditions générales et particulières */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-slate-500 via-gray-600 to-gray-700 text-white rounded-full shadow-lg ring-2 ring-gray-200 dark:ring-gray-700">
-                  <DocumentTextIcon className="w-5 h-5 mr-2" />
-                  <span className="font-bold text-lg">Conditions contractuelles</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                    <DocumentTextIcon className="w-5 h-5" />
+                  </div>
+                  <span className="font-semibold text-lg text-gray-900 dark:text-white">Conditions contractuelles</span>
                 </div>
               </div>
               <div className="p-6 space-y-6">
@@ -620,7 +627,7 @@ export default function SousTraitantConsultationPage(
                     onChange={(e) => setCondGen(e.target.value)}
                     onBlur={() => saveConditions('conditionsGenerales', condGen)}
                     placeholder="Ex : Paiement à 30 jours fin de mois. Retenue de garantie de 5% pendant 1 an. Respect des normes en vigueur…"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-200 dark:focus:border-amber-400 dark:focus:ring-amber-800 transition-colors resize-y"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 dark:focus:border-blue-400 dark:focus:ring-blue-800 transition-colors resize-y"
                   />
                 </div>
                 {/* Conditions particulières */}
@@ -635,7 +642,7 @@ export default function SousTraitantConsultationPage(
                     onChange={(e) => setCondPart(e.target.value)}
                     onBlur={() => saveConditions('conditionsParticulieres', condPart)}
                     placeholder="Ex : Tarifs valables jusqu&apos;au 31/12/2026. Déplacement inclus dans un rayon de 50 km…"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-200 dark:focus:border-amber-400 dark:focus:ring-amber-800 transition-colors resize-y"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 dark:focus:border-blue-400 dark:focus:ring-blue-800 transition-colors resize-y"
                   />
                 </div>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
@@ -650,9 +657,11 @@ export default function SousTraitantConsultationPage(
             {/* Accès Portail */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full shadow-lg">
-                  <KeyIcon className="w-5 h-5 mr-2" />
-                  <span className="font-bold text-lg">Accès Portail</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                    <KeyIcon className="w-5 h-5" />
+                  </div>
+                  <span className="font-semibold text-lg text-gray-900 dark:text-white">Accès Portail</span>
                 </div>
               </div>
               <div className="p-6 space-y-4">
