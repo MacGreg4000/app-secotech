@@ -45,6 +45,11 @@ export function normalizeNomEntreprise(value: string | null | undefined): string
     .normalize('NFD')
     .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
     .toLowerCase()
+    // « & » et « et » sont équivalents dans les raisons sociales
+    .replace(/&/g, ' et ')
+    // les points sont SUPPRIMÉS (et non remplacés par une espace) pour que
+    // « s.r.l. » redevienne « srl » et soit reconnu comme forme juridique
+    .replace(/\./g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\b(sa|sprl|srl|scrl|bvba|nv|sc|scs|snc|asbl|sasu|sas|sarl|eurl)\b/g, ' ')
     .replace(/\s+/g, ' ')
