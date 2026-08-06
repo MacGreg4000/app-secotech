@@ -54,6 +54,10 @@ services:
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_USER: ${EMAIL_USER:-}
       EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      # Agent / MCP — clés d'API acceptées ("label:sha256hex,…").
+      # Vide = /api/agent/* désactivé (fail-closed).
+      OPENBTP_AGENT_KEYS: ${OPENBTP_AGENT_KEYS:-}
+      OPENBTP_AGENT_USER_EMAIL: ${OPENBTP_AGENT_USER_EMAIL:-agent-mcp@secotech.fr}
     extra_hosts:
       # Permet d'accéder aux services du NAS (PDF, Ollama) depuis le container
       - "nas-host:host-gateway"
