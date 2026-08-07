@@ -1021,3 +1021,106 @@ export const creerCommandeChantier: ToolDefinition = {
     }
   },
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// D5 — modifier_client (compléter / corriger une fiche client existante)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CHAMPS_TEXTE_CLIENT = ['nom', 'email', 'telephone', 'adresse', 'numeroTva'] as const
+
+export const modifierClient: ToolDefinition = {
+  name: 'modifier_client',
+  description:
+    "Complète ou corrige la fiche d'un client existant (nom, email, téléphone, adresse, TVA). " +
+    'Fusion partielle : seuls les champs fournis sont modifiés. Une chaîne vide est ignorée ; ' +
+    'envoyer null pour vider un champ. Ne crée jamais de client — utiliser trouver_ou_creer_client.',
+  requiresConfirmation: true,
+  parameters: {
+    type: 'object',
+    properties: {
+      client: { type: 'string', description: 'Identifiant (CL-…) ou nom du client à modifier' },
+      nom: { type: 'string', description: 'Nouvelle raison sociale' },
+      email: { type: 'string', description: 'Email' },
+      telephone: { type: 'string', description: 'Téléphone' },
+      adresse: { type: 'string', description: 'Adresse postale' },
+      numeroTva: { type: 'string', description: 'Numéro de TVA' },
+    },
+    required: ['client'],
+  },
+  summarize: async (args) => {
+    const prep = await preparerModifClient(args)
+    if (prep.erreur) return `Modification impossible : ${prep.erreur}`
+    const champs = Object.keys(prep.data!)
+    if (champs.length === 0) return `Aucun champ à modifier sur « ${prep.clientNom} ».`
+    return `Modifier le client « ${prep.clientNom} » : ${champs.join(', ')}.`
+  },
+  preview: async (args) => {
+    const prep = await preparerModifClient(args)
+    if (prep.erreur) return { action: 'aucune', erreur: prep.erreur, candidats: prep.candidats }
+    if (Object.keys(prep.data!).length === 0) return { action: 'aucune', raison: 'aucun champ fourni' }
+    return {
+      action: 'mise_a_jour',
+      client: prep.clientNom,
+      champsModifies: prep.data,
+      ...(prep.avertissement ? { avertissement: prep.avertissement } : {}),
+    }
+  },
+  execute: async (args) => {
+    const prep = await preparerModifClient(args)
+    if (prep.erreur) return { erreur: prep.erreur, candidats: prep.candidats }
+    const data = prep.data!
+    if (Object.keys(data).length === 0) {
+      return { erreur: 'Aucun champ à modifier : fournis au moins une valeur.' }
+    }
+
+    const maj = await prisma.client.update({
+      where: { id: prep.clientId! },
+      data: { ...data, updatedAt: new Date() }, // Client n'a pas @updatedAt
+      select: { id: true, nom: true, email: true, telephone: true, adresse: true, numeroTva: true },
+    })
+
+    return {
+      succes: true,
+      client: maj,
+      champsModifies: Object.keys(data),
+      ...(prep.avertissement ? { avertissement: prep.avertissement } : {}),
+    }
+  },
+}
+
+interface PreparationModifClient {
+  erreur?: string
+  candidats?: { id: string; nom: string }[]
+  clientId?: string
+  clientNom?: string
+  data?: Record<string, unknown>
+  avertissement?: string
+}
+
+async function preparerModifClient(args: Record<string, unknown>): Promise<PreparationModifClient> {
+  const res = await resolveClient(String(args.client || ''))
+  if (!res.ok || !res.value) {
+    return { erreur: res.message || 'Client introuvable.', candidats: res.candidats }
+  }
+
+  const data: Record<string, unknown> = {}
+  for (const cle of CHAMPS_TEXTE_CLIENT) {
+    if (champFourni(args, cle)) data[cle] = valeurTexte(args, cle)
+  }
+
+  // Une TVA déjà portée par un AUTRE client signale un doublon probable.
+  // La colonne n'étant pas unique, rien ne l'empêcherait en base.
+  let avertissement: string | undefined
+  if (typeof data.numeroTva === 'string' && data.numeroTva) {
+    const cible = normalizeTva(data.numeroTva)
+    const tous = await prisma.client.findMany({ select: { id: true, nom: true, numeroTva: true } })
+    const collision = tous.filter((c) => c.id !== res.value!.id && normalizeTva(c.numeroTva) === cible)
+    if (collision.length > 0) {
+      avertissement =
+        `Cette TVA est déjà portée par : ${collision.map((c) => c.nom).join(', ')}. ` +
+        `Vérifie qu'il ne s'agit pas d'un doublon à fusionner.`
+    }
+  }
+
+  return { clientId: res.value.id, clientNom: res.value.nom, data, avertissement }
+}

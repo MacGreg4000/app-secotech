@@ -58,6 +58,8 @@ services:
       # Vide = /api/agent/* désactivé (fail-closed).
       OPENBTP_AGENT_KEYS: ${OPENBTP_AGENT_KEYS:-}
       OPENBTP_AGENT_USER_EMAIL: ${OPENBTP_AGENT_USER_EMAIL:-agent-mcp@secotech.fr}
+      # Utilisateur humain visé par les notes personnelles de la page d'accueil
+      OPENBTP_AGENT_NOTES_USER_EMAIL: ${OPENBTP_AGENT_NOTES_USER_EMAIL:-}
     extra_hosts:
       # Permet d'accéder aux services du NAS (PDF, Ollama) depuis le container
       - "nas-host:host-gateway"

@@ -15,7 +15,15 @@ import {
   creerChantier,
   completerFicheChantier,
   creerCommandeChantier,
+  modifierClient,
 } from './dossier'
+import {
+  lireNotesDashboard,
+  ajouterNoteDashboard,
+  ajouterTodoDashboard,
+  creerNoteChantier,
+} from './notes'
+import { listeEtatsAvancement, creerEtatAvancement, ajouterAvenantEtat } from './etats'
 import {
   listeChantiers,
   detailChantier,
@@ -37,11 +45,21 @@ const ALL_TOOLS: ToolDefinition[] = [
   listeNotesChantier,
   listeDocumentsChantier,
   documentsExpirants,
+  listeEtatsAvancement,
+  lireNotesDashboard,
   // Encodage d'un dossier
   trouverOuCreerClient,
   creerChantier,
   completerFicheChantier,
   creerCommandeChantier,
+  modifierClient,
+  // Notes
+  creerNoteChantier,
+  ajouterNoteDashboard,
+  ajouterTodoDashboard,
+  // États d'avancement
+  creerEtatAvancement,
+  ajouterAvenantEtat,
 ]
 
 const TOOLS_BY_NAME = new Map(ALL_TOOLS.map((t) => [t.name, t]))
