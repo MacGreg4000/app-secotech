@@ -11,7 +11,7 @@ import { prisma } from '@/lib/prisma/client'
 import { generatePPSS } from '@/lib/ppss-generator'
 import { notifier } from '@/lib/services/notificationService'
 import { ToolDefinition } from '../types'
-import { normalizeTva, normalizeNomEntreprise, resolveClient } from './helpers'
+import { normalizeTva, normalizeNomEntreprise, resolveClient, resolveChantier } from './helpers'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // D1 — trouver_ou_creer_client
@@ -475,4 +475,222 @@ export const creerChantier: ToolDefinition = {
       ...(ppssErreur ? { ppssErreur } : {}),
     }
   },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// D3 — completer_fiche_chantier
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Champs texte simples de la fiche, fusionnés tels quels. */
+const CHAMPS_TEXTE_FICHE = [
+  'maitreOuvrageNom',
+  'maitreOuvrageAdresse',
+  'maitreOuvrageLocalite',
+  'bureauArchitectureNom',
+  'bureauArchitectureAdresse',
+  'bureauArchitectureLocalite',
+  'villeChantier',
+  'adresseChantier',
+] as const
+
+/**
+ * Un champ n'est modifié que s'il est explicitement fourni.
+ * Chaîne vide = « je ne sais pas » → ignoré (protège contre l'effacement
+ * accidentel par un modèle qui remplirait tous les champs).
+ * null explicite = « vider ce champ ».
+ */
+function champFourni(args: Record<string, unknown>, cle: string): boolean {
+  if (!(cle in args)) return false
+  const v = args[cle]
+  if (v === null) return true
+  return String(v).trim() !== ''
+}
+
+function valeurTexte(args: Record<string, unknown>, cle: string): string | null {
+  const v = args[cle]
+  return v === null ? null : String(v).trim()
+}
+
+export const completerFicheChantier: ToolDefinition = {
+  name: 'completer_fiche_chantier',
+  description:
+    "Complète la fiche d'un chantier existant : maître d'ouvrage, bureau d'architecture, " +
+    "adresse/ville, budget, référence, durée. Fusion partielle : seuls les champs fournis sont " +
+    "modifiés, les autres restent intacts. Une chaîne vide est ignorée ; envoyer null pour vider " +
+    "un champ. Cet outil ne peut pas modifier le statut du chantier.",
+  requiresConfirmation: true,
+  parameters: {
+    type: 'object',
+    properties: {
+      chantier: {
+        type: 'string',
+        description: "Identifiant (CH-…), id interne ou nom du chantier",
+      },
+      maitreOuvrageNom: { type: 'string', description: "Nom du maître d'ouvrage" },
+      maitreOuvrageAdresse: { type: 'string', description: "Adresse du maître d'ouvrage" },
+      maitreOuvrageLocalite: { type: 'string', description: "Localité du maître d'ouvrage" },
+      bureauArchitectureNom: { type: 'string', description: "Nom du bureau d'architecture" },
+      bureauArchitectureAdresse: { type: 'string', description: "Adresse du bureau d'architecture" },
+      bureauArchitectureLocalite: { type: 'string', description: "Localité du bureau d'architecture" },
+      adresseChantier: { type: 'string', description: 'Adresse du chantier' },
+      villeChantier: { type: 'string', description: 'Ville du chantier' },
+      budget: { type: 'number', description: 'Budget en euros (voir avertissement dans le résumé)' },
+      numeroIdentification: { type: 'string', description: 'Référence du marché (unique)' },
+      dateDebut: { type: 'string', description: 'Date de début, format AAAA-MM-JJ' },
+      dureeEnJours: { type: 'number', description: 'Durée prévue en jours' },
+      typeDuree: { type: 'string', description: 'CALENDRIER ou OUVRABLE', enum: ['CALENDRIER', 'OUVRABLE'] },
+    },
+    required: ['chantier'],
+  },
+  summarize: async (args) => {
+    const res = await resolveChantier(String(args.chantier || ''))
+    const nom = res.ok && res.value ? res.value.nomChantier : String(args.chantier)
+    const champs: string[] = []
+    for (const c of CHAMPS_TEXTE_FICHE) if (champFourni(args, c)) champs.push(c)
+    for (const c of ['numeroIdentification', 'dateDebut', 'dureeEnJours', 'typeDuree', 'budget']) {
+      if (champFourni(args, c)) champs.push(c)
+    }
+    if (champs.length === 0) return `Aucun champ à modifier sur « ${nom} ».`
+    const alerte = champFourni(args, 'budget')
+      ? " ⚠️ Le budget sera recalculé automatiquement dès qu'une commande sera validée."
+      : ''
+    return `Compléter la fiche de « ${nom} » : ${champs.join(', ')}.${alerte}`
+  },
+  preview: async (args) => {
+    const prep = await preparerFiche(args)
+    if (prep.erreur) return { action: 'aucune', erreur: prep.erreur, candidats: prep.candidats }
+    if (Object.keys(prep.data!).length === 0) {
+      return { action: 'aucune', raison: 'aucun champ fourni' }
+    }
+    return {
+      action: 'mise_a_jour',
+      chantier: prep.chantierNom,
+      champsModifies: prep.data,
+      inchange: 'statut (non modifiable par cet outil), et tout champ non fourni',
+      ...(prep.avertissement ? { avertissement: prep.avertissement } : {}),
+    }
+  },
+  execute: async (args) => {
+    const prep = await preparerFiche(args)
+    if (prep.erreur) return { erreur: prep.erreur, candidats: prep.candidats }
+    const data = prep.data!
+    if (Object.keys(data).length === 0) {
+      return { erreur: 'Aucun champ à modifier : fournis au moins une valeur.' }
+    }
+
+    const maj = await prisma.chantier.update({
+      where: { id: prep.chantierIdInterne! },
+      data: { ...data, updatedAt: new Date() },
+      select: {
+        id: true,
+        chantierId: true,
+        nomChantier: true,
+        statut: true,
+        maitreOuvrageNom: true,
+        bureauArchitectureNom: true,
+        villeChantier: true,
+        budget: true,
+      },
+    })
+
+    return {
+      succes: true,
+      chantier: maj,
+      champsModifies: Object.keys(data),
+      ...(prep.avertissement ? { avertissement: prep.avertissement } : {}),
+    }
+  },
+}
+
+interface PreparationFiche {
+  erreur?: string
+  candidats?: { id: string; nom: string }[]
+  chantierIdInterne?: string
+  chantierNom?: string
+  data?: Record<string, unknown>
+  avertissement?: string
+}
+
+/** Résout le chantier et construit le patch partiel, sans rien écrire. */
+async function preparerFiche(args: Record<string, unknown>): Promise<PreparationFiche> {
+  const res = await resolveChantier(String(args.chantier || ''))
+  if (!res.ok || !res.value) {
+    return { erreur: res.message || 'Chantier introuvable.', candidats: res.candidats }
+  }
+
+  const data: Record<string, unknown> = {}
+
+  for (const cle of CHAMPS_TEXTE_FICHE) {
+    if (champFourni(args, cle)) data[cle] = valeurTexte(args, cle)
+  }
+
+  if (champFourni(args, 'budget')) {
+    const v = args.budget
+    if (v === null) {
+      data.budget = null
+    } else {
+      const n = Number(v)
+      if (!Number.isFinite(n) || n < 0) return { erreur: 'budget doit être un nombre positif.' }
+      data.budget = n
+    }
+  }
+
+  if (champFourni(args, 'dateDebut')) {
+    if (args.dateDebut === null) {
+      data.dateDebut = null
+    } else {
+      const d = parseDateOuNull(args.dateDebut)
+      if (!d.ok) return { erreur: 'dateDebut invalide (format attendu AAAA-MM-JJ).' }
+      data.dateDebut = d.date
+    }
+  }
+
+  if (champFourni(args, 'dureeEnJours')) {
+    if (args.dureeEnJours === null) {
+      data.dureeEnJours = null
+    } else {
+      const n = Number(args.dureeEnJours)
+      if (!Number.isFinite(n) || n < 0) return { erreur: 'dureeEnJours doit être un nombre positif.' }
+      data.dureeEnJours = Math.floor(n)
+    }
+  }
+
+  if (champFourni(args, 'typeDuree')) {
+    const t = String(args.typeDuree).trim().toUpperCase()
+    if (!(TYPES_DUREE as readonly string[]).includes(t)) {
+      return { erreur: `typeDuree invalide « ${t} ». Valeurs acceptées : ${TYPES_DUREE.join(', ')}.` }
+    }
+    data.typeDuree = t
+  }
+
+  if (champFourni(args, 'numeroIdentification')) {
+    if (args.numeroIdentification === null) {
+      data.numeroIdentification = null
+    } else {
+      const ref = String(args.numeroIdentification).trim()
+      // @unique : on exclut le chantier courant du contrôle de conflit
+      const conflit = await prisma.chantier.findUnique({
+        where: { numeroIdentification: ref },
+        select: { id: true, chantierId: true, nomChantier: true },
+      })
+      if (conflit && conflit.id !== res.value.id) {
+        return {
+          erreur:
+            `La référence « ${ref} » est déjà utilisée par le chantier ` +
+            `« ${conflit.nomChantier} » (${conflit.chantierId}).`,
+        }
+      }
+      data.numeroIdentification = ref
+    }
+  }
+
+  return {
+    chantierIdInterne: res.value.id,
+    chantierNom: res.value.nomChantier,
+    data,
+    avertissement:
+      'budget' in data
+        ? "Le budget saisi sera écrasé par le recalcul automatique dès qu'une commande du chantier sera validée."
+        : undefined,
+  }
 }
