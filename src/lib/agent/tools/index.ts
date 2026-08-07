@@ -16,8 +16,28 @@ import {
   completerFicheChantier,
   creerCommandeChantier,
 } from './dossier'
+import {
+  listeChantiers,
+  detailChantier,
+  listeClients,
+  listeSousTraitants,
+  tarifsSousTraitant,
+  listeNotesChantier,
+  listeDocumentsChantier,
+  documentsExpirants,
+} from './lecture'
 
 const ALL_TOOLS: ToolDefinition[] = [
+  // Lecture (aucune écriture)
+  listeChantiers,
+  detailChantier,
+  listeClients,
+  listeSousTraitants,
+  tarifsSousTraitant,
+  listeNotesChantier,
+  listeDocumentsChantier,
+  documentsExpirants,
+  // Encodage d'un dossier
   trouverOuCreerClient,
   creerChantier,
   completerFicheChantier,
