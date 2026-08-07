@@ -157,7 +157,15 @@ export function clampLimit(value: unknown, def: number, max: number): number {
   return Math.min(Math.floor(n), max)
 }
 
-/** Arrondi monétaire à 2 décimales (même convention que l'écran commande). */
+/**
+ * Arrondi monétaire à 2 décimales.
+ *
+ * Reproduit EXACTEMENT `Math.round(x * 100) / 100` utilisé par l'écran
+ * commande (recalculerTotaux et le calcul du total de ligne). Ne pas y
+ * ajouter Number.EPSILON : la variante « corrigée » diverge sur des valeurs
+ * comme 1,005 et les totaux ne correspondraient plus au centime à ceux
+ * affichés dans l'application.
+ */
 export function arrondi2(n: number): number {
-  return Math.round((Number(n) + Number.EPSILON) * 100) / 100
+  return Math.round(Number(n) * 100) / 100
 }

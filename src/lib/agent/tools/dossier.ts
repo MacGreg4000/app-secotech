@@ -11,7 +11,13 @@ import { prisma } from '@/lib/prisma/client'
 import { generatePPSS } from '@/lib/ppss-generator'
 import { notifier } from '@/lib/services/notificationService'
 import { ToolDefinition } from '../types'
-import { normalizeTva, normalizeNomEntreprise, resolveClient, resolveChantier } from './helpers'
+import {
+  normalizeTva,
+  normalizeNomEntreprise,
+  resolveClient,
+  resolveChantier,
+  arrondi2,
+} from './helpers'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // D1 — trouver_ou_creer_client
@@ -693,4 +699,325 @@ async function preparerFiche(args: Record<string, unknown>): Promise<Preparation
         ? "Le budget saisi sera écrasé par le recalcul automatique dès qu'une commande du chantier sera validée."
         : undefined,
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// D4 — creer_commande_chantier
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TYPES_LIGNE = ['QP', 'QF', 'FF', 'TITRE', 'SOUS_TITRE'] as const
+const MAX_LIGNES = 500
+/** Défaut belge. Le défaut du schéma (20) est un héritage. */
+const TAUX_TVA_DEFAUT = 21
+
+interface LigneNormalisee {
+  ordre: number
+  article: string
+  description: string
+  type: string
+  unite: string
+  prixUnitaire: number
+  quantite: number
+  total: number
+  estOption: boolean
+}
+
+interface TotauxCommande {
+  sousTotal: number
+  totalOptions: number
+  tva: number
+  total: number
+}
+
+/**
+ * Normalise les lignes en reproduisant le traitement des sections que la
+ * branche « création » de POST /api/commandes omet (il n'existe que dans la
+ * branche update et dans PUT /api/commandes/[commandeId]).
+ */
+function normaliserLignes(brutes: unknown[]): { lignes?: LigneNormalisee[]; erreur?: string } {
+  const lignes: LigneNormalisee[] = []
+
+  for (let i = 0; i < brutes.length; i++) {
+    const l = (brutes[i] || {}) as Record<string, unknown>
+
+    const typeBrut = l.type ? String(l.type).trim().toUpperCase() : 'QP'
+    if (!(TYPES_LIGNE as readonly string[]).includes(typeBrut)) {
+      return { erreur: `Ligne ${i + 1} : type « ${typeBrut} » invalide. Valeurs : ${TYPES_LIGNE.join(', ')}.` }
+    }
+    const estSection = typeBrut === 'TITRE' || typeBrut === 'SOUS_TITRE'
+
+    const description = String(l.description ?? '').trim()
+    if (!description && !estSection) {
+      return { erreur: `Ligne ${i + 1} : description obligatoire.` }
+    }
+
+    if (estSection) {
+      lignes.push({
+        ordre: i,
+        article: String(
+          l.article || (typeBrut === 'TITRE' ? 'ARTICLE_TITRE' : 'ARTICLE_SOUS_TITRE')
+        ).trim(),
+        description,
+        type: typeBrut,
+        unite: '',
+        prixUnitaire: 0,
+        quantite: 0,
+        total: 0,
+        estOption: false,
+      })
+      continue
+    }
+
+    const prixUnitaire = Number(l.prixUnitaire ?? 0)
+    const quantite = Number(l.quantite ?? 0)
+    if (!Number.isFinite(prixUnitaire) || !Number.isFinite(quantite)) {
+      return { erreur: `Ligne ${i + 1} : prixUnitaire et quantite doivent être numériques.` }
+    }
+    if (prixUnitaire < 0 || quantite < 0) {
+      return { erreur: `Ligne ${i + 1} : prixUnitaire et quantite ne peuvent pas être négatifs.` }
+    }
+
+    lignes.push({
+      ordre: i,
+      article: String(l.article ?? '').trim(),
+      description,
+      type: typeBrut,
+      unite: String(l.unite || 'Pièces').trim(),
+      prixUnitaire,
+      quantite,
+      // total TOUJOURS recalculé : on ne fait jamais confiance à une valeur fournie
+      total: arrondi2(prixUnitaire * quantite),
+      estOption: l.estOption === true,
+    })
+  }
+
+  return { lignes }
+}
+
+/** Miroir exact de recalculerTotaux (écran commande). totalOptions est EXCLU du total. */
+function calculerTotaux(lignes: LigneNormalisee[], tauxTVA: number): TotauxCommande {
+  const calculables = lignes.filter((l) => l.type !== 'TITRE' && l.type !== 'SOUS_TITRE')
+  const sousTotal = arrondi2(
+    calculables.filter((l) => !l.estOption).reduce((s, l) => s + l.total, 0)
+  )
+  const totalOptions = arrondi2(
+    calculables.filter((l) => l.estOption).reduce((s, l) => s + l.total, 0)
+  )
+  const tva = arrondi2((sousTotal * tauxTVA) / 100)
+  const total = arrondi2(sousTotal + tva)
+  return { sousTotal, totalOptions, tva, total }
+}
+
+interface PreparationCommande {
+  erreur?: string
+  candidats?: { id: string; nom: string }[]
+  chantierIdInterne?: string
+  chantierNom?: string
+  clientId?: string | null
+  dateCommande?: Date
+  reference?: string | null
+  tauxTVA?: number
+  lignes?: LigneNormalisee[]
+  totaux?: TotauxCommande
+}
+
+async function preparerCommande(args: Record<string, unknown>): Promise<PreparationCommande> {
+  const res = await resolveChantier(String(args.chantier || ''))
+  if (!res.ok || !res.value) {
+    return { erreur: res.message || 'Chantier introuvable.', candidats: res.candidats }
+  }
+
+  const brutes = Array.isArray(args.lignes) ? (args.lignes as unknown[]) : null
+  if (!brutes || brutes.length === 0) {
+    return { erreur: 'Au moins une ligne de commande est requise.' }
+  }
+  if (brutes.length > MAX_LIGNES) {
+    return { erreur: `Trop de lignes (${brutes.length}). Maximum ${MAX_LIGNES}.` }
+  }
+
+  const norm = normaliserLignes(brutes)
+  if (norm.erreur) return { erreur: norm.erreur }
+
+  let tauxTVA = TAUX_TVA_DEFAUT
+  if (args.tauxTVA !== undefined && args.tauxTVA !== null && String(args.tauxTVA) !== '') {
+    const t = Number(args.tauxTVA)
+    if (!Number.isFinite(t) || t < 0 || t > 100) {
+      return { erreur: 'tauxTVA doit être un nombre entre 0 et 100.' }
+    }
+    tauxTVA = t
+  }
+
+  const dateParsee = parseDateOuNull(args.dateCommande)
+  if (!dateParsee.ok) return { erreur: 'dateCommande invalide (format attendu AAAA-MM-JJ).' }
+  const dateCommande = dateParsee.date ?? new Date()
+
+  const reference = args.reference ? String(args.reference).trim() : null
+
+  // Refus d'écrasement : une commande de même référence sur ce chantier
+  if (reference) {
+    const existante = await prisma.commande.findFirst({
+      where: { chantierId: res.value.id, reference },
+      select: { id: true, statut: true },
+    })
+    if (existante) {
+      return {
+        erreur:
+          `Une commande de référence « ${reference} » existe déjà sur ce chantier ` +
+          `(id ${existante.id}, statut ${existante.statut}). Cet outil ne remplace jamais ` +
+          `une commande existante : utilise une autre référence ou modifie-la dans l'application.`,
+      }
+    }
+  }
+
+  // Commande.clientId n'a PAS de clé étrangère : une valeur fausse passerait
+  // silencieusement, d'où la vérification explicite.
+  let clientId: string | null = res.value.clientId ?? null
+  if (args.clientId) {
+    const ref = String(args.clientId).trim()
+    const c = await prisma.client.findUnique({ where: { id: ref }, select: { id: true } })
+    if (!c) return { erreur: `Client introuvable : « ${ref} ».` }
+    clientId = c.id
+  }
+
+  return {
+    chantierIdInterne: res.value.id,
+    chantierNom: res.value.nomChantier,
+    clientId,
+    dateCommande,
+    reference,
+    tauxTVA,
+    lignes: norm.lignes,
+    totaux: calculerTotaux(norm.lignes!, tauxTVA),
+  }
+}
+
+const eur = (n: number) =>
+  n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+
+export const creerCommandeChantier: ToolDefinition = {
+  name: 'creer_commande_chantier',
+  description:
+    "Crée la commande client d'un chantier à partir des lignes du bordereau. Les totaux (ligne, " +
+    "sous-total, TVA, total) sont TOUJOURS calculés côté serveur — ne pas les fournir. " +
+    "La commande est créée en BROUILLON : elle doit être validée dans l'application, ce qui " +
+    "déclenchera le PDF et le recalcul du budget du chantier. Ne remplace jamais une commande " +
+    "existante. Utiliser dryRun pour vérifier les totaux avant d'écrire.",
+  requiresConfirmation: true,
+  parameters: {
+    type: 'object',
+    properties: {
+      chantier: { type: 'string', description: 'Identifiant (CH-…), id interne ou nom du chantier' },
+      reference: { type: 'string', description: 'Référence de la commande (ex. numéro du bon de commande)' },
+      dateCommande: { type: 'string', description: "Date de la commande, format AAAA-MM-JJ (défaut : aujourd'hui)" },
+      tauxTVA: { type: 'number', description: 'Taux de TVA en pourcentage (défaut 21)' },
+      clientId: { type: 'string', description: 'Id du client (défaut : celui du chantier)' },
+      lignes: {
+        type: 'array',
+        description:
+          "Lignes du bordereau, dans l'ordre. Les lignes TITRE et SOUS_TITRE structurent le " +
+          "document et sont exclues des totaux.",
+        items: {
+          type: 'object',
+          properties: {
+            article: { type: 'string', description: "Numéro d'article du bordereau" },
+            description: { type: 'string', description: 'Libellé du poste (obligatoire hors sections)' },
+            type: { type: 'string', description: 'QP (défaut), QF, FF, TITRE ou SOUS_TITRE', enum: [...TYPES_LIGNE] },
+            unite: { type: 'string', description: "Unité (m², m³, pièce…). Défaut « Pièces »" },
+            prixUnitaire: { type: 'number', description: 'Prix unitaire' },
+            quantite: { type: 'number', description: 'Quantité' },
+            estOption: { type: 'boolean', description: 'true si le poste est en option (exclu du total)' },
+          },
+          required: ['description'],
+        },
+      },
+    },
+    required: ['chantier', 'lignes'],
+  },
+  summarize: async (args) => {
+    const p = await preparerCommande(args)
+    if (p.erreur) return `Création impossible : ${p.erreur}`
+    const t = p.totaux!
+    const nbPostes = p.lignes!.filter((l) => l.type !== 'TITRE' && l.type !== 'SOUS_TITRE').length
+    const options = t.totalOptions > 0 ? ` (options : ${eur(t.totalOptions)}, hors total)` : ''
+    return (
+      `Créer une commande BROUILLON sur « ${p.chantierNom} » : ${nbPostes} poste(s), ` +
+      `sous-total ${eur(t.sousTotal)}, TVA ${p.tauxTVA} % ${eur(t.tva)}, total ${eur(t.total)}${options}.`
+    )
+  },
+  preview: async (args) => {
+    const p = await preparerCommande(args)
+    if (p.erreur) return { action: 'aucune', erreur: p.erreur, candidats: p.candidats }
+    return {
+      action: 'creation',
+      chantier: p.chantierNom,
+      statut: 'BROUILLON',
+      reference: p.reference,
+      tauxTVA: p.tauxTVA,
+      nbLignes: p.lignes!.length,
+      totaux: p.totaux,
+      note:
+        "Totaux calculés côté serveur — à comparer au bordereau avant exécution. " +
+        "Le budget du chantier ne sera PAS modifié tant que la commande reste en BROUILLON.",
+    }
+  },
+  execute: async (args) => {
+    const p = await preparerCommande(args)
+    if (p.erreur) return { erreur: p.erreur, candidats: p.candidats }
+    const t = p.totaux!
+
+    // Transaction : jamais de commande orpheline sans ses lignes
+    const commande = await prisma.$transaction(async (tx) => {
+      const c = await tx.commande.create({
+        data: {
+          // Commande.chantierId pointe sur Chantier.id (cuid), PAS sur le slug métier
+          chantierId: p.chantierIdInterne!,
+          clientId: p.clientId ?? null,
+          dateCommande: p.dateCommande!,
+          reference: p.reference,
+          tauxTVA: p.tauxTVA!,
+          sousTotal: t.sousTotal,
+          totalOptions: t.totalOptions,
+          tva: t.tva,
+          total: t.total,
+          // BROUILLON imposé : pas de PDF, pas de recalcul du budget du chantier
+          statut: 'BROUILLON',
+          estVerrouillee: false,
+          updatedAt: new Date(),
+        },
+        select: { id: true },
+      })
+
+      await tx.ligneCommande.createMany({
+        data: p.lignes!.map((l) => ({
+          commandeId: c.id,
+          ordre: l.ordre,
+          article: l.article,
+          description: l.description,
+          type: l.type,
+          unite: l.unite,
+          prixUnitaire: l.prixUnitaire,
+          quantite: l.quantite,
+          total: l.total,
+          estOption: l.estOption,
+          updatedAt: new Date(),
+        })),
+      })
+
+      return c
+    })
+
+    return {
+      succes: true,
+      commandeId: commande.id,
+      chantier: p.chantierNom,
+      statut: 'BROUILLON',
+      reference: p.reference,
+      tauxTVA: p.tauxTVA,
+      nbLignes: p.lignes!.length,
+      totaux: t,
+      prochaineEtape:
+        "Vérifie la commande dans l'application puis valide-la : c'est la validation qui génère " +
+        'le PDF et met à jour le budget du chantier.',
+    }
+  },
 }

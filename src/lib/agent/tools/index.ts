@@ -10,13 +10,18 @@
 // Les outils sont ajoutés UN PAR UN (voir plan, phases 1→4).
 
 import { ToolDefinition, ToolContext, ToolCatalogEntry } from '../types'
-import { trouverOuCreerClient, creerChantier, completerFicheChantier } from './dossier'
+import {
+  trouverOuCreerClient,
+  creerChantier,
+  completerFicheChantier,
+  creerCommandeChantier,
+} from './dossier'
 
 const ALL_TOOLS: ToolDefinition[] = [
   trouverOuCreerClient,
   creerChantier,
   completerFicheChantier,
-  // Phase 4 : creer_commande_chantier
+  creerCommandeChantier,
 ]
 
 const TOOLS_BY_NAME = new Map(ALL_TOOLS.map((t) => [t.name, t]))
