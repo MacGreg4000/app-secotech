@@ -10,11 +10,11 @@
 // Les outils sont ajoutés UN PAR UN (voir plan, phases 1→4).
 
 import { ToolDefinition, ToolContext, ToolCatalogEntry } from '../types'
-import { trouverOuCreerClient } from './dossier'
+import { trouverOuCreerClient, creerChantier } from './dossier'
 
 const ALL_TOOLS: ToolDefinition[] = [
   trouverOuCreerClient,
-  // Phase 2 : creer_chantier
+  creerChantier,
   // Phase 3 : completer_fiche_chantier
   // Phase 4 : creer_commande_chantier
 ]

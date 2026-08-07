@@ -8,8 +8,10 @@
 //    totaux non calculés…)
 
 import { prisma } from '@/lib/prisma/client'
+import { generatePPSS } from '@/lib/ppss-generator'
+import { notifier } from '@/lib/services/notificationService'
 import { ToolDefinition } from '../types'
-import { normalizeTva, normalizeNomEntreprise } from './helpers'
+import { normalizeTva, normalizeNomEntreprise, resolveClient } from './helpers'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // D1 — trouver_ou_creer_client
@@ -202,6 +204,275 @@ export const trouverOuCreerClient: ToolDefinition = {
       ...(recherche.statut === 'candidats'
         ? { avertissement: 'Créé malgré des clients proches', candidatsIgnores: recherche.candidats }
         : {}),
+    }
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// D2 — creer_chantier
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Statuts réellement stockés en base (colonne String libre, pas d'enum Prisma). */
+const STATUTS_CHANTIER = ['EN_PREPARATION', 'A_VENIR', 'EN_COURS', 'TERMINE'] as const
+const TYPES_DUREE = ['CALENDRIER', 'OUVRABLE'] as const
+
+const ALPHABET_SLUG = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+
+/** Slug métier au format CH-<année>-<6 alphanumériques>, comme POST /api/chantiers. */
+function genererSlugChantier(): string {
+  let suffixe = ''
+  for (let i = 0; i < 6; i++) {
+    suffixe += ALPHABET_SLUG[Math.floor(Math.random() * ALPHABET_SLUG.length)]
+  }
+  return `CH-${new Date().getFullYear()}-${suffixe}`
+}
+
+/** Slug libre : chantierId est @unique et l'aléatoire ne garantit rien. */
+async function genererSlugChantierUnique(): Promise<string | null> {
+  for (let essai = 0; essai < 5; essai++) {
+    const slug = genererSlugChantier()
+    const existe = await prisma.chantier.findUnique({
+      where: { chantierId: slug },
+      select: { id: true },
+    })
+    if (!existe) return slug
+  }
+  return null
+}
+
+function parseDateOuNull(valeur: unknown): { ok: true; date: Date | null } | { ok: false } {
+  if (valeur === undefined || valeur === null || String(valeur).trim() === '') {
+    return { ok: true, date: null }
+  }
+  const d = new Date(String(valeur))
+  if (Number.isNaN(d.getTime())) return { ok: false }
+  return { ok: true, date: d }
+}
+
+interface ValidationChantier {
+  erreur?: string
+  candidats?: { id: string; nom: string }[]
+  nomChantier?: string
+  statut?: string
+  typeDuree?: string
+  dateDebut?: Date | null
+  dureeEnJours?: number | null
+  clientId?: string | null
+  clientNom?: string | null
+  contactId?: string | null
+  numeroIdentification?: string | null
+}
+
+/** Valide et résout les arguments sans rien écrire (partagé preview/execute). */
+async function validerChantier(args: Record<string, unknown>): Promise<ValidationChantier> {
+  const nomChantier = String(args.nomChantier || '').trim()
+  if (!nomChantier) return { erreur: 'Le nom du chantier est requis.' }
+
+  // Statut : écrit en forme BASE. La route REST n'accepte que les libellés
+  // français et retombe silencieusement sur EN_PREPARATION — d'où l'écriture directe.
+  const statutBrut = args.statut ? String(args.statut).trim().toUpperCase() : 'EN_PREPARATION'
+  if (!(STATUTS_CHANTIER as readonly string[]).includes(statutBrut)) {
+    return { erreur: `Statut invalide « ${statutBrut} ». Valeurs acceptées : ${STATUTS_CHANTIER.join(', ')}.` }
+  }
+
+  const typeDuree = args.typeDuree ? String(args.typeDuree).trim().toUpperCase() : 'CALENDRIER'
+  if (!(TYPES_DUREE as readonly string[]).includes(typeDuree)) {
+    return { erreur: `typeDuree invalide « ${typeDuree} ». Valeurs acceptées : ${TYPES_DUREE.join(', ')}.` }
+  }
+
+  const dateParsee = parseDateOuNull(args.dateDebut)
+  if (!dateParsee.ok) return { erreur: 'dateDebut invalide (format attendu AAAA-MM-JJ).' }
+
+  let dureeEnJours: number | null = null
+  if (args.dureeEnJours !== undefined && args.dureeEnJours !== null && String(args.dureeEnJours) !== '') {
+    const n = Number(args.dureeEnJours)
+    if (!Number.isFinite(n) || n < 0) return { erreur: 'dureeEnJours doit être un nombre positif.' }
+    dureeEnJours = Math.floor(n)
+  }
+
+  // numeroIdentification est @unique : on pré-contrôle pour éviter un 500 opaque
+  const numeroIdentification = args.numeroIdentification
+    ? String(args.numeroIdentification).trim()
+    : null
+  if (numeroIdentification) {
+    const conflit = await prisma.chantier.findUnique({
+      where: { numeroIdentification },
+      select: { chantierId: true, nomChantier: true },
+    })
+    if (conflit) {
+      return {
+        erreur:
+          `La référence « ${numeroIdentification} » est déjà utilisée par le chantier ` +
+          `« ${conflit.nomChantier} » (${conflit.chantierId}). Utilise une autre référence.`,
+      }
+    }
+  }
+
+  // Client : on accepte un id, ou à défaut un nom que l'on résout
+  let clientId: string | null = null
+  let clientNom: string | null = null
+  if (args.clientId) {
+    const ref = String(args.clientId).trim()
+    const parId = await prisma.client.findUnique({ where: { id: ref }, select: { id: true, nom: true } })
+    if (parId) {
+      clientId = parId.id
+      clientNom = parId.nom
+    } else {
+      const res = await resolveClient(ref)
+      if (!res.ok || !res.value) {
+        return { erreur: res.message || `Client introuvable : « ${ref} ».`, candidats: res.candidats }
+      }
+      clientId = res.value.id
+      clientNom = res.value.nom
+    }
+  }
+
+  let contactId: string | null = null
+  if (args.contactId) {
+    const ref = String(args.contactId).trim()
+    const contact = await prisma.contact.findUnique({ where: { id: ref }, select: { id: true } })
+    if (!contact) return { erreur: `Contact introuvable : « ${ref} ».` }
+    contactId = contact.id
+  }
+
+  return {
+    nomChantier,
+    statut: statutBrut,
+    typeDuree,
+    dateDebut: dateParsee.date,
+    dureeEnJours,
+    clientId,
+    clientNom,
+    contactId,
+    numeroIdentification,
+  }
+}
+
+export const creerChantier: ToolDefinition = {
+  name: 'creer_chantier',
+  description:
+    "Crée un nouveau chantier. L'identifiant du chantier (format CH-ANNEE-XXXXXX) est généré " +
+    "automatiquement et ne doit PAS être fourni. La référence du marché va dans numeroIdentification " +
+    "(unique : un doublon est refusé avec un message clair). Génère aussi le PPSS et notifie l'équipe. " +
+    "Utiliser dryRun d'abord pour valider les données sans rien écrire.",
+  requiresConfirmation: true,
+  parameters: {
+    type: 'object',
+    properties: {
+      nomChantier: { type: 'string', description: 'Nom du chantier (obligatoire)' },
+      clientId: {
+        type: 'string',
+        description:
+          "Id du client obtenu via trouver_ou_creer_client. Un nom est toléré et sera résolu.",
+      },
+      numeroIdentification: {
+        type: 'string',
+        description: 'Référence du marché / numéro de dossier (doit être unique)',
+      },
+      adresseChantier: { type: 'string', description: 'Adresse du chantier' },
+      villeChantier: { type: 'string', description: 'Ville du chantier' },
+      dateDebut: { type: 'string', description: 'Date de début, format AAAA-MM-JJ' },
+      dureeEnJours: { type: 'number', description: 'Durée prévue en jours' },
+      typeDuree: {
+        type: 'string',
+        description: "CALENDRIER (défaut) ou OUVRABLE",
+        enum: ['CALENDRIER', 'OUVRABLE'],
+      },
+      statut: {
+        type: 'string',
+        description: 'Défaut EN_PREPARATION',
+        enum: ['EN_PREPARATION', 'A_VENIR', 'EN_COURS', 'TERMINE'],
+      },
+      contactId: { type: 'string', description: 'Id du contact client (optionnel)' },
+    },
+    required: ['nomChantier'],
+  },
+  summarize: async (args) => {
+    const v = await validerChantier(args)
+    if (v.erreur) return `Création impossible : ${v.erreur}`
+    const client = v.clientNom ? ` pour ${v.clientNom}` : ''
+    const ref = v.numeroIdentification ? ` (réf. ${v.numeroIdentification})` : ''
+    const date = v.dateDebut ? `, début le ${v.dateDebut.toLocaleDateString('fr-FR')}` : ''
+    return `Créer le chantier « ${v.nomChantier} »${client}${ref}${date} — statut ${v.statut}.`
+  },
+  preview: async (args) => {
+    const v = await validerChantier(args)
+    if (v.erreur) return { action: 'aucune', erreur: v.erreur, candidats: v.candidats }
+    return {
+      action: 'creation',
+      chantier: {
+        nomChantier: v.nomChantier,
+        statut: v.statut,
+        typeDuree: v.typeDuree,
+        dateDebut: v.dateDebut,
+        dureeEnJours: v.dureeEnJours,
+        numeroIdentification: v.numeroIdentification,
+        client: v.clientNom,
+      },
+      note: "L'identifiant CH-ANNEE-XXXXXX sera généré à l'exécution. Le PPSS sera généré automatiquement.",
+    }
+  },
+  execute: async (args, ctx) => {
+    const v = await validerChantier(args)
+    if (v.erreur) return { erreur: v.erreur, candidats: v.candidats }
+
+    const chantierId = await genererSlugChantierUnique()
+    if (!chantierId) {
+      return { erreur: "Impossible de générer un identifiant de chantier unique. Réessaie." }
+    }
+
+    const chantier = await prisma.chantier.create({
+      data: {
+        chantierId,
+        nomChantier: v.nomChantier!,
+        statut: v.statut!,
+        typeDuree: v.typeDuree!,
+        // on écrit dateDebut (dateCommencement est une colonne héritée inutilisée)
+        dateDebut: v.dateDebut ?? null,
+        dureeEnJours: v.dureeEnJours ?? null,
+        numeroIdentification: v.numeroIdentification ?? null,
+        adresseChantier: args.adresseChantier ? String(args.adresseChantier).trim() : null,
+        villeChantier: args.villeChantier ? String(args.villeChantier).trim() : null,
+        clientId: v.clientId ?? null,
+        contactId: v.contactId ?? null,
+        updatedAt: new Date(),
+      },
+      select: { id: true, chantierId: true, nomChantier: true, statut: true },
+    })
+
+    // Effets de bord de la route REST, reproduits explicitement.
+    // Différence assumée : on REMONTE l'échec PPSS au lieu de l'avaler.
+    let ppssErreur: string | undefined
+    try {
+      await generatePPSS(chantier.chantierId, ctx.userId)
+    } catch (e) {
+      ppssErreur = e instanceof Error ? e.message : 'échec inconnu'
+      console.error('[agent] PPSS non généré pour', chantier.chantierId, e)
+    }
+
+    try {
+      await notifier({
+        code: 'CHANTIER_CREE',
+        rolesDestinataires: ['ADMIN', 'MANAGER'],
+        metadata: {
+          chantierId: chantier.chantierId,
+          chantierNom: chantier.nomChantier,
+          userName: 'Agent MCP',
+        },
+      })
+    } catch (e) {
+      console.error('[agent] notification CHANTIER_CREE non envoyée:', e)
+    }
+
+    return {
+      succes: true,
+      // id (cuid) ET chantierId (slug) : les outils suivants ont besoin de l'un ou l'autre
+      id: chantier.id,
+      chantierId: chantier.chantierId,
+      nomChantier: chantier.nomChantier,
+      statut: chantier.statut,
+      clientId: v.clientId ?? null,
+      ...(ppssErreur ? { ppssErreur } : {}),
     }
   },
 }
