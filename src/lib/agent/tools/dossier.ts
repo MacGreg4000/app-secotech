@@ -707,8 +707,15 @@ async function preparerFiche(args: Record<string, unknown>): Promise<Preparation
 
 const TYPES_LIGNE = ['QP', 'QF', 'FF', 'TITRE', 'SOUS_TITRE'] as const
 const MAX_LIGNES = 500
-/** Défaut belge. Le défaut du schéma (20) est un héritage. */
-const TAUX_TVA_DEFAUT = 21
+/**
+ * 0 % par défaut : les commandes viennent d'entrepreneurs généraux, donc en
+ * autoliquidation (report de TVA au cocontractant). Vérifié sur deux dossiers
+ * réels — Bierset Bâtiment 84 et Eloy Bra-Sur-Lienne — dont les montants
+ * encodés correspondent au bordereau sans TVA. Le défaut du schéma (20) est un
+ * héritage, et 21 % serait faux pour ce flux. Fournir tauxTVA explicitement
+ * pour une commande soumise à TVA.
+ */
+const TAUX_TVA_DEFAUT = 0
 
 interface LigneNormalisee {
   ordre: number
@@ -909,7 +916,12 @@ export const creerCommandeChantier: ToolDefinition = {
       chantier: { type: 'string', description: 'Identifiant (CH-…), id interne ou nom du chantier' },
       reference: { type: 'string', description: 'Référence de la commande (ex. numéro du bon de commande)' },
       dateCommande: { type: 'string', description: "Date de la commande, format AAAA-MM-JJ (défaut : aujourd'hui)" },
-      tauxTVA: { type: 'number', description: 'Taux de TVA en pourcentage (défaut 21)' },
+      tauxTVA: {
+        type: 'number',
+        description:
+          'Taux de TVA en pourcentage. Défaut 0 (autoliquidation : commandes des ' +
+          'entrepreneurs généraux). Préciser 21 si la commande est soumise à TVA.',
+      },
       clientId: { type: 'string', description: 'Id du client (défaut : celui du chantier)' },
       lignes: {
         type: 'array',
