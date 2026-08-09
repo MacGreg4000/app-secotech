@@ -84,30 +84,44 @@ Pour chaque chantier, pour chaque `LigneMarche` catégorisée :
 5. `coutSilicone = quantite × ratioSiliconeMl × prixSiliconeMl`
 6. Total ligne = somme des 4 ; total chantier = somme des lignes.
 
-## Architecture d'intégration : web = lecture seule, MCP = saisie + croisement
+## Architecture d'intégration : enrichir l'existant, pas de nouvel écran
 
-Décision finale (2026-06-22) : le chatbot RAGBot n'est pas utilisé
-actuellement — tout passe par le serveur MCP existant (`src/lib/agent/`).
-Répartition claire des responsabilités :
+Correction importante (2026-06-22, 2e passe) : la première version de ce plan
+proposait un nouveau "dashboard rentabilité" — erreur, **ça existe déjà** :
 
-- **Web (nouveau)** : un **dashboard rentabilité, lecture seule** —
-  liste de tous les chantiers avec leur marge calculée, accès à une page de
-  détail rentabilité par chantier (probablement une extension ou une variante
-  de `CardFinancialSummary.tsx`). Aucun formulaire d'écriture ici.
-- **MCP (nouveau, seule voie d'écriture)** : tout ce qui alimente ou ajuste le
-  calcul se fait par outils conversationnels, pas par formulaire web :
-  - Définir `coutMatiereM2` / `categorieMateriau` sur une ligne de marché
-    ("le carrelage du chantier Dupont coûte 22€/m²").
-  - Ajuster le `BaremeMateriau` (ratios colle/joint/silicone, % de chute).
-  - Interroger la rentabilité ("marge du chantier X", "chantiers sous 15% de
-    marge") — sert aussi de secours/alternative au dashboard.
-  - Audit sous-traitant, rapprochement facture ponctuel (voir pistes plus
-    bas) — tout en MCP, pas de nouvel écran.
+- **Liste des chantiers** : `src/app/(dashboard)/chantiers/page.tsx` — page
+  existante, ne rien recréer.
+- **Page rentabilité par chantier** : `CardFinancialSummary.tsx`, rendue dans
+  `src/app/(dashboard)/chantiers/[chantierId]/etats/page.tsx` (par état
+  d'avancement client). Calcule déjà `totalRevenue`, `totalExpenses`
+  (`manualExpenses` + `soustraitantExpenses`), `netResult`, `margin`. **Il lui
+  manque juste une ligne : le coût matière.** Pas une nouvelle page, un ajout
+  dans le composant existant.
+
+Ce qui n'existe nulle part et reste à construire :
+
+1. **La ligne "coût matière" dans `CardFinancialSummary.tsx`** — seul ajout
+   web de ce plan. Le composant appelle la lib de calcul partagée (voir
+   ci-dessous) et l'ajoute à `totalExpenses`/`netResult`/`margin`.
+2. **Une colonne/badge marge sur la liste des chantiers existante**
+   (`chantiers/page.tsx`) — petit ajout visuel demandé par Grégory pour un
+   coup d'œil sur plusieurs chantiers à la fois (pas de nouvelle page, un
+   ajout à la page liste).
+3. **Tout le reste (saisie, requêtes croisées, tri par marge en détail,
+   alertes) passe par MCP**, pas par de nouveaux formulaires ou écrans web :
+   - Définir `coutMatiereM2` / `categorieMateriau` sur une ligne de marché
+     ("le carrelage du chantier Dupont coûte 22€/m²").
+   - Ajuster le `BaremeMateriau` (ratios colle/joint/silicone, % de chute).
+   - Interroger la rentabilité en détail ("chantiers sous 15% de marge",
+     "évolution du chantier X sur 6 mois").
+   - Audit sous-traitant, rapprochement facture ponctuel (voir pistes plus
+     bas).
 
 **Conséquence architecture** : le moteur de calcul (voir section précédente)
 doit être une fonction/lib partagée (ex. `src/lib/rentabilite/calcul.ts`),
 appelée à la fois :
-1. par l'API du dashboard web (lecture seule, `GET`) pour l'affichage ;
+1. par `CardFinancialSummary.tsx` et la colonne marge de la liste chantiers
+   (lecture seule, affichage) ;
 2. par les outils MCP de lecture (même logique, pas de duplication).
 
 Toutes les écritures (`coutMatiereM2`, `categorieMateriau`, `BaremeMateriau`)
@@ -152,10 +166,11 @@ Tout ce qui suit est pensé **MCP d'abord** (RAGBot non utilisé actuellement) :
 1. Migration Prisma (`BaremeMateriau` + champs `categorieMateriau` /
    `coutMatiereM2` sur `LigneMarche`).
 2. Lib de calcul partagée (`src/lib/rentabilite/calcul.ts` ou équivalent).
-3. Dashboard web lecture seule (liste chantiers + marge, page détail
-   rentabilité par chantier).
-4. Outils MCP d'écriture (coût matière, catégorie, barème) et de lecture
-   (marge par chantier, liste sous seuil) dans `src/lib/agent/tools/`.
+3. Ajouter la ligne coût matière dans `CardFinancialSummary.tsx` (existant).
+4. Ajouter une colonne/badge marge sur `chantiers/page.tsx` (existant).
+5. Outils MCP d'écriture (coût matière, catégorie, barème) et de lecture
+   (marge détaillée par chantier, liste sous seuil) dans
+   `src/lib/agent/tools/`.
 
-C'est un morceau conséquent (migration DB + dashboard + outils MCP) — à
-traiter dans une session dédiée plutôt qu'en fin de session.
+C'est un morceau conséquent (migration DB + 2 pages existantes à enrichir +
+outils MCP) — à traiter dans une session dédiée plutôt qu'en fin de session.
