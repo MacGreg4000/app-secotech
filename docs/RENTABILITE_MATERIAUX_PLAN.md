@@ -84,19 +84,42 @@ Pour chaque chantier, pour chaque `LigneMarche` catégorisée :
 5. `coutSilicone = quantite × ratioSiliconeMl × prixSiliconeMl`
 6. Total ligne = somme des 4 ; total chantier = somme des lignes.
 
-## Intégration
+## Architecture d'intégration : web = lecture seule, MCP = saisie + croisement
 
-- Nouvelle ligne "Coût matière (estimé)" dans `CardFinancialSummary.tsx`, à
-  côté de `soustraitantExpenses` et `manualExpenses`, dans le calcul de
-  `totalExpenses` / `netResult` / `margin`.
-- Deux nouvelles surfaces UI :
-  - Page admin pour éditer le `BaremeMateriau` (4 catégories, quelques champs
-    chacune).
-  - Un endroit pour saisir `categorieMateriau` / `coutMatiereM2` sur les
-    lignes de marché — probablement dans l'écran d'édition du devis/marché
-    existant (à localiser précisément au moment de l'implémentation).
+Décision finale (2026-06-22) : le chatbot RAGBot n'est pas utilisé
+actuellement — tout passe par le serveur MCP existant (`src/lib/agent/`).
+Répartition claire des responsabilités :
+
+- **Web (nouveau)** : un **dashboard rentabilité, lecture seule** —
+  liste de tous les chantiers avec leur marge calculée, accès à une page de
+  détail rentabilité par chantier (probablement une extension ou une variante
+  de `CardFinancialSummary.tsx`). Aucun formulaire d'écriture ici.
+- **MCP (nouveau, seule voie d'écriture)** : tout ce qui alimente ou ajuste le
+  calcul se fait par outils conversationnels, pas par formulaire web :
+  - Définir `coutMatiereM2` / `categorieMateriau` sur une ligne de marché
+    ("le carrelage du chantier Dupont coûte 22€/m²").
+  - Ajuster le `BaremeMateriau` (ratios colle/joint/silicone, % de chute).
+  - Interroger la rentabilité ("marge du chantier X", "chantiers sous 15% de
+    marge") — sert aussi de secours/alternative au dashboard.
+  - Audit sous-traitant, rapprochement facture ponctuel (voir pistes plus
+    bas) — tout en MCP, pas de nouvel écran.
+
+**Conséquence architecture** : le moteur de calcul (voir section précédente)
+doit être une fonction/lib partagée (ex. `src/lib/rentabilite/calcul.ts`),
+appelée à la fois :
+1. par l'API du dashboard web (lecture seule, `GET`) pour l'affichage ;
+2. par les outils MCP de lecture (même logique, pas de duplication).
+
+Toutes les écritures (`coutMatiereM2`, `categorieMateriau`, `BaremeMateriau`)
+passent exclusivement par de nouveaux outils dans
+`src/lib/agent/tools/` (registre `index.ts`), suivant les conventions
+existantes (jamais de throw, `requiresConfirmation` + `summarize()` en
+français pour toute écriture). **Pas de formulaire web à construire pour la
+saisie matière ni pour le barème.**
 
 ## Pistes pour aller plus loin (non prioritaires, à explorer après la V1)
+
+Tout ce qui suit est pensé **MCP d'abord** (RAGBot non utilisé actuellement) :
 
 - **Auto-calibration du barème** : comparer coût réel (si des dépenses matière
   finissent par être encodées occasionnellement) vs coût estimé, pour affiner
@@ -105,21 +128,34 @@ Pour chaque chantier, pour chaque `LigneMarche` catégorisée :
 - **Génération de bon de commande matière** : dès qu'un devis est signé et
   qu'un carrelage est choisi, proposer automatiquement la commande fournisseur
   (m² marché × (1+chute)) — boucle la saisie en amont, avant même la pose.
-- **Dashboard rentabilité agrégé multi-chantiers** avec ce coût matière
-  intégré, triable par marge, avec seuils d'alerte.
 - **Historique dans le temps** des marges par chantier / sous-traitant / type
   de pose, pour repérer les dérives récurrentes (tel poseur coûte
   systématiquement plus cher que prévu, tel type de chantier est
   structurellement moins rentable).
 - **Écart marché vs état d'avancement** : alerte si le client est facturé plus
   vite que ce que le chantier avance réellement (signal de dérapage).
-- **Outil agent "rentabilité chantier"** : ajouter un outil au serveur MCP
-  existant (`src/lib/agent/tools/`) pour interroger la marge en langage
-  naturel, et à terme un résumé mensuel proactif via le RAGBot.
+- **Outil MCP "audit sous-traitant"** : comparer ce qui est payé à un
+  sous-traitant vs le montant du marché du même poste sur plusieurs
+  chantiers, pour repérer ceux qui coûtent systématiquement plus cher que la
+  moyenne — réutilise `tarifsSousTraitant` déjà existant dans
+  `src/lib/agent/tools/lecture.ts`.
+- **Outil MCP "rapprochement facture ponctuel"** : décrire/coller le contenu
+  d'une facture fournisseur en conversation, l'agent l'alloue au bon
+  chantier — sans flux photo/OCR complet, pour les cas où on veut du réel
+  plutôt que l'estimation.
+- **Croisement documents + rentabilité** : combiner l'outil existant
+  `documentsExpirants` avec la marge pour repérer en une requête "ce
+  sous-traitant a une attestation expirée ET une marge en baisse".
 
 ## Prochaine étape
 
-Migration Prisma (`BaremeMateriau` + champs sur `LigneMarche`) + les deux
-écrans UI + le moteur de calcul + l'intégration dans `CardFinancialSummary`.
-C'est un morceau conséquent (migration DB + plusieurs écrans) — à traiter dans
-une session dédiée plutôt qu'en fin de session.
+1. Migration Prisma (`BaremeMateriau` + champs `categorieMateriau` /
+   `coutMatiereM2` sur `LigneMarche`).
+2. Lib de calcul partagée (`src/lib/rentabilite/calcul.ts` ou équivalent).
+3. Dashboard web lecture seule (liste chantiers + marge, page détail
+   rentabilité par chantier).
+4. Outils MCP d'écriture (coût matière, catégorie, barème) et de lecture
+   (marge par chantier, liste sous seuil) dans `src/lib/agent/tools/`.
+
+C'est un morceau conséquent (migration DB + dashboard + outils MCP) — à
+traiter dans une session dédiée plutôt qu'en fin de session.
