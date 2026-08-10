@@ -26,6 +26,14 @@ import {
 import { listeEtatsAvancement, creerEtatAvancement, ajouterAvenantEtat } from './etats'
 import { creerDevis } from './devis'
 import {
+  lireBaremeMateriau,
+  definirBaremeMateriau,
+  analyserCoutMatiereChantier,
+  definirCoutMatiereLigne,
+  rentabiliteChantier,
+  chantiersSousMarge,
+} from './rentabilite'
+import {
   listeChantiers,
   detailChantier,
   listeClients,
@@ -48,6 +56,10 @@ const ALL_TOOLS: ToolDefinition[] = [
   documentsExpirants,
   listeEtatsAvancement,
   lireNotesDashboard,
+  lireBaremeMateriau,
+  analyserCoutMatiereChantier,
+  rentabiliteChantier,
+  chantiersSousMarge,
   // Encodage d'un dossier
   trouverOuCreerClient,
   creerChantier,
@@ -63,6 +75,9 @@ const ALL_TOOLS: ToolDefinition[] = [
   ajouterAvenantEtat,
   // Devis
   creerDevis,
+  // Rentabilité / coût matière
+  definirBaremeMateriau,
+  definirCoutMatiereLigne,
 ]
 
 const TOOLS_BY_NAME = new Map(ALL_TOOLS.map((t) => [t.name, t]))

@@ -311,3 +311,106 @@ export function detecterCategorieMateriau(descriptif: string): CategorieMateriau
 
   return null
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rentabilité complète d'un chantier
+//
+// Miroir de la formule qui fait foi dans l'interface :
+// src/components/CardFinancialSummary.tsx (calculateFinancials, ~l.185-263).
+//   totalRevenue         = Σ états client (lignes.montantActuel + avenants.montantActuel)
+//   manualExpenses       = Σ depense.montant
+//   soustraitantExpenses = Σ états ST (lignes.montantActuel + avenants.montantActuel)
+//   netResult            = totalRevenue − (manual + soustraitant)
+//   margin               = totalRevenue > 0 ? netResult / totalRevenue × 100 : 0
+//
+// Deux écarts assumés, documentés :
+//  1. `Depense.chantierId` contient le SLUG métier (l'application l'écrit depuis
+//     le paramètre d'URL, en SQL brut, et le modèle n'a aucune relation Prisma).
+//     D'où le second paramètre `chantierSlug` — s'en passer renverrait 0.
+//  2. L'interface ne compte les états sous-traitant que des commandes
+//     verrouillées. Ici on prend tous les états ST du chantier : c'est
+//     équivalent en pratique, la création d'un état ST étant elle-même refusée
+//     tant que la commande n'est pas verrouillée.
+//
+// N.B. il existe une seconde formule dans src/utils/financial-calculations.ts
+// (montantTotal au lieu de montantActuel, avenants ignorés) : elle est MORTE,
+// son unique consommateur n'est importé nulle part. Ne pas s'en inspirer.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ResultatRentabilite {
+  chantierId: string
+  nomChantier: string
+  totalRevenue: number
+  manualExpenses: number
+  soustraitantExpenses: number
+  /** Estimation issue de calculerCoutMatiereChantier. */
+  coutMatiere: number
+  totalExpenses: number
+  netResult: number
+  /** Marge en %, sur le chiffre d'affaires facturé. */
+  margin: number
+  avertissements: string[]
+}
+
+export async function calculerRentabiliteChantier(
+  chantierCuid: string,
+  chantierSlug: string,
+  nomChantier: string
+): Promise<ResultatRentabilite> {
+  const [etatsClient, depensesAgg, etatsST, matiere] = await Promise.all([
+    prisma.etatAvancement.findMany({
+      where: { chantierId: chantierCuid },
+      include: { lignes: true, avenants: true },
+    }),
+    // SLUG, pas le cuid — voir note ci-dessus
+    prisma.depense.aggregate({ where: { chantierId: chantierSlug }, _sum: { montant: true } }),
+    prisma.soustraitant_etat_avancement.findMany({
+      where: { etat_avancement: { chantierId: chantierCuid } },
+      include: {
+        ligne_soustraitant_etat_avancement: true,
+        avenant_soustraitant_etat_avancement: true,
+      },
+    }),
+    calculerCoutMatiereChantier(chantierCuid),
+  ])
+
+  const totalRevenue = arrondi2(
+    etatsClient.reduce(
+      (s, e) =>
+        s +
+        e.lignes.reduce((x, l) => x + (l.montantActuel || 0), 0) +
+        e.avenants.reduce((x, a) => x + (a.montantActuel || 0), 0),
+      0
+    )
+  )
+
+  const manualExpenses = arrondi2(depensesAgg._sum.montant || 0)
+
+  const soustraitantExpenses = arrondi2(
+    etatsST.reduce(
+      (s, e) =>
+        s +
+        e.ligne_soustraitant_etat_avancement.reduce((x, l) => x + (l.montantActuel || 0), 0) +
+        e.avenant_soustraitant_etat_avancement.reduce((x, a) => x + (a.montantActuel || 0), 0),
+      0
+    )
+  )
+
+  const coutMatiere = matiere.coutMatiereTotal
+  const totalExpenses = arrondi2(manualExpenses + soustraitantExpenses + coutMatiere)
+  const netResult = arrondi2(totalRevenue - totalExpenses)
+  const margin = totalRevenue > 0 ? arrondi2((netResult / totalRevenue) * 100) : 0
+
+  return {
+    chantierId: chantierSlug,
+    nomChantier,
+    totalRevenue,
+    manualExpenses,
+    soustraitantExpenses,
+    coutMatiere,
+    totalExpenses,
+    netResult,
+    margin,
+    avertissements: matiere.avertissements,
+  }
+}
