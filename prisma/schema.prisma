@@ -238,6 +238,9 @@ model BaremeMateriau {
   prixSiliconeMl    Float    @default(0)
   // Pourcentage de carrelage acheté en plus pour compenser les coupes
   pourcentageChute  Float    @default(0)
+  // Coût fixe par unité de quantité, pour ce qui ne se modélise pas en ratio :
+  // clips et profilés de nivellement (sol/mur), membrane d'étanchéité…
+  coutFixeM2        Float    @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

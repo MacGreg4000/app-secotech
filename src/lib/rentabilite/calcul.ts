@@ -58,6 +58,8 @@ export interface DetailLigneCoutMatiere {
   coutColle: number
   coutJoint: number
   coutSilicone: number
+  /** Clips, profilés, membrane d'étanchéité… — coût fixe par unité. */
+  coutFixe: number
   total: number
 }
 
@@ -91,6 +93,7 @@ interface BaremeUtilisable {
   ratioSiliconeMl: number
   prixSiliconeMl: number
   pourcentageChute: number
+  coutFixeM2: number
 }
 
 const BAREME_VIDE: BaremeUtilisable = {
@@ -101,6 +104,7 @@ const BAREME_VIDE: BaremeUtilisable = {
   ratioSiliconeMl: 0,
   prixSiliconeMl: 0,
   pourcentageChute: 0,
+  coutFixeM2: 0,
 }
 
 function baremeEstVide(b: BaremeUtilisable): boolean {
@@ -111,7 +115,8 @@ function baremeEstVide(b: BaremeUtilisable): boolean {
     b.prixJointKg === 0 &&
     b.ratioSiliconeMl === 0 &&
     b.prixSiliconeMl === 0 &&
-    b.pourcentageChute === 0
+    b.pourcentageChute === 0 &&
+    b.coutFixeM2 === 0
   )
 }
 
@@ -164,6 +169,7 @@ export async function calculerCoutMatiereChantier(
         ratioSiliconeMl: b.ratioSiliconeMl,
         prixSiliconeMl: b.prixSiliconeMl,
         pourcentageChute: b.pourcentageChute,
+        coutFixeM2: b.coutFixeM2,
       },
     ])
   )
@@ -228,7 +234,8 @@ export async function calculerCoutMatiereChantier(
     const coutColle = arrondi2(quantite * bareme.ratioColleKgM2 * bareme.prixColleKg)
     const coutJoint = arrondi2(quantite * bareme.ratioJointKgM2 * bareme.prixJointKg)
     const coutSilicone = arrondi2(quantite * bareme.ratioSiliconeMl * bareme.prixSiliconeMl)
-    const total = arrondi2(coutCarrelage + coutColle + coutJoint + coutSilicone)
+    const coutFixe = arrondi2(quantite * bareme.coutFixeM2)
+    const total = arrondi2(coutCarrelage + coutColle + coutJoint + coutSilicone + coutFixe)
 
     lignes.push({
       ligneCommandeId: lc!.id,
@@ -243,6 +250,7 @@ export async function calculerCoutMatiereChantier(
       coutColle,
       coutJoint,
       coutSilicone,
+      coutFixe,
       total,
     })
     detailParCategorie[categorie] = arrondi2((detailParCategorie[categorie] || 0) + total)

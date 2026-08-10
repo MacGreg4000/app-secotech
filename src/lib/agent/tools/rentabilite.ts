@@ -36,7 +36,8 @@ export const lireBaremeMateriau: ToolDefinition = {
           b.prixColleKg === 0 &&
           b.ratioJointKgM2 === 0 &&
           b.prixJointKg === 0 &&
-          b.pourcentageChute === 0
+          b.pourcentageChute === 0 &&
+          b.coutFixeM2 === 0
       )
       .map((b) => b.categorie)
 
@@ -47,6 +48,7 @@ export const lireBaremeMateriau: ToolDefinition = {
         joint: { ratioKgM2: b.ratioJointKgM2, prixKg: b.prixJointKg },
         silicone: { ratio: b.ratioSiliconeMl, prix: b.prixSiliconeMl },
         pourcentageChute: b.pourcentageChute,
+        coutFixeParUnite: b.coutFixeM2,
       })),
       ...(nonRenseignes.length > 0
         ? {
@@ -76,6 +78,12 @@ export const definirBaremeMateriau: ToolDefinition = {
       ratioSiliconeMl: { type: 'number', description: 'Silicone consommé par unité de quantité' },
       prixSiliconeMl: { type: 'number', description: 'Prix du silicone' },
       pourcentageChute: { type: 'number', description: '% de carrelage acheté en plus (coupes)' },
+      coutFixeM2: {
+        type: 'number',
+        description:
+          "Coût fixe par unité de quantité : clips et profilés de nivellement, " +
+          "membrane d'étanchéité… (€ par m² ou par mètre linéaire selon la catégorie)",
+      },
     },
     required: ['categorie'],
   },
@@ -119,6 +127,7 @@ const CHAMPS_BAREME = [
   'ratioSiliconeMl',
   'prixSiliconeMl',
   'pourcentageChute',
+  'coutFixeM2',
 ] as const
 
 async function preparerBareme(
