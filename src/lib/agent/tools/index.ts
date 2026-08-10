@@ -24,6 +24,7 @@ import {
   creerNoteChantier,
 } from './notes'
 import { listeEtatsAvancement, creerEtatAvancement, ajouterAvenantEtat } from './etats'
+import { creerDevis } from './devis'
 import {
   listeChantiers,
   detailChantier,
@@ -60,6 +61,8 @@ const ALL_TOOLS: ToolDefinition[] = [
   // États d'avancement
   creerEtatAvancement,
   ajouterAvenantEtat,
+  // Devis
+  creerDevis,
 ]
 
 const TOOLS_BY_NAME = new Map(ALL_TOOLS.map((t) => [t.name, t]))

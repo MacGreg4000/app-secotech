@@ -17,6 +17,7 @@ import {
   resolveClient,
   resolveChantier,
   arrondi2,
+  eur,
 } from './helpers'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -897,9 +898,6 @@ async function preparerCommande(args: Record<string, unknown>): Promise<Preparat
     totaux: calculerTotaux(norm.lignes!, tauxTVA),
   }
 }
-
-const eur = (n: number) =>
-  n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 
 export const creerCommandeChantier: ToolDefinition = {
   name: 'creer_commande_chantier',

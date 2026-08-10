@@ -169,3 +169,8 @@ export function clampLimit(value: unknown, def: number, max: number): number {
 export function arrondi2(n: number): number {
   return Math.round(Number(n) * 100) / 100
 }
+
+/** Formate un montant en euros à la française (ex. 1 234,56 €). */
+export function eur(n: number): string {
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+}
