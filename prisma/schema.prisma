@@ -205,10 +205,43 @@ model LigneCommande {
   estOption    Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  // ── Calcul du coût matière (rentabilité) ───────────────────────────────
+  // Catégorie de pose, pour appliquer le bon barème : SOL | MUR | PLINTHE |
+  // ETANCHEITE. Nullable = ligne non concernée (ou pas encore catégorisée).
+  // Détectée automatiquement par mots-clés, corrigible à la main.
+  categorieMateriau String?
+  // Prix d'ACHAT du carrelage au m² pour cette ligne (le prix de vente est
+  // dans prixUnitaire). Seule donnée réellement saisie, ligne par ligne.
+  coutMatiereM2     Float?
   commande     Commande @relation(fields: [commandeId], references: [id], onDelete: Cascade)
 
   @@index([commandeId], map: "LigneCommande_commandeId_idx")
   @@map("lignecommande")
+}
+
+/// Barème des consommables par catégorie de pose, utilisé pour estimer le coût
+/// matière à partir des quantités déjà facturées au client.
+/// Une ligne par catégorie (SOL, MUR, PLINTHE, ETANCHEITE).
+/// Valeurs initialisées à 0 : tant qu'elles ne sont pas renseignées, le coût
+/// estimé reste nul plutôt que d'être faussement plausible.
+model BaremeMateriau {
+  id                Int      @id @default(autoincrement())
+  categorie         String   @unique // SOL | MUR | PLINTHE | ETANCHEITE
+  // Colle
+  ratioColleKgM2    Float    @default(0)
+  prixColleKg       Float    @default(0)
+  // Joint
+  ratioJointKgM2    Float    @default(0)
+  prixJointKg       Float    @default(0)
+  // Silicone (surtout PLINTHE / ETANCHEITE)
+  ratioSiliconeMl   Float    @default(0)
+  prixSiliconeMl    Float    @default(0)
+  // Pourcentage de carrelage acheté en plus pour compenser les coupes
+  pourcentageChute  Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("bareme_materiau")
 }
 
 model EtatAvancement {
