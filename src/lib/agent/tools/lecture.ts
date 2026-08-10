@@ -115,8 +115,13 @@ export const detailChantier: ToolDefinition = {
         _sum: { total: true },
         _count: true,
       }),
+      // Depense.chantierId contient le SLUG métier, pas le cuid : l'application
+      // l'écrit depuis le paramètre d'URL [chantierId]
+      // (api/chantiers/[chantierId]/depenses/route.ts). Agréger sur `id`
+      // renvoyait donc toujours 0. Le modèle n'a aucune relation Prisma, donc
+      // rien ne signalait l'erreur.
       prisma.depense.aggregate({
-        where: { chantierId: id },
+        where: { chantierId },
         _sum: { montant: true },
         _count: true,
       }),
