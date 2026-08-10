@@ -246,20 +246,32 @@ export default function ChantiersPage() {
   const searchParams = useSearchParams()
   const { showNotification, NotificationComponent } = useNotification()
   const [chantiers, setChantiers] = useState<Chantier[]>([])
-  // Marges chargées EN ARRIÈRE-PLAN, après l'affichage de la liste : le calcul
-  // demande plusieurs requêtes par chantier et ne doit jamais retarder la page.
+  // Marges calculées À LA DEMANDE uniquement.
+  // Le calcul demande ~7 requêtes par chantier : le déclencher automatiquement
+  // ferait travailler la base à chaque affichage de la liste, pour une
+  // information qu'on ne consulte pas à chaque visite.
   const [marges, setMarges] = useState<Record<string, { margin: number }>>({})
+  const [chargementMarges, setChargementMarges] = useState(false)
 
-  useEffect(() => {
+  const calculerMarges = async () => {
     const ids = chantiers.map(c => c.chantierId).filter(Boolean)
-    if (ids.length === 0) { setMarges({}); return }
-    let annule = false
-    fetch(`/api/chantiers/marges?ids=${encodeURIComponent(ids.join(','))}`)
-      .then(r => (r.ok ? r.json() : { marges: {} }))
-      .then(d => { if (!annule) setMarges(d?.marges || {}) })
-      .catch(() => { /* la liste reste utilisable sans badge */ })
-    return () => { annule = true }
-  }, [chantiers])
+    if (ids.length === 0) return
+    setChargementMarges(true)
+    try {
+      const r = await fetch(`/api/chantiers/marges?ids=${encodeURIComponent(ids.join(','))}`)
+      const d = r.ok ? await r.json() : { marges: {} }
+      setMarges(d?.marges || {})
+    } catch {
+      // la liste reste utilisable sans badge
+    } finally {
+      setChargementMarges(false)
+    }
+  }
+
+  // Les marges affichées ne valent que pour la page chargée : on les vide dès
+  // que la liste change (pagination, filtre, tri) pour ne jamais afficher un
+  // pourcentage qui se rapporterait à d'autres chantiers.
+  useEffect(() => { setMarges({}) }, [chantiers])
   const [loading, setLoading] = useState(true)
   const [filtreNom, setFiltreNom] = useState('')
   const [filtreClient, setFiltreClient] = useState('')
@@ -782,7 +794,19 @@ export default function ChantiersPage() {
                           onSort={handleSort}
                         />
                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
-                          Marge
+                          {Object.keys(marges).length > 0 ? (
+                            'Marge'
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={calculerMarges}
+                              disabled={chargementMarges}
+                              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50 dark:text-indigo-400"
+                              title="Calcule la marge des chantiers affichés (peut prendre quelques secondes)"
+                            >
+                              {chargementMarges ? 'Calcul…' : 'Marge ▸'}
+                            </button>
+                          )}
                         </th>
                         <th scope="col" className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 dark:text-gray-200 pr-4 sm:pr-6">
                           Actions
