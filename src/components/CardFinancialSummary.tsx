@@ -43,6 +43,7 @@ export default function CardFinancialSummary({
     totalExpenses: number;
     manualExpenses: number;
     soustraitantExpenses: number;
+    coutMatiere: number;
     netResult: number;
     margin: number;
     totalCommandeBase: number;
@@ -56,6 +57,12 @@ export default function CardFinancialSummary({
   const [chantierInfo, setChantierInfo] = useState<{ nomChantier: string }>({ nomChantier: '' });
   const financialSummaryRef = useRef<HTMLDivElement>(null);
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
+  // Coût matière estimé — calculé côté serveur par la librairie partagée avec
+  // les outils agent (src/lib/rentabilite/calcul.ts), donc une seule formule.
+  // Volontairement tolérant : si l'appel échoue, le coût retombe à 0 et la
+  // carte financière reste utilisable.
+  const [coutMatiere, setCoutMatiere] = useState<number>(0);
+  const [avertissementsMatiere, setAvertissementsMatiere] = useState<string[]>([]);
 
   // Fonction pour formater les montants en euros
   const formatCurrency = (amount: number) => {
@@ -136,7 +143,24 @@ export default function CardFinancialSummary({
       const allEtatsSSTraitant = await Promise.all(etatsSSTraitantPromises);
       const flattenedEtatsSSTraitant = allEtatsSSTraitant.flat();
       setEtatsAvancementSoustraitant(flattenedEtatsSSTraitant);
-      
+
+      // Coût matière : n'interrompt jamais le reste. Contrairement aux appels
+      // ci-dessus, on ne lève pas — cette estimation est un complément.
+      try {
+        const matiereResponse = await fetch(`/api/chantiers/${chantierId}/cout-matiere`);
+        if (matiereResponse.ok) {
+          const matiere = await matiereResponse.json();
+          setCoutMatiere(Number(matiere?.coutMatiereTotal) || 0);
+          setAvertissementsMatiere(Array.isArray(matiere?.avertissements) ? matiere.avertissements : []);
+        } else {
+          setCoutMatiere(0);
+          setAvertissementsMatiere([]);
+        }
+      } catch {
+        setCoutMatiere(0);
+        setAvertissementsMatiere([]);
+      }
+
       setLastUpdate(Date.now());
       
     } catch (error) {
@@ -241,8 +265,8 @@ export default function CardFinancialSummary({
       return total + montantLignes + montantAvenants;
     }, 0);
     
-    // Total de toutes les dépenses (manuelles + sous-traitants)
-    const totalExpenses = manualExpenses + soustraitantExpenses;
+    // Total de toutes les dépenses (manuelles + sous-traitants + matière estimée)
+    const totalExpenses = manualExpenses + soustraitantExpenses + coutMatiere;
 
     // Calcul du résultat net
     const netResult = totalRevenue - totalExpenses;
@@ -255,6 +279,7 @@ export default function CardFinancialSummary({
       totalExpenses,
       manualExpenses,
       soustraitantExpenses,
+      coutMatiere,
       netResult,
       margin,
       totalCommandeBase,
@@ -342,12 +367,12 @@ export default function CardFinancialSummary({
   
   // Données pour le graphique en barres de la répartition des dépenses
   const depensesTypeChartData: ChartData<'bar'> = {
-    labels: ['Dépenses manuelles', 'États sous-traitants'],
+    labels: ['Dépenses manuelles', 'États sous-traitants', 'Coût matière (estimé)'],
     datasets: [
       {
         label: 'Montant (€)',
-        data: [financialData.manualExpenses, financialData.soustraitantExpenses],
-        backgroundColor: ['#EF4444', '#F97316'],
+        data: [financialData.manualExpenses, financialData.soustraitantExpenses, financialData.coutMatiere],
+        backgroundColor: ['#EF4444', '#F97316', '#A16207'],
       },
     ],
   };
@@ -414,7 +439,8 @@ export default function CardFinancialSummary({
             </div>
             <p className="text-xs text-red-600 mt-2">
               Dépenses manuelles: {formatCurrency(financialData.manualExpenses)} <br/>
-              États sous-traitants: {formatCurrency(financialData.soustraitantExpenses)}
+              États sous-traitants: {formatCurrency(financialData.soustraitantExpenses)} <br/>
+              Coût matière estimé: {formatCurrency(financialData.coutMatiere)}
             </p>
           </div>
           
@@ -486,6 +512,19 @@ export default function CardFinancialSummary({
                   <span className="font-medium">États sous-traitants:</span>
                   <span className="font-bold">{formatCurrency(financialData.soustraitantExpenses)}</span>
                 </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">
+                    Coût matière <span className="text-xs text-gray-500">(estimé)</span>:
+                  </span>
+                  <span className="font-bold">{formatCurrency(financialData.coutMatiere)}</span>
+                </div>
+                {avertissementsMatiere.length > 0 && (
+                  <ul className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 space-y-1">
+                    {avertissementsMatiere.map((a, i) => (
+                      <li key={i}>⚠️ {a}</li>
+                    ))}
+                  </ul>
+                )}
                 <div className="h-60">
                   <BarChart data={depensesTypeChartData} options={barChartOptions as unknown as Record<string, unknown>} />
                 </div>

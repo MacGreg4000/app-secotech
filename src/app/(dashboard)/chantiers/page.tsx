@@ -246,6 +246,20 @@ export default function ChantiersPage() {
   const searchParams = useSearchParams()
   const { showNotification, NotificationComponent } = useNotification()
   const [chantiers, setChantiers] = useState<Chantier[]>([])
+  // Marges chargées EN ARRIÈRE-PLAN, après l'affichage de la liste : le calcul
+  // demande plusieurs requêtes par chantier et ne doit jamais retarder la page.
+  const [marges, setMarges] = useState<Record<string, { margin: number }>>({})
+
+  useEffect(() => {
+    const ids = chantiers.map(c => c.chantierId).filter(Boolean)
+    if (ids.length === 0) { setMarges({}); return }
+    let annule = false
+    fetch(`/api/chantiers/marges?ids=${encodeURIComponent(ids.join(','))}`)
+      .then(r => (r.ok ? r.json() : { marges: {} }))
+      .then(d => { if (!annule) setMarges(d?.marges || {}) })
+      .catch(() => { /* la liste reste utilisable sans badge */ })
+    return () => { annule = true }
+  }, [chantiers])
   const [loading, setLoading] = useState(true)
   const [filtreNom, setFiltreNom] = useState('')
   const [filtreClient, setFiltreClient] = useState('')
@@ -767,6 +781,9 @@ export default function ChantiersPage() {
                           sortDirection={sortDirection}
                           onSort={handleSort}
                         />
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
+                          Marge
+                        </th>
                         <th scope="col" className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 dark:text-gray-200 pr-4 sm:pr-6">
                           Actions
                         </th>
@@ -841,6 +858,24 @@ export default function ChantiersPage() {
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                             {chantier.dateCommencement ? new Date(chantier.dateCommencement).toLocaleDateString('fr-FR') : '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            {marges[chantier.chantierId] ? (
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                  marges[chantier.chantierId].margin >= 20
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                    : marges[chantier.chantierId].margin >= 10
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                }`}
+                                title="Marge estimée, coût matière inclus"
+                              >
+                                {marges[chantier.chantierId].margin.toFixed(1)} %
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
                           </td>
                           <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                             <div className="flex space-x-1 justify-end">
