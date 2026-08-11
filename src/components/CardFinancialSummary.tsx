@@ -16,6 +16,7 @@ import {
   ReceiptPercentIcon
 } from '@heroicons/react/24/outline'
 import dynamic from 'next/dynamic'
+import CoutMatiereModal from './CoutMatiereModal'
 import type { ChartData } from 'chart.js'
 const BarChart = dynamic(() => import('./charts/BarChart'), { ssr: false })
 const DoughnutChart = dynamic(() => import('./charts/DoughnutChart'), { ssr: false })
@@ -63,6 +64,12 @@ export default function CardFinancialSummary({
   // carte financière reste utilisable.
   const [coutMatiere, setCoutMatiere] = useState<number>(0);
   const [avertissementsMatiere, setAvertissementsMatiere] = useState<string[]>([]);
+  // Un coût matière à 0 € peut vouloir dire deux choses opposées : « rien à
+  // compter » ou « rien n'a été saisi ». On distingue, sinon le total des
+  // dépenses paraît complet alors qu'il ne l'est pas.
+  const [peutSaisirMatiere, setPeutSaisirMatiere] = useState(false);
+  const [lignesATraiter, setLignesATraiter] = useState(0);
+  const [modaleMatiereOuverte, setModaleMatiereOuverte] = useState(false);
 
   // Fonction pour formater les montants en euros
   const formatCurrency = (amount: number) => {
@@ -152,13 +159,19 @@ export default function CardFinancialSummary({
           const matiere = await matiereResponse.json();
           setCoutMatiere(Number(matiere?.coutMatiereTotal) || 0);
           setAvertissementsMatiere(Array.isArray(matiere?.avertissements) ? matiere.avertissements : []);
+          setPeutSaisirMatiere(!!matiere?.peutSaisir);
+          setLignesATraiter(Number(matiere?.saisie?.aTraiter) || 0);
         } else {
           setCoutMatiere(0);
           setAvertissementsMatiere([]);
+          setPeutSaisirMatiere(false);
+          setLignesATraiter(0);
         }
       } catch {
         setCoutMatiere(0);
         setAvertissementsMatiere([]);
+        setPeutSaisirMatiere(false);
+        setLignesATraiter(0);
       }
 
       setLastUpdate(Date.now());
@@ -405,6 +418,13 @@ export default function CardFinancialSummary({
   };
 
   return (
+    <>
+    <CoutMatiereModal
+      chantierId={chantierId}
+      open={modaleMatiereOuverte}
+      onClose={() => setModaleMatiereOuverte(false)}
+      onSaved={fetchData}
+    />
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
@@ -512,11 +532,28 @@ export default function CardFinancialSummary({
                   <span className="font-medium">États sous-traitants:</span>
                   <span className="font-bold">{formatCurrency(financialData.soustraitantExpenses)}</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center gap-2">
                   <span className="font-medium">
                     Coût matière <span className="text-xs text-gray-500">(estimé)</span>:
                   </span>
-                  <span className="font-bold">{formatCurrency(financialData.coutMatiere)}</span>
+                  <span className="flex items-center gap-2">
+                    {lignesATraiter > 0 ? (
+                      <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                        non renseigné — {lignesATraiter} ligne(s) à catégoriser
+                      </span>
+                    ) : (
+                      <span className="font-bold">{formatCurrency(financialData.coutMatiere)}</span>
+                    )}
+                    {peutSaisirMatiere && (
+                      <button
+                        type="button"
+                        onClick={() => setModaleMatiereOuverte(true)}
+                        className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                      >
+                        {lignesATraiter > 0 ? 'Renseigner' : 'Modifier'}
+                      </button>
+                    )}
+                  </span>
                 </div>
                 {avertissementsMatiere.length > 0 && (
                   <ul className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 space-y-1">
@@ -535,8 +572,25 @@ export default function CardFinancialSummary({
                 </div>
               </div>
             ) : (
-              <div className="flex justify-center items-center h-60">
+              <div className="flex flex-col justify-center items-center gap-3 h-60">
                 <p className="text-gray-500">Aucune dépense enregistrée</p>
+                {/* Sans cette porte de sortie, un chantier sans aucune dépense
+                    n'offrirait jamais d'accès à la saisie du coût matière. */}
+                {peutSaisirMatiere && lignesATraiter > 0 && (
+                  <>
+                    <p className="text-xs text-amber-700 dark:text-amber-400 text-center px-4">
+                      {lignesATraiter} ligne(s) facturée(s) n’ont pas de coût matière renseigné :
+                      la marge affichée est donc surévaluée.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setModaleMatiereOuverte(true)}
+                      className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      Renseigner le coût matière
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -593,6 +647,7 @@ export default function CardFinancialSummary({
         </p>
       </CardFooter>
     </Card>
+    </>
   );
 
   // Fonction pour calculer les dépenses par catégorie

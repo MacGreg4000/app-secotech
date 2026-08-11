@@ -36,7 +36,10 @@ export async function GET(request: Request) {
       select: { id: true, chantierId: true, nomChantier: true },
     })
 
-    const marges: Record<string, { margin: number; netResult: number; totalRevenue: number }> = {}
+    const marges: Record<
+      string,
+      { margin: number; netResult: number; totalRevenue: number; matiereIncomplete: boolean }
+    > = {}
     for (const c of chantiers) {
       try {
         const r = await calculerRentabiliteChantier(c.id, c.chantierId, c.nomChantier)
@@ -46,6 +49,10 @@ export async function GET(request: Request) {
             margin: r.margin,
             netResult: r.netResult,
             totalRevenue: r.totalRevenue,
+            // La marge est surévaluée tant que des lignes n'ont pas de coût
+            // matière : le badge doit le dire plutôt que d'afficher un chiffre
+            // net qui inspire une confiance qu'il ne mérite pas.
+            matiereIncomplete: r.matiereIncomplete,
           }
         }
       } catch (e) {

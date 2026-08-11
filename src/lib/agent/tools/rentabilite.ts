@@ -10,8 +10,10 @@ import { ToolDefinition } from '../types'
 import { resolveChantier, clampLimit, eur } from './helpers'
 import {
   CATEGORIES_MATERIAU,
+  CATEGORIE_AUCUNE,
   estCategorieMateriau,
   detecterCategorieMateriau,
+  verifierUniteCategorie,
   calculerCoutMatiereChantier,
   calculerRentabiliteChantier,
 } from '@/lib/rentabilite/calcul'
@@ -233,8 +235,10 @@ export const definirCoutMatiereLigne: ToolDefinition = {
             article: { type: 'string', description: "Numéro d'article, si l'identifiant est inconnu" },
             categorieMateriau: {
               type: 'string',
-              description: 'Catégorie de pose (null pour retirer)',
-              enum: [...CATEGORIES_MATERIAU],
+              description:
+                'Catégorie de pose, ou AUCUNE pour marquer la ligne comme sans matière ' +
+                "(avaloir, caniveau, main-d'œuvre). null retire toute valeur.",
+              enum: [...CATEGORIES_MATERIAU, CATEGORIE_AUCUNE],
             },
             coutMatiereM2: { type: 'number', description: "Prix d'ACHAT du carrelage en € / m²" },
           },
@@ -294,36 +298,6 @@ export const definirCoutMatiereLigne: ToolDefinition = {
       prochaineEtape: 'Relance analyser_cout_matiere_chantier pour voir le coût recalculé.',
     }
   },
-}
-
-// ── Cohérence unité / catégorie ──────────────────────────────────────────────
-// Le barème s'exprime par m² (SOL, MUR, ETANCHEITE) ou par mètre linéaire
-// (PLINTHE). Catégoriser une ligne facturée en « Pièces » — un avaloir, un
-// caniveau — appliquerait ces ratios à un NOMBRE D'OBJETS : le montant obtenu
-// n'aurait aucun sens, et rien ne le signalerait.
-// On avertit plutôt que de bloquer : c'est une donnée métier, pas une règle
-// technique. L'avertissement apparaît dès le dryRun, avant toute écriture.
-const UNITES_SURFACE = ['m2', 'm²']
-const UNITES_LINEAIRES = ['m', 'ml', 'mct']
-
-function normaliserUnite(u: string): string {
-  return String(u || '')
-    .normalize('NFD')
-    .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
-    .toLowerCase()
-    .replace(/²/g, '2')
-    .trim()
-}
-
-function verifierUnite(categorie: string, unite: string): string | null {
-  const u = normaliserUnite(unite)
-  if (!u) return null
-  const attenduLineaire = categorie === 'PLINTHE'
-  const ok = attenduLineaire ? UNITES_LINEAIRES.includes(u) : UNITES_SURFACE.includes(u)
-  if (ok) return null
-  return attenduLineaire
-    ? `unité « ${unite} » alors que ${categorie} attend un métré linéaire`
-    : `unité « ${unite} » alors que ${categorie} attend des m²`
 }
 
 interface MajLigne {
@@ -404,8 +378,11 @@ async function preparerCoutLignes(args: Record<string, unknown>): Promise<{
         entree.categorieMateriau = null
       } else {
         const c = String(d.categorieMateriau).trim().toUpperCase()
-        if (!estCategorieMateriau(c)) {
-          return { erreur: `Catégorie invalide « ${c} ». Valeurs : ${CATEGORIES_MATERIAU.join(', ')}.` }
+        if (!estCategorieMateriau(c) && c !== CATEGORIE_AUCUNE) {
+          return {
+            erreur:
+              `Catégorie invalide « ${c} ». Valeurs : ${CATEGORIES_MATERIAU.join(', ')}, ${CATEGORIE_AUCUNE}.`,
+          }
         }
         entree.categorieMateriau = c
       }
@@ -425,8 +402,9 @@ async function preparerCoutLignes(args: Record<string, unknown>): Promise<{
 
   const avertissements: string[] = []
   for (const m of maj) {
-    if (!m.categorieMateriau) continue
-    const souci = verifierUnite(m.categorieMateriau, m.unite)
+    // AUCUNE écarte la ligne du calcul : aucune unité ne peut la contredire.
+    if (!m.categorieMateriau || m.categorieMateriau === CATEGORIE_AUCUNE) continue
+    const souci = verifierUniteCategorie(m.categorieMateriau, m.unite)
     if (souci) {
       avertissements.push(`Ligne ${m.article || m.id} : ${souci}. Le montant calculé n'aurait pas de sens.`)
     }

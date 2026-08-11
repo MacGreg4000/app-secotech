@@ -31,13 +31,25 @@
 
 import { prisma } from '@/lib/prisma/client'
 
-/** Catégories de pose reconnues (colonne String, pas d'enum Prisma). */
-export const CATEGORIES_MATERIAU = ['SOL', 'MUR', 'PLINTHE', 'ETANCHEITE'] as const
-export type CategorieMateriau = (typeof CATEGORIES_MATERIAU)[number]
+// Vocabulaire et contrôles purs : extraits dans un module sans Prisma pour que
+// la modale de saisie (composant client) applique les mêmes règles que le calcul.
+// Réexportés ici afin que les appelants existants n'aient pas à changer d'import.
+export {
+  CATEGORIES_MATERIAU,
+  CATEGORIE_AUCUNE,
+  LIBELLES_CATEGORIE,
+  estCategorieMateriau,
+  normaliserUnite,
+  verifierUniteCategorie,
+} from './categories'
+export type { CategorieMateriau } from './categories'
 
-export function estCategorieMateriau(v: unknown): v is CategorieMateriau {
-  return typeof v === 'string' && (CATEGORIES_MATERIAU as readonly string[]).includes(v)
-}
+import {
+  CATEGORIE_AUCUNE,
+  estCategorieMateriau,
+  verifierUniteCategorie,
+} from './categories'
+import type { CategorieMateriau } from './categories'
 
 /** Arrondi monétaire, même convention que le reste de l'application. */
 function arrondi2(n: number): number {
@@ -70,6 +82,8 @@ export interface ResultatCoutMatiere {
   coutMatiereTotal: number
   detailParCategorie: Record<string, number>
   lignes: DetailLigneCoutMatiere[]
+  /** Lignes facturées ni catégorisées ni marquées « sans matière ». */
+  lignesNonCategorisees: number
   /** Points qui minorent le résultat — à afficher, jamais à masquer. */
   avertissements: string[]
 }
@@ -148,6 +162,7 @@ export async function calculerCoutMatiereChantier(
       coutMatiereTotal: 0,
       detailParCategorie: {},
       lignes: [],
+      lignesNonCategorisees: 0,
       avertissements: [
         dernierEtat
           ? "L'état d'avancement le plus récent ne contient aucune ligne."
@@ -211,6 +226,7 @@ export async function calculerCoutMatiereChantier(
   const detailParCategorie: Record<string, number> = {}
   let nonCategorisees = 0
   let sansPrixAchat = 0
+  const unitesIncoherentes: string[] = []
 
   for (const ligneEtat of dernierEtat.lignes) {
     // Les sections ne portent aucune quantité
@@ -221,12 +237,17 @@ export async function calculerCoutMatiereChantier(
 
     const lc = ligneEtat.ligneCommandeId ? ligneCommandeParId.get(ligneEtat.ligneCommandeId) : undefined
     const categorie = lc?.categorieMateriau
+    // Marquée « sans matière » : écartée volontairement, donc silencieusement.
+    if (categorie === CATEGORIE_AUCUNE) continue
     if (!estCategorieMateriau(categorie)) {
       nonCategorisees++
       continue
     }
     const coutMatiereM2 = lc?.coutMatiereM2 ?? 0
     if (!coutMatiereM2) sansPrixAchat++
+
+    const soucieUnite = verifierUniteCategorie(categorie, lc!.unite)
+    if (soucieUnite) unitesIncoherentes.push(`${lc!.article || lc!.id} (${soucieUnite})`)
 
     const bareme = baremeParCategorie.get(categorie) ?? BAREME_VIDE
 
@@ -267,6 +288,12 @@ export async function calculerCoutMatiereChantier(
       `${sansPrixAchat} ligne(s) catégorisée(s) sans prix d'achat au m² : seuls les consommables sont comptés.`
     )
   }
+  if (unitesIncoherentes.length > 0) {
+    avertissements.push(
+      `Unité incohérente avec la catégorie sur ${unitesIncoherentes.length} ligne(s) — ` +
+        `le montant calculé n'a pas de sens : ${unitesIncoherentes.join(' ; ')}.`
+    )
+  }
 
   return {
     chantierId: chantierCuid,
@@ -274,6 +301,7 @@ export async function calculerCoutMatiereChantier(
     coutMatiereTotal: arrondi2(lignes.reduce((s, l) => s + l.total, 0)),
     detailParCategorie,
     lignes,
+    lignesNonCategorisees: nonCategorisees,
     avertissements,
   }
 }
@@ -357,6 +385,9 @@ export interface ResultatRentabilite {
   netResult: number
   /** Marge en %, sur le chiffre d'affaires facturé. */
   margin: number
+  /** Vrai si des lignes facturées n'ont pas de coût matière : la marge est
+   *  alors SURÉVALUÉE. À signaler partout où le pourcentage est affiché. */
+  matiereIncomplete: boolean
   avertissements: string[]
 }
 
@@ -419,6 +450,110 @@ export async function calculerRentabiliteChantier(
     totalExpenses,
     netResult,
     margin,
+    matiereIncomplete: matiere.lignesNonCategorisees > 0,
     avertissements: matiere.avertissements,
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Liste de saisie — alimente la modale « Coût matière »
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface LigneSaisieCoutMatiere {
+  ligneCommandeId: number
+  article: string
+  description: string
+  unite: string
+  /** Quantité cumulée facturée, telle que le calcul l'utilisera. */
+  quantite: number
+  categorieMateriau: string | null
+  coutMatiereM2: number | null
+  /** Proposition du détecteur, jamais écrite d'office. */
+  categorieSuggeree: CategorieMateriau | null
+  /** Message si la catégorie actuelle contredit l'unité de la ligne. */
+  avertissementUnite: string | null
+}
+
+export interface SaisieCoutMatiere {
+  etatNumero: number | null
+  lignes: LigneSaisieCoutMatiere[]
+  /** Lignes ni catégorisées ni marquées « sans matière ». */
+  aTraiter: number
+}
+
+/**
+ * Renvoie TOUTES les lignes facturables du dernier état d'avancement, y compris
+ * celles que le calcul ignore faute de catégorie — ce sont précisément celles
+ * qu'il faut pouvoir saisir.
+ *
+ * Volontairement distinct de `calculerCoutMatiereChantier`, qui ne retourne que
+ * les lignes retenues : mélanger les deux ferait disparaître de l'écran de
+ * saisie exactement les lignes qu'on vient y compléter.
+ *
+ * @param chantierCuid `Chantier.id` (cuid), pas le slug métier.
+ */
+export async function listerLignesSaisieCoutMatiere(
+  chantierCuid: string
+): Promise<SaisieCoutMatiere> {
+  const dernierEtat = await prisma.etatAvancement.findFirst({
+    where: { chantierId: chantierCuid },
+    orderBy: { numero: 'desc' },
+    include: { lignes: true },
+  })
+
+  if (!dernierEtat || dernierEtat.lignes.length === 0) {
+    return { etatNumero: dernierEtat?.numero ?? null, lignes: [], aTraiter: 0 }
+  }
+
+  const idsLignesCommande = [
+    ...new Set(dernierEtat.lignes.map((l) => l.ligneCommandeId).filter((v): v is number => !!v)),
+  ]
+  const lignesCommande = await prisma.ligneCommande.findMany({
+    where: { id: { in: idsLignesCommande } },
+    select: {
+      id: true,
+      article: true,
+      description: true,
+      unite: true,
+      type: true,
+      categorieMateriau: true,
+      coutMatiereM2: true,
+    },
+  })
+  const ligneCommandeParId = new Map<number, LigneCommandeMatiere>(
+    lignesCommande.map((l) => [l.id, l])
+  )
+
+  const lignes: LigneSaisieCoutMatiere[] = []
+  let aTraiter = 0
+
+  for (const ligneEtat of dernierEtat.lignes) {
+    if (ligneEtat.type === 'TITRE' || ligneEtat.type === 'SOUS_TITRE') continue
+    const quantite = ligneEtat.quantiteTotale || 0
+    if (quantite <= 0) continue
+
+    const lc = ligneEtat.ligneCommandeId ? ligneCommandeParId.get(ligneEtat.ligneCommandeId) : undefined
+    if (!lc) continue
+
+    const categorie = lc.categorieMateriau
+    if (!estCategorieMateriau(categorie) && categorie !== CATEGORIE_AUCUNE) aTraiter++
+
+    lignes.push({
+      ligneCommandeId: lc.id,
+      article: lc.article,
+      description: lc.description,
+      unite: lc.unite,
+      quantite,
+      categorieMateriau: categorie,
+      coutMatiereM2: lc.coutMatiereM2,
+      // La suggestion ne sert qu'aux lignes vierges : sur une ligne déjà
+      // décidée, la rappeler inviterait à défaire un choix humain.
+      categorieSuggeree: categorie ? null : detecterCategorieMateriau(lc.description || lc.article),
+      avertissementUnite: estCategorieMateriau(categorie)
+        ? verifierUniteCategorie(categorie, lc.unite)
+        : null,
+    })
+  }
+
+  return { etatNumero: dernierEtat.numero, lignes, aTraiter }
 }

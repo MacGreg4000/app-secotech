@@ -250,7 +250,9 @@ export default function ChantiersPage() {
   // Le calcul demande ~7 requêtes par chantier : le déclencher automatiquement
   // ferait travailler la base à chaque affichage de la liste, pour une
   // information qu'on ne consulte pas à chaque visite.
-  const [marges, setMarges] = useState<Record<string, { margin: number }>>({})
+  const [marges, setMarges] = useState<
+    Record<string, { margin: number; matiereIncomplete?: boolean }>
+  >({})
   const [chargementMarges, setChargementMarges] = useState(false)
 
   const calculerMarges = async () => {
@@ -795,7 +797,17 @@ export default function ChantiersPage() {
                         />
                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-200">
                           {Object.keys(marges).length > 0 ? (
-                            'Marge'
+                            <>
+                              Marge
+                              {Object.values(marges).some((m) => m.matiereIncomplete) && (
+                                <span
+                                  className="ml-1 text-xs font-normal text-amber-600 dark:text-amber-400"
+                                  title="* coût matière non renseigné : la marge est surévaluée"
+                                >
+                                  (* surévaluée)
+                                </span>
+                              )}
+                            </>
                           ) : (
                             <button
                               type="button"
@@ -893,9 +905,16 @@ export default function ChantiersPage() {
                                       ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
                                       : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                                 }`}
-                                title="Marge estimée, coût matière inclus"
+                                title={
+                                  marges[chantier.chantierId].matiereIncomplete
+                                    ? 'Marge surévaluée : coût matière non renseigné sur certaines lignes'
+                                    : 'Marge estimée, coût matière inclus'
+                                }
                               >
                                 {marges[chantier.chantierId].margin.toFixed(1)} %
+                                {marges[chantier.chantierId].matiereIncomplete && (
+                                  <span className="ml-1 font-normal opacity-70">*</span>
+                                )}
                               </span>
                             ) : (
                               <span className="text-xs text-gray-400">—</span>
