@@ -256,6 +256,11 @@ export async function calculerCoutMatiereChantier(
     }
     // En pose seule le prix d'achat est ignoré, y compris s'il traîne en base
     // d'une saisie antérieure : la marchandise n'est pas notre dépense.
+    //
+    // Seul le CARRELAGE est neutralisé. Les coûts fixes du barème restent
+    // comptés, y compris les 9,64 €/m² d'ÉTANCHÉITÉ : la membrane est toujours
+    // fournie par nous, même quand le client fournit le carrelage. Idem pour
+    // les clips et profilés (2 €/m² sur SOL et MUR).
     const coutMatiereM2 = poseUniquement ? 0 : (lc?.coutMatiereM2 ?? 0)
     if (!coutMatiereM2 && !poseUniquement) sansPrixAchat++
 
