@@ -246,16 +246,28 @@ export const definirCoutMatiereLigne: ToolDefinition = {
   summarize: async (args) => {
     const p = await preparerCoutLignes(args)
     if (p.erreur) return `Modification impossible : ${p.erreur}`
+    const alerte =
+      p.avertissements && p.avertissements.length > 0
+        ? ` ⚠️ ${p.avertissements.length} incohérence(s) d'unité — voir le détail.`
+        : ''
     return (
       `Mettre à jour ${p.maj!.length} ligne(s) de « ${p.chantierNom} » : ` +
       p.maj!.map((m) => `${m.article || m.id}${m.categorieMateriau ? ` → ${m.categorieMateriau}` : ''}` +
-        `${m.coutMatiereM2 !== undefined ? ` à ${eur(m.coutMatiereM2)}/m²` : ''}`).join(', ')
+        `${m.coutMatiereM2 !== undefined ? ` à ${eur(m.coutMatiereM2)}/m²` : ''}`).join(', ') + alerte
     )
   },
   preview: async (args) => {
     const p = await preparerCoutLignes(args)
     if (p.erreur) return { action: 'aucune', erreur: p.erreur, candidats: p.candidats }
-    return { action: 'mise_a_jour', chantier: p.chantierNom, lignes: p.maj, introuvables: p.introuvables }
+    return {
+      action: 'mise_a_jour',
+      chantier: p.chantierNom,
+      lignes: p.maj,
+      introuvables: p.introuvables,
+      ...(p.avertissements && p.avertissements.length > 0
+        ? { avertissements: p.avertissements }
+        : {}),
+    }
   },
   execute: async (args) => {
     const p = await preparerCoutLignes(args)
@@ -276,14 +288,48 @@ export const definirCoutMatiereLigne: ToolDefinition = {
       chantier: p.chantierNom,
       lignesModifiees: modifiees,
       introuvables: p.introuvables,
+      ...(p.avertissements && p.avertissements.length > 0
+        ? { avertissements: p.avertissements }
+        : {}),
       prochaineEtape: 'Relance analyser_cout_matiere_chantier pour voir le coût recalculé.',
     }
   },
 }
 
+// ── Cohérence unité / catégorie ──────────────────────────────────────────────
+// Le barème s'exprime par m² (SOL, MUR, ETANCHEITE) ou par mètre linéaire
+// (PLINTHE). Catégoriser une ligne facturée en « Pièces » — un avaloir, un
+// caniveau — appliquerait ces ratios à un NOMBRE D'OBJETS : le montant obtenu
+// n'aurait aucun sens, et rien ne le signalerait.
+// On avertit plutôt que de bloquer : c'est une donnée métier, pas une règle
+// technique. L'avertissement apparaît dès le dryRun, avant toute écriture.
+const UNITES_SURFACE = ['m2', 'm²']
+const UNITES_LINEAIRES = ['m', 'ml', 'mct']
+
+function normaliserUnite(u: string): string {
+  return String(u || '')
+    .normalize('NFD')
+    .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
+    .toLowerCase()
+    .replace(/²/g, '2')
+    .trim()
+}
+
+function verifierUnite(categorie: string, unite: string): string | null {
+  const u = normaliserUnite(unite)
+  if (!u) return null
+  const attenduLineaire = categorie === 'PLINTHE'
+  const ok = attenduLineaire ? UNITES_LINEAIRES.includes(u) : UNITES_SURFACE.includes(u)
+  if (ok) return null
+  return attenduLineaire
+    ? `unité « ${unite} » alors que ${categorie} attend un métré linéaire`
+    : `unité « ${unite} » alors que ${categorie} attend des m²`
+}
+
 interface MajLigne {
   id: number
   article: string
+  unite: string
   categorieMateriau?: string | null
   coutMatiereM2?: number
 }
@@ -294,6 +340,7 @@ async function preparerCoutLignes(args: Record<string, unknown>): Promise<{
   chantierNom?: string
   maj?: MajLigne[]
   introuvables?: string[]
+  avertissements?: string[]
 }> {
   const res = await resolveChantier(String(args.chantier || ''))
   if (!res.ok || !res.value) return { erreur: res.message, candidats: res.candidats }
@@ -304,9 +351,11 @@ async function preparerCoutLignes(args: Record<string, unknown>): Promise<{
   // Toutes les lignes de commande du chantier (relation via Commande.chantierId = cuid)
   const lignesChantier = await prisma.ligneCommande.findMany({
     where: { commande: { chantierId: res.value.id } },
-    select: { id: true, article: true },
+    select: { id: true, article: true, unite: true },
   })
-  const parId = new Map<number, string>(lignesChantier.map((l) => [l.id, l.article]))
+  const parId = new Map<number, { article: string; unite: string }>(
+    lignesChantier.map((l) => [l.id, { article: l.article, unite: l.unite }])
+  )
   const parArticle = new Map<string, number[]>()
   for (const l of lignesChantier) {
     const k = (l.article || '').trim().toLowerCase()
@@ -325,7 +374,7 @@ async function preparerCoutLignes(args: Record<string, unknown>): Promise<{
       const n = Number(d.ligneCommandeId)
       if (parId.has(n)) {
         id = n
-        article = parId.get(n)!
+        article = parId.get(n)!.article
       } else {
         introuvables.push(`identifiant ${n} (absent de ce chantier)`)
         continue
@@ -348,7 +397,7 @@ async function preparerCoutLignes(args: Record<string, unknown>): Promise<{
       continue
     }
 
-    const entree: MajLigne = { id, article }
+    const entree: MajLigne = { id, article, unite: parId.get(id)?.unite || '' }
 
     if ('categorieMateriau' in d) {
       if (d.categorieMateriau === null) {
@@ -373,7 +422,17 @@ async function preparerCoutLignes(args: Record<string, unknown>): Promise<{
   if (maj.length === 0) {
     return { erreur: `Aucune ligne exploitable. Non trouvées : ${introuvables.join(' ; ')}` }
   }
-  return { chantierNom: res.value.nomChantier, maj, introuvables }
+
+  const avertissements: string[] = []
+  for (const m of maj) {
+    if (!m.categorieMateriau) continue
+    const souci = verifierUnite(m.categorieMateriau, m.unite)
+    if (souci) {
+      avertissements.push(`Ligne ${m.article || m.id} : ${souci}. Le montant calculé n'aurait pas de sens.`)
+    }
+  }
+
+  return { chantierNom: res.value.nomChantier, maj, introuvables, avertissements }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
