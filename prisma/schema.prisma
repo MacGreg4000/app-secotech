@@ -590,6 +590,12 @@ model Chantier {
   villeChantier        String?
   latitude             Float?
   longitude            Float?
+  // Chantier de POSE SEULE : le carrelage est fourni par le client ou
+  // l'entrepreneur général. On facture main-d'œuvre et consommables, jamais la
+  // marchandise. L'absence de prix d'achat au m² cesse alors d'être un oubli —
+  // sans ce drapeau, la rentabilité de ces chantiers resterait éternellement
+  // marquée « incomplète ».
+  poseUniquement       Boolean                @default(false)
   // Maitre d'ouvrage (peut être différent du client)
   maitreOuvrageNom     String?
   maitreOuvrageAdresse String?

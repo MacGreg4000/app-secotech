@@ -62,15 +62,22 @@ export default function CoutMatiereModal({ chantierId, open, onClose, onSaved }:
   const [lignes, setLignes] = useState<LigneSaisie[]>([])
   const [editions, setEditions] = useState<Record<number, Edition>>({})
   const [etatNumero, setEtatNumero] = useState<number | null>(null)
+  // Chantier de pose seule : le carrelage est fourni par le client. Les champs
+  // de prix d'achat deviennent sans objet, et leur absence cesse d'être un oubli.
+  const [poseUniquement, setPoseUniquement] = useState(false)
   const [total, setTotal] = useState(0)
   const [enregistrement, setEnregistrement] = useState(false)
   const [messageSucces, setMessageSucces] = useState<string | null>(null)
 
   const appliquerDonnees = useCallback(
-    (data: { saisie?: { lignes?: LigneSaisie[]; etatNumero?: number | null }; coutMatiereTotal?: number }) => {
+    (data: {
+      saisie?: { lignes?: LigneSaisie[]; etatNumero?: number | null; poseUniquement?: boolean }
+      coutMatiereTotal?: number
+    }) => {
       const l = data.saisie?.lignes || []
       setLignes(l)
       setEtatNumero(data.saisie?.etatNumero ?? null)
+      setPoseUniquement(!!data.saisie?.poseUniquement)
       setTotal(Number(data.coutMatiereTotal) || 0)
       const init: Record<number, Edition> = {}
       for (const ligne of l) {
@@ -159,7 +166,7 @@ export default function CoutMatiereModal({ chantierId, open, onClose, onSaved }:
       const res = await fetch(`/api/chantiers/${chantierId}/cout-matiere`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lignes: payload }),
+        body: JSON.stringify({ lignes: payload, poseUniquement }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || 'Enregistrement refusé')
@@ -214,6 +221,11 @@ export default function CoutMatiereModal({ chantierId, open, onClose, onSaved }:
                       <span className="font-medium text-gray-700 dark:text-gray-300">
                         {formatEuro(total)} estimés
                       </span>
+                      {poseUniquement && (
+                        <span className="ml-1 text-blue-600 dark:text-blue-400">
+                          · pose seule
+                        </span>
+                      )}
                     </p>
                   </div>
                   <button
@@ -240,7 +252,29 @@ export default function CoutMatiereModal({ chantierId, open, onClose, onSaved }:
                     </p>
                   ) : (
                     <>
-                      {suggestions.length > 0 && (
+                      <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 px-3 py-2.5 dark:border-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={poseUniquement}
+                          onChange={(e) => {
+                            setPoseUniquement(e.target.checked)
+                            setMessageSucces(null)
+                          }}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span>
+                          <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Chantier en pose uniquement
+                          </span>
+                          <span className="block text-xs text-gray-500 dark:text-gray-400">
+                            Le carrelage est fourni par le client : on ne compte que la
+                            main-d’œuvre et les consommables (colle, joint, silicone, clips).
+                            Le coût matière est alors complet sans prix d’achat.
+                          </span>
+                        </span>
+                      </label>
+
+                      {!poseUniquement && suggestions.length > 0 && (
                         <div className="mb-4 flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-900/30">
                           <SparklesIcon className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
                           <span className="text-sm text-blue-800 dark:text-blue-200">
@@ -283,6 +317,7 @@ export default function CoutMatiereModal({ chantierId, open, onClose, onSaved }:
                                 : null
                               const horsMatiere = ed.categorie === CATEGORIE_AUCUNE
                               const peutRecopier =
+                                !poseUniquement &&
                                 estCategorieMateriau(ed.categorie) &&
                                 !!ed.prix &&
                                 lignes.some(
@@ -355,8 +390,10 @@ export default function CoutMatiereModal({ chantierId, open, onClose, onSaved }:
                                       type="text"
                                       inputMode="decimal"
                                       value={ed.prix}
-                                      disabled={!estCategorieMateriau(ed.categorie)}
-                                      placeholder={horsMatiere ? '—' : '0,00'}
+                                      disabled={poseUniquement || !estCategorieMateriau(ed.categorie)}
+                                      placeholder={
+                                        poseUniquement ? 'fourni' : horsMatiere ? '—' : '0,00'
+                                      }
                                       onChange={(e) =>
                                         modifier(l.ligneCommandeId, 'prix', e.target.value)
                                       }
@@ -427,8 +464,8 @@ export default function CoutMatiereModal({ chantierId, open, onClose, onSaved }:
                                   type="text"
                                   inputMode="decimal"
                                   value={ed.prix}
-                                  disabled={!estCategorieMateriau(ed.categorie)}
-                                  placeholder="€/m²"
+                                  disabled={poseUniquement || !estCategorieMateriau(ed.categorie)}
+                                  placeholder={poseUniquement ? 'fourni' : '€/m²'}
                                   onChange={(e) => modifier(l.ligneCommandeId, 'prix', e.target.value)}
                                   className="rounded-md border border-gray-300 bg-white px-2 py-2 text-right text-sm disabled:bg-gray-50 disabled:text-gray-400 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:disabled:bg-gray-800"
                                 />

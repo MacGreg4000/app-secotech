@@ -69,6 +69,7 @@ export default function CardFinancialSummary({
   // dépenses paraît complet alors qu'il ne l'est pas.
   const [peutSaisirMatiere, setPeutSaisirMatiere] = useState(false);
   const [lignesATraiter, setLignesATraiter] = useState(0);
+  const [poseUniquement, setPoseUniquement] = useState(false);
   const [modaleMatiereOuverte, setModaleMatiereOuverte] = useState(false);
 
   // Fonction pour formater les montants en euros
@@ -161,17 +162,20 @@ export default function CardFinancialSummary({
           setAvertissementsMatiere(Array.isArray(matiere?.avertissements) ? matiere.avertissements : []);
           setPeutSaisirMatiere(!!matiere?.peutSaisir);
           setLignesATraiter(Number(matiere?.saisie?.aTraiter) || 0);
+          setPoseUniquement(!!matiere?.poseUniquement);
         } else {
           setCoutMatiere(0);
           setAvertissementsMatiere([]);
           setPeutSaisirMatiere(false);
           setLignesATraiter(0);
+          setPoseUniquement(false);
         }
       } catch {
         setCoutMatiere(0);
         setAvertissementsMatiere([]);
         setPeutSaisirMatiere(false);
         setLignesATraiter(0);
+        setPoseUniquement(false);
       }
 
       setLastUpdate(Date.now());
@@ -534,7 +538,11 @@ export default function CardFinancialSummary({
                 </div>
                 <div className="flex justify-between items-center gap-2">
                   <span className="font-medium">
-                    Coût matière <span className="text-xs text-gray-500">(estimé)</span>:
+                    Coût matière{' '}
+                    <span className="text-xs text-gray-500">
+                      {poseUniquement ? '(pose seule — marchandise fournie)' : '(estimé)'}
+                    </span>
+                    :
                   </span>
                   <span className="flex items-center gap-2">
                     {lignesATraiter > 0 ? (

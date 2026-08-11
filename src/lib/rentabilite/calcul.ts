@@ -84,6 +84,8 @@ export interface ResultatCoutMatiere {
   lignes: DetailLigneCoutMatiere[]
   /** Lignes facturées ni catégorisées ni marquées « sans matière ». */
   lignesNonCategorisees: number
+  /** Chantier de pose seule : la marchandise n'est pas à notre charge. */
+  poseUniquement: boolean
   /** Points qui minorent le résultat — à afficher, jamais à masquer. */
   avertissements: string[]
 }
@@ -148,6 +150,14 @@ export async function calculerCoutMatiereChantier(
 ): Promise<ResultatCoutMatiere> {
   const avertissements: string[] = []
 
+  // 0. Pose seule ? Le carrelage est alors fourni par le client : son prix
+  //    d'achat n'a pas à être renseigné, et son absence n'est pas un oubli.
+  const chantier = await prisma.chantier.findUnique({
+    where: { id: chantierCuid },
+    select: { poseUniquement: true },
+  })
+  const poseUniquement = !!chantier?.poseUniquement
+
   // 1. L'état d'avancement client le plus récent porte déjà les cumuls.
   const dernierEtat = await prisma.etatAvancement.findFirst({
     where: { chantierId: chantierCuid },
@@ -163,6 +173,7 @@ export async function calculerCoutMatiereChantier(
       detailParCategorie: {},
       lignes: [],
       lignesNonCategorisees: 0,
+      poseUniquement,
       avertissements: [
         dernierEtat
           ? "L'état d'avancement le plus récent ne contient aucune ligne."
@@ -243,8 +254,10 @@ export async function calculerCoutMatiereChantier(
       nonCategorisees++
       continue
     }
-    const coutMatiereM2 = lc?.coutMatiereM2 ?? 0
-    if (!coutMatiereM2) sansPrixAchat++
+    // En pose seule le prix d'achat est ignoré, y compris s'il traîne en base
+    // d'une saisie antérieure : la marchandise n'est pas notre dépense.
+    const coutMatiereM2 = poseUniquement ? 0 : (lc?.coutMatiereM2 ?? 0)
+    if (!coutMatiereM2 && !poseUniquement) sansPrixAchat++
 
     const soucieUnite = verifierUniteCategorie(categorie, lc!.unite)
     if (soucieUnite) unitesIncoherentes.push(`${lc!.article || lc!.id} (${soucieUnite})`)
@@ -302,6 +315,7 @@ export async function calculerCoutMatiereChantier(
     detailParCategorie,
     lignes,
     lignesNonCategorisees: nonCategorisees,
+    poseUniquement,
     avertissements,
   }
 }
@@ -388,6 +402,8 @@ export interface ResultatRentabilite {
   /** Vrai si des lignes facturées n'ont pas de coût matière : la marge est
    *  alors SURÉVALUÉE. À signaler partout où le pourcentage est affiché. */
   matiereIncomplete: boolean
+  /** Chantier de pose seule : marchandise à charge du client. */
+  poseUniquement: boolean
   avertissements: string[]
 }
 
@@ -451,6 +467,7 @@ export async function calculerRentabiliteChantier(
     netResult,
     margin,
     matiereIncomplete: matiere.lignesNonCategorisees > 0,
+    poseUniquement: matiere.poseUniquement,
     avertissements: matiere.avertissements,
   }
 }
@@ -476,6 +493,8 @@ export interface LigneSaisieCoutMatiere {
 
 export interface SaisieCoutMatiere {
   etatNumero: number | null
+  /** Chantier de pose seule : les champs de prix d'achat sont sans objet. */
+  poseUniquement: boolean
   lignes: LigneSaisieCoutMatiere[]
   /** Lignes ni catégorisées ni marquées « sans matière ». */
   aTraiter: number
@@ -495,6 +514,12 @@ export interface SaisieCoutMatiere {
 export async function listerLignesSaisieCoutMatiere(
   chantierCuid: string
 ): Promise<SaisieCoutMatiere> {
+  const chantier = await prisma.chantier.findUnique({
+    where: { id: chantierCuid },
+    select: { poseUniquement: true },
+  })
+  const poseUniquement = !!chantier?.poseUniquement
+
   const dernierEtat = await prisma.etatAvancement.findFirst({
     where: { chantierId: chantierCuid },
     orderBy: { numero: 'desc' },
@@ -502,7 +527,7 @@ export async function listerLignesSaisieCoutMatiere(
   })
 
   if (!dernierEtat || dernierEtat.lignes.length === 0) {
-    return { etatNumero: dernierEtat?.numero ?? null, lignes: [], aTraiter: 0 }
+    return { etatNumero: dernierEtat?.numero ?? null, poseUniquement, lignes: [], aTraiter: 0 }
   }
 
   const idsLignesCommande = [
@@ -555,5 +580,5 @@ export async function listerLignesSaisieCoutMatiere(
     })
   }
 
-  return { etatNumero: dernierEtat.numero, lignes, aTraiter }
+  return { etatNumero: dernierEtat.numero, poseUniquement, lignes, aTraiter }
 }

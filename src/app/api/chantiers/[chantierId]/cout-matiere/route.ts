@@ -110,8 +110,26 @@ export async function PUT(
     }
 
     const body = await request.json().catch(() => null)
+
+    // Pose seule : drapeau du chantier, indépendant des lignes. Traité d'abord
+    // pour qu'un chantier sans aucune ligne facturée puisse quand même être
+    // marqué comme tel.
+    if (typeof body?.poseUniquement === 'boolean') {
+      await prisma.chantier.update({
+        where: { id: chantier.id },
+        data: { poseUniquement: body.poseUniquement },
+      })
+    }
+
     const entrees: MajLigneEntree[] = Array.isArray(body?.lignes) ? body.lignes : []
     if (entrees.length === 0) {
+      // Pas d'erreur si le drapeau vient d'être basculé : c'est un enregistrement
+      // légitime, simplement sans ligne à mettre à jour.
+      if (typeof body?.poseUniquement === 'boolean') {
+        const resultat = await calculerCoutMatiereChantier(chantier.id)
+        const saisie = await listerLignesSaisieCoutMatiere(chantier.id)
+        return NextResponse.json({ lignesEnregistrees: 0, ...resultat, saisie })
+      }
       return NextResponse.json({ error: 'Aucune ligne à enregistrer.' }, { status: 400 })
     }
 
