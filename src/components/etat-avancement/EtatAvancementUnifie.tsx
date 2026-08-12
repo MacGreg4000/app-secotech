@@ -456,25 +456,51 @@ export default function EtatAvancementUnifie({
     
     // Pour les nouveaux états ou avenants temporaires (ID négatifs), modifier localement sans appel API
     if (isNewEtat || avenantId < 0) {
-      
-      // Recalculer les totaux localement
-      if (field === 'quantiteActuelle' || field === 'prixUnitaire') {
-        const currentValues = avenantValues[avenantId] || {} as AvenantValues
-        const quantiteActuelle = field === 'quantiteActuelle' ? (typeof value === 'number' ? value : parseFloat(String(value)) || 0) : (currentValues.quantiteActuelle || 0)
-        const prixUnitaire = field === 'prixUnitaire' ? (typeof value === 'number' ? value : parseFloat(String(value)) || 0) : (currentValues.prixUnitaire || 0)
-        
-        setAvenantValues(prev => ({
-          ...prev,
-          [avenantId]: {
-            ...(prev[avenantId] || {} as AvenantValues),
-            [field]: value,
-            quantiteTotale: quantiteActuelle + (currentValues.quantitePrecedente || 0),
-            montantActuel: roundToTwoDecimals(quantiteActuelle * prixUnitaire),
-            montantTotal: roundToTwoDecimals((quantiteActuelle * prixUnitaire) + (currentValues.montantPrecedent || 0))
-          } as AvenantValues
-        }))
+      // Les montants dérivés sont calculés ICI, puis réutilisés tels quels pour
+      // l'état local ET pour la notification au parent.
+      //
+      // Ils ne peuvent PAS être relus depuis `avenantValues` juste après un
+      // setAvenantValues : React n'applique pas la mise à jour dans le même
+      // rendu, la closure voit encore l'objet précédent. C'est ce qui faisait
+      // remonter au parent une quantité saisie avec des montants restés à zéro
+      // — l'écran affichait le bon total (recalculé à chaque rendu) mais l'état
+      // enregistré, puis le PDF, valaient 0 €.
+      const currentValues = avenantValues[avenantId] || ({} as AvenantValues)
+      const avenantBase = avenants.find((a) => a.id === avenantId)
+      const nombre = (v: string | number | undefined | null) =>
+        typeof v === 'number' ? v : parseFloat(String(v ?? '')) || 0
+
+      const quantiteActuelle =
+        field === 'quantiteActuelle'
+          ? nombre(value)
+          : nombre(currentValues.quantiteActuelle ?? avenantBase?.quantiteActuelle)
+      const prixUnitaire =
+        field === 'prixUnitaire'
+          ? nombre(value)
+          : nombre(currentValues.prixUnitaire ?? avenantBase?.prixUnitaire)
+      const quantitePrecedente = nombre(
+        currentValues.quantitePrecedente ?? avenantBase?.quantitePrecedente
+      )
+      const montantPrecedent = nombre(
+        currentValues.montantPrecedent ?? avenantBase?.montantPrecedent
+      )
+      const montantActuel = roundToTwoDecimals(quantiteActuelle * prixUnitaire)
+
+      const derives = {
+        quantiteTotale: quantiteActuelle + quantitePrecedente,
+        montantActuel,
+        montantTotal: roundToTwoDecimals(montantActuel + montantPrecedent),
       }
-      
+
+      setAvenantValues(prev => ({
+        ...prev,
+        [avenantId]: {
+          ...(prev[avenantId] || {} as AvenantValues),
+          [field]: value,
+          ...derives,
+        } as AvenantValues
+      }))
+
       // Notifier le parent des avenants mis à jour avec leurs valeurs
       if (onAvenantsChange) {
         const avenantsSynchronises = avenants.map(avenant => {
@@ -483,7 +509,8 @@ export default function EtatAvancementUnifie({
             return {
               ...avenant,
               ...(avenantValues[avenant.id] || {}),
-              [field]: value
+              [field]: value,
+              ...derives,
             }
           } else {
             // Pour les autres avenants, utiliser les valeurs existantes
@@ -495,7 +522,7 @@ export default function EtatAvancementUnifie({
         })
         onAvenantsChange(avenantsSynchronises)
       }
-      
+
       return
     }
     
