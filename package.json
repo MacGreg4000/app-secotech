@@ -2,6 +2,7 @@
   "name": "openbtp",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"
   },

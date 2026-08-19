@@ -319,7 +319,9 @@ Pour signaler un bug : [GitHub Issues](https://github.com/MacGreg4000/OpenBTP/is
 
 ## 📄 Licence
 
-Tous droits réservés © 2025 OpenBTP
+Tous droits réservés © 2024–2026 Grégory Maccio / SRL Secotech. Voir le
+fichier [LICENSE](./LICENSE) — ce dépôt est public à titre de consultation
+uniquement, aucune réutilisation n'est autorisée sans accord écrit préalable.
 
 ---
 
