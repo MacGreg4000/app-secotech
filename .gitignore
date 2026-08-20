@@ -63,3 +63,6 @@ public/assets/images/logo.png
 .next.zip
 prisma-client*.tgz
 prisma.zip
+
+# Config locale de Claude Code
+.claude/

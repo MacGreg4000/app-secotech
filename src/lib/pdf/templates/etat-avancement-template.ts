@@ -444,13 +444,21 @@ export function generateEtatAvancementHTML(
             padding: 2px 0;
         }
         
-        .summary-row.total {
+        /* Le montant de la PÉRIODE porte l'emphase : c'est lui qui est facturé
+           ce mois-ci. Le cumul reste présent, mais en retrait — il informe,
+           il n'est pas ce que le lecteur doit retenir. */
+        .summary-row.periode {
             border-top: 1px solid #e2e8f0;
             padding-top: 6px;
             margin-top: 6px;
             font-weight: bold;
             color: #1e40af;
-            font-size: 12px;
+            font-size: 14px;
+        }
+
+        .summary-row.total {
+            font-size: 10px;
+            color: #64748b;
         }
         
         /* Styles spécifiques pour chaque carte */
@@ -691,12 +699,12 @@ export function generateEtatAvancementHTML(
                     <span>Précédent:</span>
                     <span class="montant">${fmtEuro(data.totalCommandeInitiale.precedent)}</span>
                 </div>
-                <div class="summary-row">
-                    <span>Actuel:</span>
-                    <span class="montant">${fmtEuro(data.totalCommandeInitiale.actuel)}</span>
+                <div class="summary-row periode">
+                    <span>Période actuelle:</span>
+                    <span>${fmtEuro(data.totalCommandeInitiale.actuel)}</span>
                 </div>
                 <div class="summary-row total">
-                    <span>Total:</span>
+                    <span>Total cumulé:</span>
                     <span>${fmtEuro(data.totalCommandeInitiale.total)}</span>
                 </div>
             </div>
@@ -707,12 +715,12 @@ export function generateEtatAvancementHTML(
                     <span>Précédent:</span>
                     <span class="montant">${fmtEuro(data.totalAvenants.precedent)}</span>
                 </div>
-                <div class="summary-row">
-                    <span>Actuel:</span>
-                    <span class="montant">${fmtEuro(data.totalAvenants.actuel)}</span>
+                <div class="summary-row periode">
+                    <span>Période actuelle:</span>
+                    <span>${fmtEuro(data.totalAvenants.actuel)}</span>
                 </div>
                 <div class="summary-row total">
-                    <span>Total:</span>
+                    <span>Total cumulé:</span>
                     <span>${fmtEuro(data.totalAvenants.total)}</span>
                 </div>
             </div>
@@ -723,13 +731,13 @@ export function generateEtatAvancementHTML(
                     <span>Précédent:</span>
                     <span class="montant">${fmtEuro(data.totalGeneral.precedent)}</span>
                 </div>
-                <div class="summary-row">
-                    <span>Actuel:</span>
-                    <span class="montant">${fmtEuro(data.totalGeneral.actuel)}</span>
+                <div class="summary-row periode">
+                    <span>Période actuelle:</span>
+                    <span>${fmtEuro(data.totalGeneral.actuel)}</span>
                 </div>
                 <div class="summary-row total">
-                    <span>Total:</span>
-                    <span class="text-blue">${fmtEuro(data.totalGeneral.total)}</span>
+                    <span>Total cumulé:</span>
+                    <span>${fmtEuro(data.totalGeneral.total)}</span>
                 </div>
             </div>
         </div>
