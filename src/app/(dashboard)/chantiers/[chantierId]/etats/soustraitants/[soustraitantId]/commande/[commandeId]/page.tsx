@@ -5,13 +5,11 @@ import { useRouter } from 'next/navigation'
 import { 
   ArrowLeftIcon,
   DocumentCheckIcon,
-  PencilIcon,
   TrashIcon,
   LockClosedIcon,
   LockOpenIcon,
   DocumentArrowDownIcon,
   PlusIcon,
-  CheckIcon,
   XMarkIcon,
   EnvelopeIcon,
   CurrencyEuroIcon,
@@ -20,7 +18,9 @@ import {
 } from '@heroicons/react/24/outline'
 import { toast } from 'react-hot-toast' // Toaster déplacé vers RootClientProviders
 import Link from 'next/link'
-import NumericInput from '@/components/ui/NumericInput'
+import { DndProvider } from 'react-dnd'
+import { HTML5Backend } from 'react-dnd-html5-backend'
+import LigneCommandeSoustraitantRow from '@/components/commande/LigneCommandeSoustraitantRow'
 
 interface LigneCommande {
   id: number;
@@ -298,6 +298,45 @@ export default function CommandeSousTraitantPage(
   const addLigne = () => addLigneWithType('QP')
   const addTitreLigne = () => addLigneWithType('TITRE')
   const addSousTitreLigne = () => addLigneWithType('SOUS_TITRE')
+
+  // Réorganisation des lignes.
+  //
+  // Le déplacement est d'abord LOCAL : pendant le glisser, react-dnd appelle
+  // moveLigne à chaque franchissement, ce qui produirait autant d'appels réseau.
+  // L'ordre n'est envoyé qu'une fois, au relâchement (onDrop).
+  const moveLigne = (dragIndex: number, hoverIndex: number) => {
+    setCommande(prev => {
+      if (!prev) return prev
+      const lignes = [...prev.lignes]
+      const [deplacee] = lignes.splice(dragIndex, 1)
+      lignes.splice(hoverIndex, 0, deplacee)
+      return { ...prev, lignes: lignes.map((l, i) => ({ ...l, ordre: i })) }
+    })
+  }
+
+  const enregistrerOrdre = useCallback(async () => {
+    if (!commande || commande.estVerrouillee) return
+    try {
+      const response = await fetch(
+        `/api/chantiers/${params.chantierId}/soustraitants/${params.soustraitantId}/commandes/${params.commandeId}/lignes/reorder`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lignes: commande.lignes.map(l => ({ id: l.id })) }),
+        }
+      )
+      if (!response.ok) {
+        const data = await response.json().catch(() => null)
+        throw new Error(data?.error || 'Réordonnancement refusé')
+      }
+    } catch (error) {
+      console.error('Erreur lors du réordonnancement:', error)
+      // On recharge : l'affichage doit refléter la base, pas un ordre qui n'a
+      // pas été enregistré.
+      toast.error("L'ordre n'a pas pu être enregistré")
+      fetchCommande()
+    }
+  }, [commande, params.chantierId, params.soustraitantId, params.commandeId, fetchCommande])
 
   const handleInputChange = (id: number, field: keyof LigneCommande, value: string | number) => {
     setLignesTemp(prev => {
@@ -689,8 +728,10 @@ export default function CommandeSousTraitantPage(
               </div>
 
               <div className="overflow-x-auto">
+                <DndProvider backend={HTML5Backend}>
                 <table className="w-full">
                   <colgroup>
+                    <col style={{ width: '40px' }} />
                     <col style={{ width: '80px' }} />
                     <col />
                     <col style={{ width: '80px' }} />
@@ -701,6 +742,7 @@ export default function CommandeSousTraitantPage(
                   </colgroup>
                   <thead className="bg-gray-50 dark:bg-gray-800/70">
                     <tr>
+                      <th className="px-2 py-3" aria-label="Réorganiser"></th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Art.</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Description</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Unité</th>
@@ -711,123 +753,27 @@ export default function CommandeSousTraitantPage(
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {commande.lignes.map((ligne, index) => {
-                      const isEditing = ligneEnEdition === ligne.id;
-                      const ligneTemp = lignesTemp[ligne.id];
-
-                      return (
-                        <tr
-                          key={ligne.id}
-                          className={`transition-colors ${
-                            isEditing
-                              ? 'bg-blue-50 dark:bg-blue-900/20'
-                              : index % 2 === 0
-                                ? 'bg-white dark:bg-gray-800'
-                                : 'bg-gray-50 dark:bg-gray-800/80'
-                          }`}
-                        >
-                          <td className="px-4 py-4">
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
-                              {ligne.article}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 align-top">
-                            {isEditing ? (
-                              <textarea
-                                value={ligneTemp?.description || ''}
-                                onChange={(e) => handleInputChange(ligne.id, 'description', e.target.value)}
-                                className="w-full px-3 py-2 text-sm border-2.border-blue-200 rounded-lg bg-white dark:bg-gray-700 dark:border-blue-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
-                                rows={2}
-                              />
-                            ) : (
-                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{ligne.description}</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 text-center text-sm text-gray-600 dark:text-gray-300">
-                            {ligne.unite}
-                          </td>
-                          <td className="px-4 py-4 text-right">
-                            {isEditing ? (
-                              <NumericInput
-                                value={ligneTemp?.quantite ?? ligne.quantite}
-                                onChangeNumber={(val) => handleInputChange(ligne.id, 'quantite', val)}
-                                step="0.01"
-                                className="w-24 px-3 py-2 text-sm text-right border-2 border-blue-200 rounded-lg bg-white dark:bg-gray-700 dark:border-blue-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                              />
-                            ) : (
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">{ligne.quantite.toLocaleString('fr-FR')}</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 text-right">
-                            {isEditing ? (
-                              <NumericInput
-                                value={ligneTemp?.prixUnitaire ?? ligne.prixUnitaire}
-                                onChangeNumber={(val) => handleInputChange(ligne.id, 'prixUnitaire', val)}
-                                step="0.01"
-                                className="w-24 px-3 py-2 text-sm text-right border-2 border-blue-200 rounded-lg bg-white dark:bg-gray-700 dark:border-blue-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                              />
-                            ) : (
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">{ligne.prixUnitaire.toLocaleString('fr-FR')} €</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 text-right">
-                            <span className="font-bold text-gray-900 dark:text-gray-100">
-                              {isEditing && ligneTemp
-                                ? (ligneTemp.prixUnitaire * ligneTemp.quantite).toLocaleString('fr-FR')
-                                : ligne.total.toLocaleString('fr-FR')
-                              } €
-                            </span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="flex justify-center gap-2">
-                              {isEditing ? (
-                                <>
-                                  <button
-                                    onClick={() => handleSaveLigne(ligne.id)}
-                                    disabled={submitting}
-                                    className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 hover:text-green-700 transition disabled:opacity-50"
-                                    title="Enregistrer"
-                                  >
-                                    <CheckIcon className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={handleCancelEdit}
-                                    disabled={submitting}
-                                    className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 transition disabled:opacity-50"
-                                    title="Annuler"
-                                  >
-                                    <XMarkIcon className="h-4 w-4" />
-                                  </button>
-                                </>
-                              ) : (
-                                !commande.estVerrouillee && (
-                                  <>
-                                    <button
-                                      onClick={() => handleEditLigne(ligne.id)}
-                                      disabled={submitting}
-                                      className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 transition disabled:opacity-50"
-                                      title="Modifier"
-                                    >
-                                      <PencilIcon className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteLigne(ligne.id)}
-                                      disabled={submitting}
-                                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 transition disabled:opacity-50"
-                                      title="Supprimer"
-                                    >
-                                      <TrashIcon className="h-4 w-4" />
-                                    </button>
-                                  </>
-                                )
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {commande.lignes.map((ligne, index) => (
+                      <LigneCommandeSoustraitantRow
+                        key={ligne.id}
+                        ligne={ligne}
+                        index={index}
+                        isEditing={ligneEnEdition === ligne.id}
+                        ligneTemp={lignesTemp[ligne.id]}
+                        estVerrouillee={commande.estVerrouillee}
+                        submitting={submitting}
+                        onInputChange={handleInputChange}
+                        onSave={handleSaveLigne}
+                        onCancel={handleCancelEdit}
+                        onEdit={handleEditLigne}
+                        onDelete={handleDeleteLigne}
+                        moveLigne={moveLigne}
+                        onDrop={enregistrerOrdre}
+                      />
+                    ))}
                   </tbody>
                 </table>
+                </DndProvider>
               </div>
 
               {!commande.estVerrouillee && (

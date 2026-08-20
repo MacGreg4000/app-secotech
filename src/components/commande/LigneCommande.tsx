@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useEffect } from 'react'
-import { useDrag, useDrop } from 'react-dnd'
+import { useLigneDeplacable } from './useLigneDeplacable'
 import { BarsArrowUpIcon, TrashIcon } from '@heroicons/react/24/outline'
 import NumericInput from '@/components/ui/NumericInput'
 
@@ -22,12 +22,6 @@ interface LigneCommandeProps {
   deleteLigne: (id: number) => void
 }
 
-interface DragItem {
-  index: number
-  id: number
-  type: string
-}
-
 export default function LigneCommande({
   id,
   index,
@@ -44,8 +38,8 @@ export default function LigneCommande({
   updateLigne,
   deleteLigne
 }: LigneCommandeProps) {
-  const ref = useRef<HTMLTableRowElement>(null)
-  const dragIconRef = useRef<HTMLDivElement>(null)
+  const { refLigne: ref, refPoignee: dragIconRef, handlerId, isDragging } =
+    useLigneDeplacable(id, index, moveLigne)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isSectionHeader = type === 'TITRE' || type === 'SOUS_TITRE'
   const sectionLabel = type === 'TITRE' ? 'Titre' : 'Sous-titre'
@@ -58,54 +52,7 @@ export default function LigneCommande({
     }
   }, [description, isSectionHeader, isLocked])
 
-  const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: unknown }>({
-    accept: 'ligne',
-    collect(monitor) {
-      return {
-        handlerId: monitor.getHandlerId(),
-      }
-    },
-    hover(item, monitor) {
-      if (!ref.current) {
-        return
-      }
-      const dragIndex = item.index
-      const hoverIndex = index
-
-      if (dragIndex === hoverIndex) {
-        return
-      }
-
-      const hoverBoundingRect = ref.current?.getBoundingClientRect()
-      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2
-      const clientOffset = monitor.getClientOffset()
-      const hoverClientY = clientOffset!.y - hoverBoundingRect.top
-
-      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
-        return
-      }
-      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
-        return
-      }
-
-      moveLigne(dragIndex, hoverIndex)
-      item.index = hoverIndex
-    },
-  })
-
-  const [{ isDragging }, drag] = useDrag({
-    type: 'ligne',
-    item: () => {
-      return { id, index }
-    },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  })
-
   const opacity = isDragging ? 0.5 : 1
-  drag(dragIconRef)
-  drop(ref)
 
   return (
     <tr
