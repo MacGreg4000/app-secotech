@@ -58,6 +58,11 @@ interface ModifierDossierModalProps {
   dossier: DossierTechnique | null
   chantierId: string
   structure: Dossier[]
+  /** Reçoit le dossier tel que renvoyé par le serveur après un enregistrement,
+   *  pour que le parent puisse mettre à jour l'objet qu'il passe en `dossier` —
+   *  sans ça, la modale continue d'afficher l'ancienne liste de fiches tant
+   *  qu'elle reste ouverte, alors même que l'ajout a réussi côté serveur. */
+  onDossierUpdated?: (dossier: DossierTechnique) => void
   onClose: () => void
   onRegenerate: () => void
 }
@@ -68,7 +73,8 @@ export default function ModifierDossierModal({
   chantierId,
   structure: _structure,
   onClose,
-  onRegenerate
+  onRegenerate,
+  onDossierUpdated
 }: ModifierDossierModalProps) {
   const [fichesStatuts, setFichesStatuts] = useState<Record<string, string>>({})
   const [fichesRemplacees, setFichesRemplacees] = useState<Record<string, string>>({})
@@ -242,6 +248,10 @@ export default function ModifierDossierModal({
       setFichesASupprimer(new Set())
       setFichesSelectionnees(new Set())
       setAddingFiches(false)
+      // La modale reste ouverte : sans ceci, elle continuerait d'afficher
+      // l'ancienne liste de fiches (le `dossier` reçu en prop) jusqu'à ce
+      // qu'on la ferme et la rouvre, alors que l'ajout a déjà réussi.
+      onDossierUpdated?.(updatedDossier)
 
       // Régénérer le PDF pour mettre à jour les tables des matières
       setGenerating(true)

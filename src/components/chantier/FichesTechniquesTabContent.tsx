@@ -850,6 +850,10 @@ export default function FichesTechniquesTabContent({ chantierId }: FichesTechniq
           structure={structure}
           onClose={handleCloseModal}
           onRegenerate={handleRegenerate}
+          // La modale reste ouverte après un ajout de fiches : sans remettre à
+          // jour l'objet ici, elle continuerait d'afficher l'ancienne liste
+          // jusqu'à sa fermeture, alors que le serveur a déjà enregistré.
+          onDossierUpdated={setDossierAModifier}
         />
       )}
 
