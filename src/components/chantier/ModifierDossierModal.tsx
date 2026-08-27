@@ -442,7 +442,11 @@ export default function ModifierDossierModal({
         return {
           ...d,
           fiches: filteredFiches,
-          sousDossiers: filteredSousDossiers
+          sousDossiers: filteredSousDossiers,
+          // Comme pour l'arborescence de remplacement : un résultat de recherche
+          // doit s'ouvrir tout seul, sinon la fiche trouvée reste invisible
+          // derrière un dossier fermé.
+          isExpanded: true
         }
       }
       return null
@@ -452,6 +456,77 @@ export default function ModifierDossierModal({
   }
 
   const filteredStructureAdd = filterStructureAdd(structureComplete, searchFilterAdd)
+
+  // Rendu récursif de l'arborescence d'ajout — même motif que
+  // renderDossierReplacement ci-dessus (descente dans sousDossiers avant
+  // d'afficher les fiches). Le rendu précédent n'itérait que sur d.fiches au
+  // premier niveau : les fiches rangées dans un sous-dossier (Accessoires/Aco,
+  // Accessoires/Profilitec…) n'apparaissaient donc jamais, alors que le dossier
+  // parent, lui, était bien listé — exactement le symptôme observé.
+  const renderDossierAdd = (d: Dossier, niveau: number = 0) => {
+    const hasFiches = d.fiches.length > 0
+
+    return (
+      <div key={d.chemin} className={niveau > 0 ? 'ml-4' : 'mb-1'}>
+        <div className="flex items-center py-1">
+          <button
+            onClick={() => toggleDossierReplacement(d.chemin)}
+            className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded mr-1"
+          >
+            {d.isExpanded ? (
+              <ChevronDownIcon className="h-3.5 w-3.5 text-gray-500" />
+            ) : (
+              <ChevronRightIcon className="h-3.5 w-3.5 text-gray-500" />
+            )}
+          </button>
+          <FolderIcon className="h-4 w-4 text-yellow-500 mr-2" />
+          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+            {d.nom}
+            {hasFiches && (
+              <span className="ml-1 text-xs text-gray-400">({d.fiches.length})</span>
+            )}
+          </span>
+        </div>
+
+        {d.isExpanded && (
+          <div className="ml-5 space-y-1">
+            {d.sousDossiers.map(sd => renderDossierAdd(sd, niveau + 1))}
+
+            {d.fiches.map(fiche => (
+              <label
+                key={fiche.id}
+                className="flex items-center py-1 px-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={fichesSelectionnees.has(fiche.id)}
+                  onChange={(e) => {
+                    const newSet = new Set(fichesSelectionnees)
+                    if (e.target.checked) {
+                      newSet.add(fiche.id)
+                    } else {
+                      newSet.delete(fiche.id)
+                    }
+                    setFichesSelectionnees(newSet)
+                  }}
+                  className="mr-2"
+                />
+                <DocumentTextIcon className="h-4 w-4 text-blue-500 mr-2" />
+                <span className="text-xs text-gray-700 dark:text-gray-300 flex-1">
+                  {fiche.titre}
+                </span>
+                {fiche.referenceCSC && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                    (CSC: {fiche.referenceCSC})
+                  </span>
+                )}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // Filtrer l'arborescence pour le remplacement
   const filterStructureReplacement = (dossiers: Dossier[], searchTerm: string): Dossier[] => {
@@ -834,46 +909,7 @@ export default function ModifierDossierModal({
                     <p className="text-xs text-gray-500 text-center py-2">Aucune fiche disponible</p>
                   ) : (
                     <div>
-                      {filteredStructureAdd.map(d => (
-                        <div key={d.chemin} className="mb-2">
-                          <div className="flex items-center py-1">
-                            <FolderIcon className="h-4 w-4 text-yellow-500 mr-2" />
-                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{d.nom}</span>
-                          </div>
-                          <div className="ml-6 space-y-1">
-                            {d.fiches.map(fiche => (
-                              <label
-                                key={fiche.id}
-                                className="flex items-center py-1 px-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded cursor-pointer"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={fichesSelectionnees.has(fiche.id)}
-                                  onChange={(e) => {
-                                    const newSet = new Set(fichesSelectionnees)
-                                    if (e.target.checked) {
-                                      newSet.add(fiche.id)
-                                    } else {
-                                      newSet.delete(fiche.id)
-                                    }
-                                    setFichesSelectionnees(newSet)
-                                  }}
-                                  className="mr-2"
-                                />
-                                <DocumentTextIcon className="h-4 w-4 text-blue-500 mr-2" />
-                                <span className="text-xs text-gray-700 dark:text-gray-300 flex-1">
-                                  {fiche.titre}
-                                </span>
-                                {fiche.referenceCSC && (
-                                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                                    (CSC: {fiche.referenceCSC})
-                                  </span>
-                                )}
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
+                      {filteredStructureAdd.map(d => renderDossierAdd(d))}
                     </div>
                   )}
                 </div>
