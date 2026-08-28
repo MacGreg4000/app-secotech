@@ -517,7 +517,7 @@ export default function ConfigurationPage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Logo carré (navbar) <span className="text-xs text-gray-500">(recommandé)</span>
             </label>
-            <p className="text-xs text-gray-500 mb-1">Logo carré optimisé pour la barre de navigation. Si non défini, le favicon sera utilisé.</p>
+            <p className="text-xs text-gray-500 mb-1">Logo carré optimisé pour la barre de navigation. Si non défini, la marque OpenBTP par défaut est utilisée.</p>
             <input
               type="file"
               accept="image/*"
@@ -525,13 +525,20 @@ export default function ConfigurationPage() {
               className="mt-1 block w-full"
             />
             {settings.logoSquare && (
-              <>
-              <img 
-                src={settings.logoSquare} 
-                alt="Logo carré de l'entreprise" 
-                className="mt-2 h-20 w-20 object-contain rounded-lg border border-gray-300 dark:border-gray-600"
-              />
-              </>
+              <div className="mt-2 flex items-center gap-3">
+                <img
+                  src={settings.logoSquare}
+                  alt="Logo carré de l'entreprise"
+                  className="h-20 w-20 object-contain rounded-lg border border-gray-300 dark:border-gray-600"
+                />
+                <button
+                  type="button"
+                  onClick={() => setSettings(prev => ({ ...prev, logoSquare: '' }))}
+                  className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 underline"
+                >
+                  Retirer ce logo (revenir à la marque OpenBTP)
+                </button>
+              </div>
             )}
           </div>
 

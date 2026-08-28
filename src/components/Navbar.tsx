@@ -42,32 +42,27 @@ export function Navbar() {
   const [companyLogo, setCompanyLogo] = useState<string | null>(null)
   const [logoLoadStatus, setLogoLoadStatus] = useState<'loading' | 'loaded' | 'error' | 'none'>('loading')
 
-  // Charger le logo depuis les settings (priorité: logoSquare > favicon)
+  // Charge un logo d'entreprise personnalisé s'il en existe un (marque blanche
+  // par société). `companyLogo` ne vaut JAMAIS un chemin par défaut : le rendre
+  // faux (null) dans tous les autres cas est ce qui laisse la marque OpenBTP
+  // (glyphe non encadré, cf. JSX plus bas) s'afficher au lieu d'être poussée
+  // dans le même cadre bordé que prévu pour une photo/logo uploadé.
   useEffect(() => {
     const loadLogo = async () => {
       try {
         const response = await fetch('/api/company')
-        if (response.ok) {
-          const data = await response.json()
-          // Priorité: logoSquare > favicon
-          if (data.logoSquare) {
-            setCompanyLogo(data.logoSquare)
-            setLogoLoadStatus('loaded')
-          } else {
-            // Fallback sur le favicon
-            setCompanyLogo('/favicon.ico')
-            setLogoLoadStatus('loaded')
-          }
-        } else {
-          // Fallback sur le favicon en cas d'erreur
-          setCompanyLogo('/favicon.ico')
+        const data = response.ok ? await response.json() : null
+        if (data?.logoSquare) {
+          setCompanyLogo(data.logoSquare)
           setLogoLoadStatus('loaded')
+        } else {
+          setCompanyLogo(null)
+          setLogoLoadStatus('none')
         }
       } catch (error) {
         console.error('Erreur lors du chargement du logo:', error)
-        // Fallback sur le favicon en cas d'erreur
-        setCompanyLogo('/favicon.ico')
-        setLogoLoadStatus('loaded')
+        setCompanyLogo(null)
+        setLogoLoadStatus('none')
       }
     }
     loadLogo()
