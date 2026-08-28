@@ -3,11 +3,11 @@ import { signIn } from 'next-auth/react'
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { 
-  EyeIcon, 
-  EyeSlashIcon, 
+import Image from 'next/image'
+import {
+  EyeIcon,
+  EyeSlashIcon,
   LockClosedIcon,
-  BuildingOfficeIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
@@ -197,14 +197,21 @@ function LoginForm() {
           {/* Logo avec animation */}
           <div className={`mb-8 transform transition-all duration-1000 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-              <BuildingOfficeIcon className="h-16 w-16 text-white mx-auto" />
+              <Image
+                src="/images/brand/brand-icon.png"
+                alt="OpenBTP"
+                width={64}
+                height={70}
+                className="mx-auto object-contain"
+                priority
+              />
             </div>
           </div>
-          
+
           {/* Titre et description */}
           <div className={`transform transition-all duration-1000 delay-300 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
             <h1 className="text-5xl font-bold text-white mb-6 drop-shadow-lg">
-              Open<span className="text-blue-200">BTP</span>
+              Open<span className="text-orange-400">BTP</span>
             </h1>
             <p className="text-xl text-white/90 max-w-lg leading-relaxed drop-shadow-sm">
               La plateforme complète de gestion pour les professionnels du bâtiment et des travaux publics

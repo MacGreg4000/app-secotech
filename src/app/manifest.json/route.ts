@@ -46,8 +46,8 @@ export async function GET() {
       description: 'Application de gestion de chantiers',
       start_url: '/',
       display: 'standalone',
-      background_color: '#ffffff',
-      theme_color: '#3b82f6',
+      background_color: '#05122B',
+      theme_color: '#05122B',
       orientation: 'any',
       icons: [
         {
@@ -80,8 +80,8 @@ export async function GET() {
       description: 'Application de gestion de chantiers',
       start_url: '/',
       display: 'standalone',
-      background_color: '#ffffff',
-      theme_color: '#3b82f6',
+      background_color: '#05122B',
+      theme_color: '#05122B',
       orientation: 'any',
       icons: [
         {

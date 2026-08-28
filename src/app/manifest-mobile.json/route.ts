@@ -47,8 +47,8 @@ export async function GET() {
       description: 'Application mobile de gestion de chantiers',
       start_url: '/mobile',
       display: 'standalone',
-      background_color: '#ffffff',
-      theme_color: '#3b82f6',
+      background_color: '#05122B',
+      theme_color: '#05122B',
       orientation: 'portrait',
       icons: [
         {
@@ -81,8 +81,8 @@ export async function GET() {
       description: 'Application mobile de gestion de chantiers',
       start_url: '/mobile',
       display: 'standalone',
-      background_color: '#ffffff',
-      theme_color: '#3b82f6',
+      background_color: '#05122B',
+      theme_color: '#05122B',
       orientation: 'portrait',
       icons: [
         {

@@ -26,6 +26,12 @@ export const metadata = {
   },
 }
 
+// Teinte la barre du navigateur mobile (Safari/Chrome Android) même hors
+// installation PWA — même bleu marine que l'écran de chargement et les icônes.
+export const viewport = {
+  themeColor: '#05122B',
+}
+
 import RootClientProviders from '@/components/providers/RootClientProviders'
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
 import PWAInstall from '@/components/PWAInstall'

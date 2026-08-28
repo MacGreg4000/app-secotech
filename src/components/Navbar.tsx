@@ -183,22 +183,23 @@ export function Navbar() {
                     />
                   </div>
                 ) : logoLoadStatus === 'loading' ? (
-                  <div className="relative w-10 h-10 flex-shrink-0">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl blur-md opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
-                    <div className="relative bg-gradient-to-br from-blue-600 to-blue-700 p-2 rounded-xl shadow-lg ring-2 ring-blue-500/20 group-hover:ring-blue-500/40 transition-all duration-300">
-                      <HomeIcon className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
+                  <div className="relative w-10 h-10 flex-shrink-0" />
                 ) : (
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl blur-md opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
-                    <div className="relative bg-gradient-to-br from-blue-600 to-blue-700 p-2 rounded-xl shadow-lg ring-2 ring-blue-500/20 group-hover:ring-blue-500/40 group-hover:scale-105 transition-all duration-300">
-                      <HomeIcon className="h-6 w-6 text-white" />
-                    </div>
+                  // Marque par défaut d'OpenBTP (aucun logo d'entreprise configuré) :
+                  // le glyphe hexagonal réel, plus de placeholder générique.
+                  <div className="relative w-10 h-10 flex-shrink-0 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
+                    <Image
+                      src="/images/brand/brand-icon.png"
+                      alt="OpenBTP"
+                      width={40}
+                      height={40}
+                      className="object-contain drop-shadow-sm"
+                      priority
+                    />
                   </div>
                 )}
-                <span className="text-xl font-black bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:to-blue-800 transition-all duration-300">
-                  OpenBTP
+                <span className="text-xl font-black text-gray-900 dark:text-white transition-colors duration-300">
+                  Open<span className="text-orange-500">BTP</span>
                 </span>
               </Link>
             </div>
