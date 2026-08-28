@@ -182,13 +182,26 @@ export function Navbar() {
                 ) : (
                   // Marque par défaut d'OpenBTP (aucun logo d'entreprise configuré) :
                   // le glyphe hexagonal réel, plus de placeholder générique.
+                  //
+                  // Deux fichiers, pas un seul recoloré en CSS : le dégradé
+                  // change de face gauche (navy en clair, blanc en sombre),
+                  // pas juste de teinte globale — un filtre CSS ne peut pas
+                  // reproduire ça, il faut les deux exports du designer.
                   <div className="relative w-10 h-10 flex-shrink-0 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
                     <Image
-                      src="/images/brand/brand-icon.png"
+                      src="/images/brand/brand-icon-light.png"
                       alt="OpenBTP"
                       width={40}
                       height={40}
-                      className="object-contain drop-shadow-sm"
+                      className="object-contain drop-shadow-sm dark:hidden"
+                      priority
+                    />
+                    <Image
+                      src="/images/brand/brand-icon-dark.png"
+                      alt="OpenBTP"
+                      width={40}
+                      height={40}
+                      className="hidden object-contain drop-shadow-sm dark:block"
                       priority
                     />
                   </div>

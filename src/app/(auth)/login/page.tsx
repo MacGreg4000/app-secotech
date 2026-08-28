@@ -198,7 +198,7 @@ function LoginForm() {
           <div className={`mb-8 transform transition-all duration-1000 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
               <Image
-                src="/images/brand/brand-icon.png"
+                src="/images/brand/brand-icon-dark.png"
                 alt="OpenBTP"
                 width={64}
                 height={70}
